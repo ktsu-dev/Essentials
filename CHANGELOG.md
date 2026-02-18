@@ -1,6 +1,32 @@
-## v1.0.20-pre.1 (prerelease)
+## v1.1.0 (minor)
 
-No significant changes detected since v1.0.20-pre.1.
+Changes since v1.0.0:
+
+- Add abstractions for command execution, configuration, encoding, logging, navigation, persistence, and validation ([@matt-edmondson](https://github.com/matt-edmondson))
+- Add .gitignore and project.yml for Serena configuration ([@matt-edmondson](https://github.com/matt-edmondson))
+- Refactor permissions in dotnet.yml for least privilege; add SonarLint settings.json for project configuration ([@matt-edmondson](https://github.com/matt-edmondson))
+- Remove skipped_release logic from build steps in dotnet.yml ([@matt-edmondson](https://github.com/matt-edmondson))
+- api suppressions ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update KtsuBuild cloning method to retrieve the latest tag correctly ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update KtsuBuild cloning method to use latest tag ([@matt-edmondson](https://github.com/matt-edmondson))
+- Migrate to KtsuBuild dotnet build pipeline ([@matt-edmondson](https://github.com/matt-edmondson))
+- Refactor null checks in IObfuscationProvider and ISerializationProvider to use Ensure.NotNull method; update Polyfill package version to 9.8.0 ([@matt-edmondson](https://github.com/matt-edmondson))
+- Add test project detection to Invoke-DotNetTest function ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update .NET version to 10.0 and adjust test coverage reporting ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update project configuration and add CLAUDE.md for documentation ([@matt-edmondson](https://github.com/matt-edmondson))
+- Enhance project type detection in update-winget-manifests.ps1 by adding checks for generated NuGet packages and refining logic to distinguish between library, executable, test, and demo projects. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Refactor ISerializationOptions interface to unify member serialization policies and enhance clarity. Introduce new properties for serialization and deserialization policies, and update related enums for improved configurability. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Add ISerializationOptions interface and related policies for serialization configuration ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update global.json and Abstractions.csproj to use ktsu.Sdk version 1.60.0 and switch project SDK to Microsoft.NET.Sdk, improving compatibility with .NET 8.0. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Refactor ISerializationProvider interface to use generic type parameters for deserialization methods, enhancing type safety and usability. Update CompatibilitySuppressions.xml to remove obsolete suppressions related to nullable attributes, ensuring compatibility with .NET 8.0. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update CompatibilitySuppressions.xml to reflect changes in diagnostic IDs and target methods for the ktsu.Abstractions library, enhancing compatibility with .NET 8.0. This includes updates for compression, encryption, hashing, and obfuscation methods, ensuring accurate suppression of diagnostics across versions. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Enhance ktsu.Abstractions library by refining interface descriptions and adding zero-allocation Try methods for compression, encryption, hashing, obfuscation, and serialization. Update README to reflect these changes, emphasizing performance improvements and usage examples. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update README to reflect changes in target frameworks and provide an example implementation of a custom MD5 hash provider, enhancing clarity on usage and functionality. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Refactor interfaces in ktsu.Abstractions to use Try methods for compression, encryption, hashing, obfuscation, and serialization, enhancing performance by reducing allocations. Update README to reflect these changes and clarify usage. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Add System.Memory package reference and enhance interfaces in ktsu.Abstractions for better async support. Update README for clarity on usage and installation. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Remove EnumOrderingAnalyzer project and related files from the solution, streamlining the project structure and eliminating unused analyzers. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Remove obsolete abstraction models for compression, encryption, hashing, obfuscation, and filesystem types, along with global usings. This cleanup streamlines the project structure. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Add detailed README for ktsu.Abstractions library, outlining interfaces for compression, encryption, hashing, obfuscation, serialization, and filesystem access. Include installation instructions, quickstart examples, and contributing guidelines. ([@matt-edmondson](https://github.com/matt-edmondson))
 
 ## v1.0.20-pre.1 (prerelease)
 
