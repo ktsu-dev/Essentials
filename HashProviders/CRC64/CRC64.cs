@@ -2,12 +2,12 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.HashProviders;
+namespace ktsu.Essentials.HashProviders;
 
+using ktsu.Essentials;
 using System;
 using System.IO;
 using System.IO.Hashing;
-using ktsu.Abstractions;
 
 /// <summary>
 /// A hash provider that uses CRC-64 for hashing data.

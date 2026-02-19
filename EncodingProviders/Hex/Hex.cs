@@ -2,12 +2,12 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.EncodingProviders;
+namespace ktsu.Essentials.EncodingProviders;
 
+using ktsu.Essentials;
 using System;
 using System.IO;
 using System.Text;
-using ktsu.Abstractions;
 
 /// <summary>
 /// An encoding provider that uses hexadecimal encoding for data encoding and decoding.

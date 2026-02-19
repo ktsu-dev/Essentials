@@ -2,11 +2,11 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.HashProviders;
+namespace ktsu.Essentials.HashProviders;
 
+using ktsu.Essentials;
 using System;
 using System.IO;
-using ktsu.Abstractions;
 
 /// <summary>
 /// A hash provider that uses MD5 for hashing data.

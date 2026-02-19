@@ -2,10 +2,10 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.LoggingProviders;
+namespace ktsu.Essentials.LoggingProviders;
 
+using ktsu.Essentials;
 using System;
-using ktsu.Abstractions;
 
 /// <summary>
 /// A logging provider that writes log messages to the console.

@@ -8,7 +8,7 @@ Verify that all provider implementations in the Common/ directory correctly impl
 
 ### 1. Interface Compliance
 
-For each provider interface in `Abstractions/Abstractions/`:
+For each provider interface in `Essentials/Essentials/`:
 - `IHashProvider` - implementations in `Common/HashProviders/`
 - `ICompressionProvider` - implementations in `Common/CompressionProviders/`
 - `IEncryptionProvider` - implementations in `Common/EncryptionProviders/`
@@ -43,8 +43,8 @@ Across all implementations, verify:
 All provider .csproj files should have:
 - `<Sdk Name="ktsu.Sdk" />`
 - Same `<TargetFrameworks>` (net10.0;net9.0;net8.0;net7.0;net6.0;netstandard2.1)
-- `<PackageReference Include="ktsu.Abstractions" />`
-- `<InternalsVisibleTo Include="ktsu.Common.Tests" />`
+- `<PackageReference Include="ktsu.Essentials" />`
+- `<InternalsVisibleTo Include="ktsu.Essentials.Tests" />`
 
 ### 5. netstandard2.1 Compatibility
 

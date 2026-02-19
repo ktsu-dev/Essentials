@@ -2,10 +2,10 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.NavigationProviders;
+namespace ktsu.Essentials.NavigationProviders;
 
+using ktsu.Essentials;
 using System.Collections.Generic;
-using ktsu.Abstractions;
 
 /// <summary>
 /// An in-memory navigation provider that manages back/forward navigation with history using lists.

@@ -2,12 +2,12 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.SerializationProviders;
+namespace ktsu.Essentials.SerializationProviders;
 
+using ktsu.Essentials;
 using System;
 using System.IO;
 using System.Text.Json;
-using ktsu.Abstractions;
 
 /// <summary>
 /// A serialization provider that uses System.Text.Json for serializing and deserializing objects.

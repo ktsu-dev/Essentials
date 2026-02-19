@@ -2,15 +2,15 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.SerializationProviders;
+namespace ktsu.Essentials.SerializationProviders;
 
+using ktsu.Essentials;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using ktsu.Abstractions;
 using Tomlyn;
 using Tomlyn.Model;
 

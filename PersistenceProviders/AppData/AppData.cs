@@ -2,15 +2,15 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.PersistenceProviders;
+namespace ktsu.Essentials.PersistenceProviders;
 
+using ktsu.Essentials;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using ktsu.Abstractions;
 
 /// <summary>
 /// An AppData-based persistence provider that stores objects in the application's data directory.

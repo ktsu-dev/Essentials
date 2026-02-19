@@ -2,13 +2,13 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.PersistenceProviders;
+namespace ktsu.Essentials.PersistenceProviders;
 
+using ktsu.Essentials;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using ktsu.Abstractions;
 
 /// <summary>
 /// An in-memory persistence provider that stores objects in a concurrent dictionary.

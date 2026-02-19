@@ -2,10 +2,10 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.FileSystemProviders;
+namespace ktsu.Essentials.FileSystemProviders;
 
+using ktsu.Essentials;
 using System.IO.Abstractions;
-using ktsu.Abstractions;
 using Testably.Abstractions;
 
 /// <summary>

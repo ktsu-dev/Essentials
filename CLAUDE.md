@@ -2,165 +2,111 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Build Commands
 
-ktsu.Abstractions is a .NET library providing high-performance interfaces for common cross-cutting concerns: compression, encoding, encryption, hashing, serialization, caching, validation, and filesystem access. The library emphasizes zero-allocation operations using Span<byte> and default interface implementations to minimize implementation burden.
-
-## Build and Test Commands
-
-### Build
 ```bash
-dotnet build
-```
-
-### Restore dependencies
-```bash
+# Restore, build, and test (standard workflow)
 dotnet restore
+dotnet build
+dotnet test
+
+# Run a single test
+dotnet test --filter "FullyQualifiedName~TestMethodName"
+
+# Build specific configuration
+dotnet build -c Release
 ```
 
-### Clean build artifacts
-```bash
-dotnet clean
-```
+## Project Structure
 
-### Multi-targeting
-This project targets: net10.0, net9.0, net8.0, net7.0, net6.0, netstandard2.1. Ensure your .NET SDK version is 10.0.100 or higher (specified in global.json).
+This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces and implementations for common cross-cutting concerns: compression, encoding, encryption, hashing, serialization, caching, persistence, validation, logging, navigation, command execution, and filesystem access. The solution uses:
 
-## Project Architecture
+- **ktsu.Sdk** - Custom SDK providing shared build configuration
+- **MSTest.Sdk** - Test project SDK with Microsoft Testing Platform
+- Multi-targeting: net10.0, net9.0, net8.0, net7.0, net6.0, netstandard2.1
 
-### Core Design Pattern
+### Key Files
+
+- `Essentials/ICompressionProvider.cs` - Compression/decompression interface with Span, Stream, and string support
+- `Essentials/IEncodingProvider.cs` - Format/transport encoding interface (Base64, Hex)
+- `Essentials/IEncryptionProvider.cs` - Encryption/decryption interface with key/IV management
+- `Essentials/IHashProvider.cs` - Hashing interface with configurable output length
+- `Essentials/ISerializationProvider.cs` - Object serialization/deserialization interface
+- `Essentials/ISerializationOptions.cs` - Configurable serialization options (naming, inclusion, boxing policies)
+- `Essentials/ICacheProvider.cs` - Generic cache interface with expiration and get-or-add
+- `Essentials/IPersistenceProvider.cs` - Object persistence interface with pluggable backends
+- `Essentials/IValidationProvider.cs` - Validation interface with structured results
+- `Essentials/ILoggingProvider.cs` - Logging interface with six severity levels
+- `Essentials/INavigationProvider.cs` - Browser-like back/forward navigation interface
+- `Essentials/ICommandExecutor.cs` - Shell command execution interface
+- `Essentials/IFileSystemProvider.cs` - Filesystem abstraction extending Testably.Abstractions
+- `Essentials/ProviderHelpers.cs` - Internal utilities for async wrapping, stream bridging, UTF8 transforms
+- `Essentials/PersistenceProviderUtilities.cs` - Shared utilities for persistence providers (safe filenames, key conversion)
+- `Essentials/PersistenceProviderException.cs` - Custom exception for persistence operations
+
+### Provider Implementations (in solution)
+
+- **CompressionProviders/**: Gzip, Brotli, Deflate, ZLib — namespace `ktsu.Essentials.CompressionProviders`
+- **EncodingProviders/**: Base64, Hex — namespace `ktsu.Essentials.EncodingProviders`
+- **EncryptionProviders/**: Aes — namespace `ktsu.Essentials.EncryptionProviders`
+- **HashProviders/**: MD5, SHA1, SHA256, SHA384, SHA512, FNV1_32, FNV1a_32, FNV1_64, FNV1a_64, CRC32, CRC64, XxHash32, XxHash64, XxHash3, XxHash128 — namespace `ktsu.Essentials.HashProviders`
+- **SerializationProviders/**: Json, Yaml, Toml — namespace `ktsu.Essentials.SerializationProviders`
+- **FileSystemProviders/**: Native — namespace `ktsu.Essentials.FileSystemProviders`
+- **CommandExecutors/**: Native — namespace `ktsu.Essentials.CommandExecutors`
+- **LoggingProviders/**: Console — namespace `ktsu.Essentials.LoggingProviders`
+- **CacheProviders/**: InMemory — namespace `ktsu.Essentials.CacheProviders`
+- **NavigationProviders/**: InMemory — namespace `ktsu.Essentials.NavigationProviders`
+- **PersistenceProviders/**: AppData, FileSystem, InMemory, Temp — namespace `ktsu.Essentials.PersistenceProviders`
+
+### Namespace Convention
+
+Interfaces are defined in the `ktsu.Essentials` namespace (in the `Essentials/` directory). Provider implementations use sub-namespaces matching their category directory: `ktsu.Essentials.<Category>`. For example, `SHA256` is in `ktsu.Essentials.HashProviders` and `Gzip` is in `ktsu.Essentials.CompressionProviders`.
+
+### Dependencies
+
+- **Testably.Abstractions** - Base `IFileSystem` interface for filesystem abstraction
+- **Polyfill** - Backports of newer .NET APIs for older target frameworks
+- **Microsoft.SourceLink.GitHub / AzureRepos.Git** - Source link support for debugging
+
+## Architecture
 
 All provider interfaces follow a consistent three-tier pattern:
 
-1. **Core Try* methods**: Zero-allocation methods working with `Span<byte>` or `Stream` parameters that return `bool` for success/failure
-2. **Convenience methods**: Self-allocating methods that call Try* methods and manage buffers automatically
-3. **Async variants**: Task-based async versions with `CancellationToken` support
+1. **Core Try\* methods**: Zero-allocation methods working with `Span<byte>` or `Stream` parameters that return `bool` for success/failure. These are the only methods implementers must provide.
+2. **Convenience methods**: Self-allocating methods that call Try\* methods and manage buffers automatically. Provided via default interface implementations.
+3. **Async variants**: Task-based async versions with `CancellationToken` support. Provided via `ProviderHelpers.RunAsync()`.
 
-Implementers only need to implement the core Try* methods - all convenience and async methods are provided via default interface implementations.
+Common patterns are centralized in `ProviderHelpers.cs`:
 
-### Interface Hierarchy
-
-Each provider interface defines:
-- **Span-based operations**: `TryOperation(ReadOnlySpan<byte> data, Span<byte> destination)` - zero allocation
-- **Stream-based operations**: `TryOperation(Stream data, Stream destination)` - for larger data
-- **Convenience overloads**: `Operation(ReadOnlySpan<byte> data)` - auto-allocates and returns result
-- **String overloads**: UTF8-encoded string variants where applicable
-- **Async methods**: All operations have async counterparts with cancellation token support
-
-### Provider Interfaces
-
-**ICompressionProvider** (Abstractions/ICompressionProvider.cs)
-- Core: `TryCompress()` and `TryDecompress()` with Span<byte> and Stream overloads
-- Convenience: `Compress()`, `Decompress()` with automatic buffer management
-- String support for text compression
-
-**IEncryptionProvider** (Abstractions/IEncryptionProvider.cs)
-- Core: `TryEncrypt()` and `TryDecrypt()` requiring key and IV parameters
-- Key generation: `GenerateKey()` and `GenerateIV()`
-- Security note: Implementations should use AEAD modes and proper key management
-
-**IHashProvider** (Abstractions/IHashProvider.cs)
-- Property: `HashLengthBytes` defines output size
-- Core: `TryHash()` with Span<byte> and Stream overloads
-- Convenience: `Hash()` methods that allocate the hash buffer
-
-**IEncodingProvider** (Abstractions/IEncodingProvider.cs)
-- Core: `TryEncode()` and `TryDecode()` with Span<byte> and Stream overloads
-- For format/transport encodings (Base64, Hex, URL encoding) — NOT text character encodings
-
-**ISerializationProvider** (Abstractions/ISerializationProvider.cs)
-- Core: `TrySerialize()` using TextWriter, `Deserialize<T>()` using ReadOnlySpan<byte>
-- Convenience: `Serialize()`, `Deserialize<T>(string)`, `Deserialize<T>(TextReader)`
-- Generic type support for deserialization
-- Used by both serialization (JSON, MessagePack) and configuration (JSON, YAML, TOML) providers
-
-**IFileSystemProvider** (Abstractions/IFileSystemProvider.cs)
-- Inherits from Testably.Abstractions.IFileSystem
-- Enables filesystem abstraction for testability
-
-### Default Implementation Pattern
-
-All convenience methods are provided as default interface implementations. For example, in IHashProvider:
-- `TryHash(ReadOnlySpan<byte>, Span<byte>)` - implementer must provide
-- `TryHash(Stream, Span<byte>)` - implementer must provide
-- `Hash(ReadOnlySpan<byte>)` - default implementation calls TryHash and manages buffer
-- `HashAsync(...)` - default implementation wraps synchronous method in Task.Run
-
-When implementing a provider, you only need to implement the core Try* methods with Span and Stream parameters.
+- `RunAsync()` - Wraps sync methods in `Task.Run` with cancellation
+- `ExecuteToByteArray()` - Calls a try-operation with a MemoryStream destination
+- `SpanToStreamBridge()` - Bridges Span input to Stream-based operations
+- `Utf8Transform()` - Applies byte operations to UTF8 strings
 
 ### Multi-Framework Considerations
 
-The codebase uses preprocessor directives sparingly. Some interfaces use `[SuppressMessage]` to suppress CA1510 (ArgumentNullException throw helper) since it's not available in netstandard2.1.
+The codebase uses `[SuppressMessage]` attributes for APIs not available in netstandard2.1 (e.g., CA1510 for `ArgumentNullException` throw helpers). The `Polyfill` package backports newer APIs where possible. When adding new code, verify availability in netstandard2.1 and use `#if` directives if needed.
 
-When working with newer .NET features:
-- Check if the feature is available in netstandard2.1 before using
-- Use `#if` directives for framework-specific code if needed
-- Prefer framework-agnostic approaches when possible
+## Testing
 
-## CI/CD Pipeline
+Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.Tests/`) references all provider implementations and tests them through the interface contracts. Key test files:
 
-The project uses a custom PSBuild PowerShell module (scripts/PSBuild.psm1) that handles the complete build, test, pack, and release workflow. This is executed via GitHub Actions (.github/workflows/dotnet.yml).
+- `HashProviderTests.cs` - Tests all 17 hash provider implementations
+- `CacheProviderTests.cs` - Tests cache operations including expiration
+- `CommandExecutorTests.cs` - Tests command execution
+- `EncodingProviderTests.cs` - Tests Base64 and Hex encoding
+- `FileSystemProviderTests.cs` - Tests filesystem operations
+- `LoggingProviderTests.cs` - Tests logging provider
+- `NavigationProviderTests.cs` - Tests navigation stack behavior
+- `PersistenceProviderTests.cs` - Tests all persistence backends
+- `ConfigurationProviderTests.cs` - Tests serialization configuration
+- `RoundTripTests.cs` - Tests compression/encoding/encryption round-trips
+- `DiTests.cs` - Tests dependency injection registration
 
-The pipeline:
-1. Builds all target frameworks
-2. Runs tests with coverage collection
-3. Analyzes with SonarQube (if configured)
-4. Versions and packages on main branch
-5. Creates GitHub releases automatically
-6. Updates winget manifests
+## CI/CD
 
-When modifying the build process, check scripts/PSBuild.psm1 and .github/workflows/dotnet.yml.
+Uses `scripts/PSBuild.psm1` PowerShell module for CI pipeline. Version increments are controlled by commit message tags: `[major]`, `[minor]`, `[patch]`, `[pre]`.
 
-## Dependencies
+## Code Quality
 
-- **Testably.Abstractions**: Provides the base IFileSystem interface for filesystem abstraction
-- **ktsu.Sdk**: Custom SDK that provides common build configuration and metadata management
-
-## Code Style and Conventions
-
-- All files include copyright header: `// Copyright (c) ktsu.dev`
-- Interfaces follow XML documentation standards with full parameter descriptions
-- Use expression-bodied members for simple default implementations
-- Null checks use explicit throws (not throw helpers) for netstandard2.1 compatibility
-- Async methods use `ProviderHelpers.RunAsync()` for consistent cancellation and Task.Run wrapping
-- Default implementations should not allocate unnecessarily - prefer span operations
-- Common patterns (async wrappers, span-to-stream bridges, UTF8 transforms) are centralized in `ProviderHelpers.cs`
-
-## Testing Implementations
-
-To test a custom provider implementation:
-1. Implement only the required Try* methods (Span and Stream variants)
-2. The default implementations provide all other functionality automatically
-3. Test both the core Try* methods and convenience methods
-4. Verify async methods respect CancellationToken
-
-Example minimal implementation:
-```csharp
-public class MyHashProvider : IHashProvider
-{
-    public int HashLengthBytes => 32;
-
-    public bool TryHash(ReadOnlySpan<byte> data, Span<byte> destination)
-    {
-        // Implementation here
-    }
-
-    public bool TryHash(Stream data, Span<byte> destination)
-    {
-        // Implementation here
-    }
-
-    // All other methods inherited via default implementations
-}
-```
-
-## Metadata Files
-
-The repository contains auto-generated metadata files:
-- VERSION.md - current version
-- CHANGELOG.md - full changelog
-- LATEST_CHANGELOG.md - latest version changes
-- DESCRIPTION.md - package description
-- TAGS.md - package tags
-
-These are managed by the PSBuild pipeline and should not be manually edited.
+Do not add global suppressions for warnings. Use explicit suppression attributes with justifications when needed, with preprocessor defines only as fallback. Make the smallest, most targeted suppressions possible.

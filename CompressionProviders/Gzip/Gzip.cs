@@ -2,12 +2,12 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.CompressionProviders;
+namespace ktsu.Essentials.CompressionProviders;
 
+using ktsu.Essentials;
 using System;
 using System.IO;
 using System.IO.Compression;
-using ktsu.Abstractions;
 
 /// <summary>
 /// A compression provider that uses GZip for data compression and decompression.

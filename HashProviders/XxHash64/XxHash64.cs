@@ -2,11 +2,11 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.HashProviders;
+namespace ktsu.Essentials.HashProviders;
 
+using ktsu.Essentials;
 using System;
 using System.IO;
-using ktsu.Abstractions;
 using SysXxHash64 = System.IO.Hashing.XxHash64;
 
 /// <summary>

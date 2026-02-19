@@ -2,11 +2,11 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.CacheProviders;
+namespace ktsu.Essentials.CacheProviders;
 
+using ktsu.Essentials;
 using System;
 using System.Collections.Concurrent;
-using ktsu.Abstractions;
 
 /// <summary>
 /// An in-memory cache provider that stores key-value pairs with optional expiration support.

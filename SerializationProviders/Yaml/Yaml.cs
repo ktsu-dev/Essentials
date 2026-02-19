@@ -2,12 +2,12 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.SerializationProviders;
+namespace ktsu.Essentials.SerializationProviders;
 
+using ktsu.Essentials;
 using System;
 using System.IO;
 using System.Text;
-using ktsu.Abstractions;
 using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;

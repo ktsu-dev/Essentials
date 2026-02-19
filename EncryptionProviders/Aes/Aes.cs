@@ -2,12 +2,12 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.EncryptionProviders;
+namespace ktsu.Essentials.EncryptionProviders;
 
+using ktsu.Essentials;
 using System;
 using System.IO;
 using System.Security.Cryptography;
-using ktsu.Abstractions;
 
 /// <summary>
 /// An encryption provider that uses AES for data encryption and decryption.

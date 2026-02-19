@@ -2,15 +2,15 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.CommandExecutors;
+namespace ktsu.Essentials.CommandExecutors;
 
+using ktsu.Essentials;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using ktsu.Abstractions;
 
 /// <summary>
 /// A command executor that uses the native operating system shell to execute commands.
