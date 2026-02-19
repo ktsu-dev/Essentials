@@ -1,6 +1,6 @@
-## v1.3.0 (minor)
+## v1.4.0 (minor)
 
-Changes since v1.2.0:
+Changes since v1.3.0:
 
-- Consolidate shared functionality ([@matt-edmondson](https://github.com/matt-edmondson))
+- Add persistence providers: AppData, FileSystem, and Temp ([@matt-edmondson](https://github.com/matt-edmondson))
 
