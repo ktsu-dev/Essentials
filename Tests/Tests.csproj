@@ -1,0 +1,54 @@
+<Project Sdk="MSTest.Sdk">
+  <Sdk Name="ktsu.Sdk" />
+
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks></TargetFrameworks>
+    <NoWarn>$(NoWarn);CA1062;CA1707;</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <ProjectReference Include="..\Abstractions\Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CompressionProviders\Gzip\Gzip.csproj" />
+    <ProjectReference Include="..\EncryptionProviders\Aes\Aes.csproj" />
+    <ProjectReference Include="..\FileSystemProviders\Native\Native.csproj" />
+    <ProjectReference Include="..\HashProviders\MD5\MD5.csproj" />
+    <ProjectReference Include="..\HashProviders\SHA1\SHA1.csproj" />
+    <ProjectReference Include="..\HashProviders\SHA256\SHA256.csproj" />
+    <ProjectReference Include="..\HashProviders\SHA384\SHA384.csproj" />
+    <ProjectReference Include="..\HashProviders\SHA512\SHA512.csproj" />
+    <ProjectReference Include="..\HashProviders\FNV1_32\FNV1_32.csproj" />
+    <ProjectReference Include="..\HashProviders\FNV1a_32\FNV1a_32.csproj" />
+    <ProjectReference Include="..\HashProviders\FNV1_64\FNV1_64.csproj" />
+    <ProjectReference Include="..\HashProviders\FNV1a_64\FNV1a_64.csproj" />
+    <ProjectReference Include="..\ObfuscationProviders\Base64\Base64.csproj" />
+    <ProjectReference Include="..\ObfuscationProviders\Hex\Hex.csproj" />
+    <ProjectReference Include="..\SerializationProviders\NewtonsoftJson\NewtonsoftJson.csproj" />
+    <ProjectReference Include="..\SerializationProviders\SystemTextJson\SystemTextJson.csproj" />
+    <ProjectReference Include="..\CompressionProviders\Brotli\Brotli.csproj" />
+    <ProjectReference Include="..\CompressionProviders\Deflate\Deflate.csproj" />
+    <ProjectReference Include="..\CompressionProviders\ZLib\ZLib.csproj" />
+    <ProjectReference Include="..\HashProviders\CRC32\CRC32.csproj" />
+    <ProjectReference Include="..\HashProviders\CRC64\CRC64.csproj" />
+    <ProjectReference Include="..\HashProviders\XxHash32\XxHash32.csproj" />
+    <ProjectReference Include="..\HashProviders\XxHash64\XxHash64.csproj" />
+    <ProjectReference Include="..\HashProviders\XxHash3\XxHash3.csproj" />
+    <ProjectReference Include="..\HashProviders\XxHash128\XxHash128.csproj" />
+    <ProjectReference Include="..\EncodingProviders\Base64\Base64.csproj" />
+    <ProjectReference Include="..\EncodingProviders\Hex\Hex.csproj" />
+    <ProjectReference Include="..\ConfigurationProviders\Json\Json.csproj" />
+    <ProjectReference Include="..\ConfigurationProviders\Yaml\Yaml.csproj" />
+    <ProjectReference Include="..\ConfigurationProviders\Toml\Toml.csproj" />
+    <ProjectReference Include="..\CommandExecutors\Native\Native.csproj" />
+    <ProjectReference Include="..\LoggingProviders\Console\Console.csproj" />
+    <ProjectReference Include="..\CacheProviders\InMemory\InMemory.csproj" />
+    <ProjectReference Include="..\NavigationProviders\InMemory\InMemory.csproj" />
+    <ProjectReference Include="..\PersistenceProviders\InMemory\InMemory.csproj" />
+  </ItemGroup>
+
+</Project>
