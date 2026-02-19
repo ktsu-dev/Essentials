@@ -50,7 +50,10 @@
     <Project Path="NavigationProviders/InMemory/InMemory.csproj" />
   </Folder>
   <Folder Name="/PersistenceProviders/">
+    <Project Path="PersistenceProviders/AppData/AppData.csproj" />
+    <Project Path="PersistenceProviders/FileSystem/FileSystem.csproj" />
     <Project Path="PersistenceProviders/InMemory/InMemory.csproj" />
+    <Project Path="PersistenceProviders/Temp/Temp.csproj" />
   </Folder>
   <Folder Name="/SerializationProviders/">
     <Project Path="SerializationProviders/Json/Json.csproj" />

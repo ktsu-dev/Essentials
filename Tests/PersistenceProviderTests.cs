@@ -4,7 +4,10 @@
 
 namespace ktsu.Common.Tests;
 
+using System;
+using System.IO;
 using ktsu.Abstractions;
+using ktsu.PersistenceProviders;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -125,6 +128,249 @@ public class PersistenceProviderTests
 
 		Assert.AreEqual("InMemory", persistence.ProviderName);
 		Assert.IsFalse(persistence.IsPersistent, "InMemory provider should not be persistent");
+	}
+
+	// --- FileSystem Provider Tests ---
+
+	private static void CleanupDirectory(string path)
+	{
+		if (Directory.Exists(path))
+		{
+			Directory.Delete(path, true);
+		}
+	}
+
+	[TestMethod]
+	public async System.Threading.Tasks.Task FileSystem_Store_And_Retrieve()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
+		try
+		{
+			FileSystemProviders.Native fs = new();
+			SerializationProviders.Json serializer = new();
+			FileSystem<string> persistence = new(fs, serializer, tempDir);
+
+			await persistence.StoreAsync("key1", new TestData { Name = "test" }, TestContext.CancellationToken).ConfigureAwait(false);
+			TestData? result = await persistence.RetrieveAsync<TestData>("key1", TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsNotNull(result);
+			Assert.AreEqual("test", result.Name);
+		}
+		finally
+		{
+			CleanupDirectory(tempDir);
+		}
+	}
+
+	[TestMethod]
+	public async System.Threading.Tasks.Task FileSystem_Exists_And_Remove()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
+		try
+		{
+			FileSystemProviders.Native fs = new();
+			SerializationProviders.Json serializer = new();
+			FileSystem<string> persistence = new(fs, serializer, tempDir);
+
+			await persistence.StoreAsync("key1", "value1", TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.IsTrue(await persistence.ExistsAsync("key1", TestContext.CancellationToken).ConfigureAwait(false));
+
+			bool removed = await persistence.RemoveAsync("key1", TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.IsTrue(removed);
+			Assert.IsFalse(await persistence.ExistsAsync("key1", TestContext.CancellationToken).ConfigureAwait(false));
+		}
+		finally
+		{
+			CleanupDirectory(tempDir);
+		}
+	}
+
+	[TestMethod]
+	public async System.Threading.Tasks.Task FileSystem_GetAllKeys_And_Clear()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
+		try
+		{
+			FileSystemProviders.Native fs = new();
+			SerializationProviders.Json serializer = new();
+			FileSystem<string> persistence = new(fs, serializer, tempDir);
+
+			await persistence.StoreAsync("a", "1", TestContext.CancellationToken).ConfigureAwait(false);
+			await persistence.StoreAsync("b", "2", TestContext.CancellationToken).ConfigureAwait(false);
+
+			string[] keys = [.. await persistence.GetAllKeysAsync(TestContext.CancellationToken).ConfigureAwait(false)];
+			Assert.AreEqual(2, keys.Length);
+
+			await persistence.ClearAsync(TestContext.CancellationToken).ConfigureAwait(false);
+			keys = [.. await persistence.GetAllKeysAsync(TestContext.CancellationToken).ConfigureAwait(false)];
+			Assert.AreEqual(0, keys.Length);
+		}
+		finally
+		{
+			CleanupDirectory(tempDir);
+		}
+	}
+
+	[TestMethod]
+	public void FileSystem_Properties()
+	{
+		string tempDir = Path.Combine(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
+		FileSystemProviders.Native fs = new();
+		SerializationProviders.Json serializer = new();
+		FileSystem<string> persistence = new(fs, serializer, tempDir);
+
+		Assert.AreEqual("FileSystem", persistence.ProviderName);
+		Assert.IsTrue(persistence.IsPersistent);
+	}
+
+	// --- AppData Provider Tests ---
+
+	[TestMethod]
+	public async System.Threading.Tasks.Task AppData_Store_And_Retrieve()
+	{
+		string appName = "PersistenceTests_AD_" + Guid.NewGuid().ToString("N")[..8];
+		FileSystemProviders.Native fs = new();
+		SerializationProviders.Json serializer = new();
+		AppData<string> persistence = new(fs, serializer, appName);
+
+		try
+		{
+			await persistence.StoreAsync("key1", new TestData { Name = "appdata_test" }, TestContext.CancellationToken).ConfigureAwait(false);
+			TestData? result = await persistence.RetrieveAsync<TestData>("key1", TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsNotNull(result);
+			Assert.AreEqual("appdata_test", result.Name);
+		}
+		finally
+		{
+			await persistence.ClearAsync(TestContext.CancellationToken).ConfigureAwait(false);
+			string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), appName);
+			CleanupDirectory(appDataPath);
+		}
+	}
+
+	[TestMethod]
+	public async System.Threading.Tasks.Task AppData_Exists_And_Remove()
+	{
+		string appName = "PersistenceTests_AD_" + Guid.NewGuid().ToString("N")[..8];
+		FileSystemProviders.Native fs = new();
+		SerializationProviders.Json serializer = new();
+		AppData<string> persistence = new(fs, serializer, appName);
+
+		try
+		{
+			await persistence.StoreAsync("key1", "value1", TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.IsTrue(await persistence.ExistsAsync("key1", TestContext.CancellationToken).ConfigureAwait(false));
+
+			bool removed = await persistence.RemoveAsync("key1", TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.IsTrue(removed);
+			Assert.IsFalse(await persistence.ExistsAsync("key1", TestContext.CancellationToken).ConfigureAwait(false));
+		}
+		finally
+		{
+			string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), appName);
+			CleanupDirectory(appDataPath);
+		}
+	}
+
+	[TestMethod]
+	public void AppData_Properties()
+	{
+		string appName = "PersistenceTests_AD_" + Guid.NewGuid().ToString("N")[..8];
+		FileSystemProviders.Native fs = new();
+		SerializationProviders.Json serializer = new();
+		AppData<string> persistence = new(fs, serializer, appName);
+
+		Assert.AreEqual("AppData", persistence.ProviderName);
+		Assert.IsTrue(persistence.IsPersistent);
+	}
+
+	// --- Temp Provider Tests ---
+
+	[TestMethod]
+	public async System.Threading.Tasks.Task Temp_Store_And_Retrieve()
+	{
+		FileSystemProviders.Native fs = new();
+		SerializationProviders.Json serializer = new();
+		using Temp<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
+
+		try
+		{
+			await persistence.StoreAsync("key1", new TestData { Name = "temp_test" }, TestContext.CancellationToken).ConfigureAwait(false);
+			TestData? result = await persistence.RetrieveAsync<TestData>("key1", TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsNotNull(result);
+			Assert.AreEqual("temp_test", result.Name);
+		}
+		finally
+		{
+			persistence.CleanupDirectory();
+		}
+	}
+
+	[TestMethod]
+	public async System.Threading.Tasks.Task Temp_Exists_And_Remove()
+	{
+		FileSystemProviders.Native fs = new();
+		SerializationProviders.Json serializer = new();
+		using Temp<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
+
+		try
+		{
+			await persistence.StoreAsync("key1", "value1", TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.IsTrue(await persistence.ExistsAsync("key1", TestContext.CancellationToken).ConfigureAwait(false));
+
+			bool removed = await persistence.RemoveAsync("key1", TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.IsTrue(removed);
+			Assert.IsFalse(await persistence.ExistsAsync("key1", TestContext.CancellationToken).ConfigureAwait(false));
+		}
+		finally
+		{
+			persistence.CleanupDirectory();
+		}
+	}
+
+	[TestMethod]
+	public async System.Threading.Tasks.Task Temp_GetAllKeys_And_Clear()
+	{
+		FileSystemProviders.Native fs = new();
+		SerializationProviders.Json serializer = new();
+		using Temp<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
+
+		try
+		{
+			await persistence.StoreAsync("a", "1", TestContext.CancellationToken).ConfigureAwait(false);
+			await persistence.StoreAsync("b", "2", TestContext.CancellationToken).ConfigureAwait(false);
+
+			string[] keys = [.. await persistence.GetAllKeysAsync(TestContext.CancellationToken).ConfigureAwait(false)];
+			Assert.AreEqual(2, keys.Length);
+
+			await persistence.ClearAsync(TestContext.CancellationToken).ConfigureAwait(false);
+			keys = [.. await persistence.GetAllKeysAsync(TestContext.CancellationToken).ConfigureAwait(false)];
+			Assert.AreEqual(0, keys.Length);
+		}
+		finally
+		{
+			persistence.CleanupDirectory();
+		}
+	}
+
+	[TestMethod]
+	public void Temp_Properties()
+	{
+		FileSystemProviders.Native fs = new();
+		SerializationProviders.Json serializer = new();
+		using Temp<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
+
+		try
+		{
+			Assert.AreEqual("Temp", persistence.ProviderName);
+			Assert.IsFalse(persistence.IsPersistent);
+		}
+		finally
+		{
+			persistence.CleanupDirectory();
+		}
 	}
 
 	public sealed class TestData

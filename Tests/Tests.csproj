@@ -44,7 +44,10 @@
     <ProjectReference Include="..\LoggingProviders\Console\Console.csproj" />
     <ProjectReference Include="..\CacheProviders\InMemory\InMemory.csproj" />
     <ProjectReference Include="..\NavigationProviders\InMemory\InMemory.csproj" />
+    <ProjectReference Include="..\PersistenceProviders\AppData\AppData.csproj" />
+    <ProjectReference Include="..\PersistenceProviders\FileSystem\FileSystem.csproj" />
     <ProjectReference Include="..\PersistenceProviders\InMemory\InMemory.csproj" />
+    <ProjectReference Include="..\PersistenceProviders\Temp\Temp.csproj" />
   </ItemGroup>
 
 </Project>
