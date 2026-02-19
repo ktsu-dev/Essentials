@@ -1,3 +1,7 @@
+## v1.1.0
+
+No significant changes detected since v1.1.0.
+
 ## v1.1.0 (major)
 
 - Update documentation to reflect changes in hash provider implementations ([@matt-edmondson](https://github.com/matt-edmondson))
