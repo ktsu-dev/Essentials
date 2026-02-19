@@ -24,8 +24,6 @@ public class RoundTripTests
 
 	public static IEnumerable<object[]> EncryptionProviders => BuildProvider().EnumerateProviders<IEncryptionProvider>();
 
-	public static IEnumerable<object[]> ObfuscationProviders => BuildProvider().EnumerateProviders<IObfuscationProvider>();
-
 	public static IEnumerable<object[]> SerializationProviders => BuildProvider().EnumerateProviders<ISerializationProvider>();
 
 	public TestContext TestContext { get; set; } = null!;
@@ -179,87 +177,6 @@ public class RoundTripTests
 
 		byte[] decrypted = encryptor.DecryptAsync(encrypted, key, iv, TestContext.CancellationToken).Result;
 		CollectionAssert.AreEqual(data, decrypted, $"{providerName} async should decrypt to original data");
-	}
-
-	#endregion
-
-	#region Obfuscation Tests
-
-	[TestMethod]
-	[DynamicData(nameof(ObfuscationProviders))]
-	public void Obfuscation_Roundtrip(IObfuscationProvider obfuscator, string providerName)
-	{
-		byte[] original = Encoding.UTF8.GetBytes("obfuscate me with " + providerName);
-
-		byte[] obfuscated = obfuscator.Obfuscate(original);
-		Assert.IsGreaterThan(0, obfuscated.Length, $"{providerName} should produce obfuscated output");
-
-		byte[] deobfuscated = obfuscator.Deobfuscate(obfuscated);
-		CollectionAssert.AreEqual(original, deobfuscated, $"{providerName} should deobfuscate to original data");
-	}
-
-	[TestMethod]
-	[DynamicData(nameof(ObfuscationProviders))]
-	public void Obfuscation_TryObfuscate_And_TryDeobfuscate_Span(IObfuscationProvider obfuscator, string providerName)
-	{
-		byte[] original = Encoding.UTF8.GetBytes("span obfuscate with " + providerName);
-
-		// Test insufficient buffer
-		Span<byte> small = stackalloc byte[4];
-		bool smallOk = obfuscator.TryObfuscate(original, small);
-		Assert.IsFalse(smallOk, $"{providerName} should return false for insufficient obfuscation buffer");
-
-		// Test sufficient buffer
-		byte[] dest = new byte[original.Length * 4];
-		bool ok = obfuscator.TryObfuscate(original, dest);
-		Assert.IsTrue(ok, $"{providerName} should return true for sufficient obfuscation buffer");
-
-		// Test deobfuscation
-		byte[] decodedDest = new byte[original.Length * 4];
-		bool decOk = obfuscator.TryDeobfuscate(dest, decodedDest);
-		Assert.IsTrue(decOk, $"{providerName} should successfully deobfuscate");
-		CollectionAssert.AreEqual(original, decodedDest[..original.Length], $"{providerName} should produce original data");
-	}
-
-	[TestMethod]
-	[DynamicData(nameof(ObfuscationProviders))]
-	public void Obfuscation_Stream_To_Stream_Roundtrip(IObfuscationProvider obfuscator, string providerName)
-	{
-		byte[] input = Encoding.UTF8.GetBytes("stream obfuscation with " + providerName);
-
-		using MemoryStream inputStream = new(input);
-		using MemoryStream obfuscated = new();
-		bool obOk = obfuscator.TryObfuscate(inputStream, obfuscated);
-		Assert.IsTrue(obOk, $"{providerName} should successfully obfuscate stream");
-
-		obfuscated.Position = 0;
-		using MemoryStream deobfuscated = new();
-		bool deobOk = obfuscator.TryDeobfuscate(obfuscated, deobfuscated);
-		Assert.IsTrue(deobOk, $"{providerName} should successfully deobfuscate stream");
-
-		byte[] result = deobfuscated.ToArray();
-		CollectionAssert.AreEqual(input, result, $"{providerName} should produce original data from stream");
-	}
-
-	[TestMethod]
-	[DynamicData(nameof(ObfuscationProviders))]
-	public void Obfuscation_Async_Variants(IObfuscationProvider obfuscator, string providerName)
-	{
-		byte[] original = Encoding.UTF8.GetBytes("async obfuscation with " + providerName);
-
-		using MemoryStream reader = new(original);
-		using MemoryStream writer = new();
-		bool ok = obfuscator.TryObfuscateAsync(reader, writer, TestContext.CancellationToken).Result;
-		Assert.IsTrue(ok, $"{providerName} async should successfully obfuscate");
-
-		// Reset writer position to beginning for reading
-		writer.Position = 0;
-		using MemoryStream round = new();
-		bool deok = obfuscator.TryDeobfuscateAsync(writer, round, TestContext.CancellationToken).Result;
-		Assert.IsTrue(deok, $"{providerName} async should successfully deobfuscate");
-
-		byte[] result = round.ToArray();
-		CollectionAssert.AreEqual(original, result, $"{providerName} async should produce original data");
 	}
 
 	#endregion

@@ -1,7 +1,7 @@
 ---
 status: draft
 title: ktsu.Abstractions
-description: A library providing a comprehensive set of interfaces for compression, encryption, hashing, obfuscation, serialization, and filesystem access with zero-allocation Try* methods and convenient default implementations.
+description: A library providing a comprehensive set of interfaces for compression, encoding, encryption, hashing, serialization, caching, validation, and filesystem access with zero-allocation Try* methods and convenient default implementations.
 tags:
   - abstractions
   - .net
@@ -12,7 +12,7 @@ tags:
   - compression
   - encryption
   - hashing
-  - obfuscation
+  - encoding
   - zero-allocation
   - spans
 ---
@@ -24,8 +24,8 @@ A comprehensive library of interfaces that define a consistent, high-performance
 - **Compression**: `ICompressionProvider` - compress/decompress data with Span<byte> and Stream support
 - **Encryption**: `IEncryptionProvider` - encrypt/decrypt data with key and IV management
 - **Hashing**: `IHashProvider` - hash data with configurable output length
-- **Obfuscation**: `IObfuscationProvider` - reversible obfuscation/deobfuscation
-- **Serialization**: `ISerializationProvider` - serialize/deserialize objects with TextReader/TextWriter support
+- **Encoding**: `IEncodingProvider` - format/transport encoding (Base64, Hex, URL encoding)
+- **Serialization**: `ISerializationProvider` - serialize/deserialize objects (JSON, YAML, TOML, etc.)
 - **Filesystem**: `IFileSystemProvider` - file system operations abstraction
 
 Each interface supports both zero-allocation Try* and Stream based methods and convenient self-allocating methods, with comprehensive async support.
@@ -74,7 +74,7 @@ IServiceCollection services = new ServiceCollection();
 services.AddTransient<ICompressionProvider, ktsu.Common.GZipCompressionProvider>();
 services.AddTransient<IEncryptionProvider, ktsu.Common.AesEncryptionProvider>();
 services.AddTransient<IHashProvider, ktsu.Common.Sha256HashProvider>();
-services.AddTransient<IObfuscationProvider, ktsu.Common.Base64ObfuscationProvider>();
+services.AddTransient<IEncodingProvider, ktsu.Common.Base64EncodingProvider>();
 services.AddTransient<ISerializationProvider, ktsu.Common.JsonSerializationProvider>();
 services.AddTransient<IFileSystemProvider, ktsu.Common.FileSystemProvider>();
 
@@ -181,8 +181,8 @@ byte[] asyncHash = await hashProvider.HashAsync(inputData);
 
 ## Security notes
 
-- **Obfuscation** in `IObfuscationProvider` is not cryptography. Use it only for non-security scenarios (e.g., casual hiding). For confidentiality and integrity, use strong, vetted cryptography via `IEncryptionProvider` implementations.
 - Implementations of `IEncryptionProvider` should rely on proven libraries (e.g., .NET BCL crypto, libsodium bindings) and follow best practices (AEAD modes, random IVs/nonces, key management).
+- `IEncodingProvider` is for format/transport encodings (Base64, Hex) — these are NOT encryption and provide no security.
 
 ## Thread-safety and lifetime
 

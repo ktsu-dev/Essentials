@@ -69,9 +69,7 @@ public interface IEncryptionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the encryption was successful, false otherwise.</returns>
 	public Task<bool> TryEncryptAsync(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Memory<byte> destination, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<bool>(cancellationToken)
-			: Task.Run(() => TryEncrypt(data.Span, key.Span, iv.Span, destination.Span), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => TryEncrypt(data.Span, key.Span, iv.Span, destination.Span), cancellationToken);
 
 	/// <summary>
 	/// Tries to encrypt the data from the stream and write the result to the destination asynchronously.
@@ -83,9 +81,7 @@ public interface IEncryptionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the encryption was successful, false otherwise.</returns>
 	public Task<bool> TryEncryptAsync(Stream data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Stream destination, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<bool>(cancellationToken)
-			: Task.Run(() => TryEncrypt(data, key.Span, iv.Span, destination), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => TryEncrypt(data, key.Span, iv.Span, destination), cancellationToken);
 
 	/// <summary>
 	/// Tries to encrypt the data from the span and write the result to the destination asynchronously.
@@ -97,9 +93,7 @@ public interface IEncryptionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the encryption was successful, false otherwise.</returns>
 	public Task<bool> TryEncryptAsync(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Stream destination, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<bool>(cancellationToken)
-			: Task.Run(() => TryEncrypt(data.Span, key.Span, iv.Span, destination), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => TryEncrypt(data.Span, key.Span, iv.Span, destination), cancellationToken);
 
 	/// <summary>
 	/// Encrypts the data from the span and returns the result.
@@ -156,9 +150,7 @@ public interface IEncryptionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The encrypted data.</returns>
 	public Task<byte[]> EncryptAsync(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<byte[]>(cancellationToken)
-			: Task.Run(() => Encrypt(data.Span, key.Span, iv.Span), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => Encrypt(data.Span, key.Span, iv.Span), cancellationToken);
 
 	/// <summary>
 	/// Encrypts the data from the stream and returns the result asynchronously.
@@ -169,9 +161,7 @@ public interface IEncryptionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The encrypted data.</returns>
 	public Task<byte[]> EncryptAsync(Stream data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<byte[]>(cancellationToken)
-			: Task.Run(() => Encrypt(data, key.Span, iv.Span), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => Encrypt(data, key.Span, iv.Span), cancellationToken);
 
 	/// <summary>
 	/// Encrypts the data from the string and returns the result asynchronously.
@@ -182,9 +172,7 @@ public interface IEncryptionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The encrypted data.</returns>
 	public Task<string> EncryptAsync(string data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<string>(cancellationToken)
-			: Task.Run(() => Encrypt(data, key.Span, iv.Span), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => Encrypt(data, key.Span, iv.Span), cancellationToken);
 
 	/// <summary>
 	/// Tries to decrypt the data from the span and write the result to the destination.
@@ -227,9 +215,7 @@ public interface IEncryptionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the decryption was successful, false otherwise.</returns>
 	public Task<bool> TryDecryptAsync(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Memory<byte> destination, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<bool>(cancellationToken)
-			: Task.Run(() => TryDecrypt(data.Span, key.Span, iv.Span, destination.Span), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => TryDecrypt(data.Span, key.Span, iv.Span, destination.Span), cancellationToken);
 
 	/// <summary>
 	/// Tries to decrypt the data from the stream and write the result to the destination asynchronously.
@@ -241,9 +227,7 @@ public interface IEncryptionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the decryption was successful, false otherwise.</returns>
 	public Task<bool> TryDecryptAsync(Stream data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Stream destination, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<bool>(cancellationToken)
-			: Task.Run(() => TryDecrypt(data, key.Span, iv.Span, destination), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => TryDecrypt(data, key.Span, iv.Span, destination), cancellationToken);
 
 	/// <summary>
 	/// Tries to decrypt the data from the span and write the result to the destination asynchronously.
@@ -255,9 +239,7 @@ public interface IEncryptionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the decryption was successful, false otherwise.</returns>
 	public Task<bool> TryDecryptAsync(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Stream destination, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<bool>(cancellationToken)
-			: Task.Run(() => TryDecrypt(data.Span, key.Span, iv.Span, destination), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => TryDecrypt(data.Span, key.Span, iv.Span, destination), cancellationToken);
 
 	/// <summary>
 	/// Decrypts the data from the span and returns the result.
@@ -314,9 +296,7 @@ public interface IEncryptionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The decrypted data.</returns>
 	public Task<byte[]> DecryptAsync(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<byte[]>(cancellationToken)
-			: Task.Run(() => Decrypt(data.Span, key.Span, iv.Span), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => Decrypt(data.Span, key.Span, iv.Span), cancellationToken);
 
 	/// <summary>
 	/// Decrypts the data from the stream and returns the result asynchronously.
@@ -327,9 +307,7 @@ public interface IEncryptionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The decrypted data.</returns>
 	public Task<byte[]> DecryptAsync(Stream data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<byte[]>(cancellationToken)
-			: Task.Run(() => Decrypt(data, key.Span, iv.Span), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => Decrypt(data, key.Span, iv.Span), cancellationToken);
 
 	/// <summary>
 	/// Decrypts the data from the string and returns the result asynchronously.
@@ -340,7 +318,5 @@ public interface IEncryptionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The decrypted data.</returns>
 	public Task<string> DecryptAsync(string data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<string>(cancellationToken)
-			: Task.Run(() => Decrypt(data, key.Span, iv.Span), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => Decrypt(data, key.Span, iv.Span), cancellationToken);
 }

@@ -5,7 +5,9 @@
 namespace ktsu.Common.Tests;
 
 using System.Collections.Generic;
+using System.Text;
 using ktsu.Abstractions;
+using ktsu.SerializationProviders;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -15,26 +17,26 @@ public class ConfigurationProviderTests
 	private static ServiceProvider BuildProvider()
 	{
 		ServiceCollection services = new();
-		services.AddCommon();
+		services.AddSingleton<ISerializationProvider, Json>();
+		services.AddSingleton<ISerializationProvider, Yaml>();
+		services.AddSingleton<ISerializationProvider, Toml>();
 		return services.BuildServiceProvider();
 	}
 
-	public static IEnumerable<object[]> ConfigurationProviders => BuildProvider().EnumerateProviders<IConfigurationProvider>();
+	public static IEnumerable<object[]> ConfigurationProviders => BuildProvider().EnumerateProviders<ISerializationProvider>();
 
 	public TestContext TestContext { get; set; } = null!;
 
 	[TestMethod]
 	[DynamicData(nameof(ConfigurationProviders))]
-	public void Configuration_Save_And_Load_Roundtrip(IConfigurationProvider configProvider, string providerName)
+	public void Configuration_Serialize_And_Deserialize_Roundtrip(ISerializationProvider configProvider, string providerName)
 	{
 		TestConfig original = new() { Name = $"Test with {providerName}", Count = 42, Enabled = true };
 
-		string serialized = configProvider.Save(original);
+		string serialized = configProvider.Serialize(original);
 		Assert.IsFalse(string.IsNullOrEmpty(serialized), $"{providerName} should produce serialized output");
 
-		using StringReader reader = new(serialized);
-		bool loadOk = configProvider.TryLoad<TestConfig>(reader, out TestConfig? loaded);
-		Assert.IsTrue(loadOk, $"{providerName} should successfully load configuration");
+		TestConfig? loaded = configProvider.Deserialize<TestConfig>(serialized);
 		Assert.IsNotNull(loaded, $"{providerName} should produce non-null config");
 		Assert.AreEqual(original.Name, loaded.Name, $"{providerName} should preserve Name");
 		Assert.AreEqual(original.Count, loaded.Count, $"{providerName} should preserve Count");
@@ -43,20 +45,19 @@ public class ConfigurationProviderTests
 
 	[TestMethod]
 	[DynamicData(nameof(ConfigurationProviders))]
-	public void Configuration_TrySave_And_TryLoad(IConfigurationProvider configProvider, string providerName)
+	public void Configuration_TrySerialize_And_Deserialize(ISerializationProvider configProvider, string providerName)
 	{
-		TestConfig original = new() { Name = "TrySave", Count = 99, Enabled = false };
+		TestConfig original = new() { Name = "TrySerialize", Count = 99, Enabled = false };
 
 		using StringWriter writer = new();
-		bool saveOk = configProvider.TrySave(original, writer);
-		Assert.IsTrue(saveOk, $"{providerName} should successfully save");
+		bool saveOk = configProvider.TrySerialize(original, writer);
+		Assert.IsTrue(saveOk, $"{providerName} should successfully serialize");
 
 		string content = writer.ToString();
 		Assert.IsFalse(string.IsNullOrEmpty(content), $"{providerName} should produce content");
 
 		using StringReader reader = new(content);
-		bool loadOk = configProvider.TryLoad<TestConfig>(reader, out TestConfig? loaded);
-		Assert.IsTrue(loadOk, $"{providerName} should successfully load");
+		TestConfig? loaded = configProvider.Deserialize<TestConfig>(reader);
 		Assert.IsNotNull(loaded);
 		Assert.AreEqual(original.Name, loaded.Name);
 		Assert.AreEqual(original.Count, loaded.Count);
@@ -64,43 +65,49 @@ public class ConfigurationProviderTests
 
 	[TestMethod]
 	[DynamicData(nameof(ConfigurationProviders))]
-	public void Configuration_Load_From_String(IConfigurationProvider configProvider, string providerName)
+	public void Configuration_Deserialize_From_String(ISerializationProvider configProvider, string providerName)
 	{
 		TestConfig original = new() { Name = "FromString", Count = 7, Enabled = true };
 
-		string serialized = configProvider.Save(original);
-		TestConfig? loaded = configProvider.Load<TestConfig>(serialized);
-		Assert.IsNotNull(loaded, $"{providerName} should load from string");
+		string serialized = configProvider.Serialize(original);
+		TestConfig? loaded = configProvider.Deserialize<TestConfig>(serialized);
+		Assert.IsNotNull(loaded, $"{providerName} should deserialize from string");
 		Assert.AreEqual(original.Name, loaded.Name);
 	}
 
 	[TestMethod]
 	[DynamicData(nameof(ConfigurationProviders))]
-	public void Configuration_TryLoad_Invalid_Content_Returns_False(IConfigurationProvider configProvider, string providerName)
+	public void Configuration_Deserialize_From_Bytes(ISerializationProvider configProvider, string providerName)
+	{
+		TestConfig original = new() { Name = "FromBytes", Count = 13, Enabled = true };
+
+		string serialized = configProvider.Serialize(original);
+		byte[] bytes = Encoding.UTF8.GetBytes(serialized);
+		TestConfig? loaded = configProvider.Deserialize<TestConfig>(bytes);
+		Assert.IsNotNull(loaded, $"{providerName} should deserialize from bytes");
+		Assert.AreEqual(original.Name, loaded.Name);
+		Assert.AreEqual(original.Count, loaded.Count);
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(ConfigurationProviders))]
+	public void Configuration_Deserialize_Invalid_Content(ISerializationProvider configProvider, string providerName)
 	{
 		_ = providerName;
-		using StringReader reader = new("this is definitely not valid structured data {{{[[[");
-		bool loadOk = configProvider.TryLoad<TestConfig>(reader, out TestConfig? loaded);
-		// Some providers may still parse invalid data; we just verify no exception
-		_ = loadOk;
-		_ = loaded;
+		byte[] invalidBytes = Encoding.UTF8.GetBytes("this is definitely not valid structured data {{{[[[");
+		// Should not throw — may return null or a default object depending on provider
+		TestConfig? loaded = configProvider.Deserialize<TestConfig>(invalidBytes);
+		// Reaching this point without exception means the provider handled invalid input gracefully
+		Assert.IsNull(loaded, $"{providerName} should return null for invalid content");
 	}
 
 	[TestMethod]
 	[DynamicData(nameof(ConfigurationProviders))]
-	public void Configuration_TryLoad_Null_Source_Returns_False(IConfigurationProvider configProvider, string providerName)
-	{
-		bool loadOk = configProvider.TryLoad<TestConfig>(null!, out TestConfig? loaded);
-		Assert.IsFalse(loadOk, $"{providerName} should return false for null source");
-	}
-
-	[TestMethod]
-	[DynamicData(nameof(ConfigurationProviders))]
-	public void Configuration_TrySave_Null_Destination_Returns_False(IConfigurationProvider configProvider, string providerName)
+	public void Configuration_TrySerialize_Null_Writer_Returns_False(ISerializationProvider configProvider, string providerName)
 	{
 		TestConfig config = new() { Name = "test" };
-		bool saveOk = configProvider.TrySave(config, null!);
-		Assert.IsFalse(saveOk, $"{providerName} should return false for null destination");
+		bool saveOk = configProvider.TrySerialize(config, null!);
+		Assert.IsFalse(saveOk, $"{providerName} should return false for null writer");
 	}
 
 	public sealed class TestConfig

@@ -43,11 +43,7 @@ public interface IHashProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the hash operation was successful, false otherwise.</returns>
 	public Task<bool> TryHashAsync(ReadOnlyMemory<byte> data, Memory<byte> destination, CancellationToken cancellationToken = default)
-	{
-		return cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<bool>(cancellationToken)
-			: Task.Run(() => TryHash(data.Span, destination.Span), cancellationToken);
-	}
+		=> ProviderHelpers.RunAsync(() => TryHash(data.Span, destination.Span), cancellationToken);
 
 	/// <summary>
 	/// Tries to hash the specified data into the provided hash buffer asynchronously.
@@ -57,9 +53,7 @@ public interface IHashProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the hash operation was successful, false otherwise.</returns>
 	public Task<bool> TryHashAsync(Stream data, Memory<byte> destination, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<bool>(cancellationToken)
-			: Task.Run(() => TryHash(data, destination.Span), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => TryHash(data, destination.Span), cancellationToken);
 
 	/// <summary>
 	/// Asynchronously hashes the specified data.
@@ -68,9 +62,7 @@ public interface IHashProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>A byte array containing the hash of the data.</returns>
 	public Task<byte[]> HashAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<byte[]>(cancellationToken)
-			: Task.Run(() => Hash(data.Span), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => Hash(data.Span), cancellationToken);
 
 	/// <summary>
 	/// Hashes the specified data.

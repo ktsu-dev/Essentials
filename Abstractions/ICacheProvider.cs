@@ -88,13 +88,11 @@ public interface ICacheProvider<TKey, TValue> where TKey : notnull
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>A tuple containing a boolean indicating success and the cached value.</returns>
 	public Task<(bool Found, TValue? Value)> TryGetAsync(TKey key, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<(bool, TValue?)>(cancellationToken)
-			: Task.Run(() =>
-			{
-				bool found = TryGet(key, out TValue? value);
-				return (found, value);
-			}, cancellationToken);
+		=> ProviderHelpers.RunAsync(() =>
+		{
+			bool found = TryGet(key, out TValue? value);
+			return (found, value);
+		}, cancellationToken);
 
 	/// <summary>
 	/// Gets a cached value by key asynchronously, throwing if not found.
@@ -104,9 +102,7 @@ public interface ICacheProvider<TKey, TValue> where TKey : notnull
 	/// <returns>The cached value.</returns>
 	/// <exception cref="KeyNotFoundException">Thrown when the key is not found in the cache.</exception>
 	public Task<TValue> GetAsync(TKey key, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<TValue>(cancellationToken)
-			: Task.Run(() => Get(key), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => Get(key), cancellationToken);
 
 	/// <summary>
 	/// Sets a value in the cache asynchronously with an optional expiration time.
@@ -117,9 +113,7 @@ public interface ICacheProvider<TKey, TValue> where TKey : notnull
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>A task that represents the asynchronous set operation.</returns>
 	public Task SetAsync(TKey key, TValue value, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled(cancellationToken)
-			: Task.Run(() => Set(key, value, expiration), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => Set(key, value, expiration), cancellationToken);
 
 	/// <summary>
 	/// Removes a cached value by key asynchronously.
@@ -128,9 +122,7 @@ public interface ICacheProvider<TKey, TValue> where TKey : notnull
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the value was found and removed, false if it didn't exist.</returns>
 	public Task<bool> RemoveAsync(TKey key, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<bool>(cancellationToken)
-			: Task.Run(() => Remove(key), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => Remove(key), cancellationToken);
 
 	/// <summary>
 	/// Clears all entries from the cache asynchronously.
@@ -138,9 +130,7 @@ public interface ICacheProvider<TKey, TValue> where TKey : notnull
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>A task that represents the asynchronous clear operation.</returns>
 	public Task ClearAsync(CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled(cancellationToken)
-			: Task.Run(Clear, cancellationToken);
+		=> ProviderHelpers.RunAsync(Clear, cancellationToken);
 
 	/// <summary>
 	/// Gets a cached value by key asynchronously, or adds it using the provided factory if not found.
@@ -151,7 +141,5 @@ public interface ICacheProvider<TKey, TValue> where TKey : notnull
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The cached or newly created value.</returns>
 	public Task<TValue> GetOrAddAsync(TKey key, Func<TKey, TValue> factory, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
-		=> cancellationToken.IsCancellationRequested
-			? Task.FromCanceled<TValue>(cancellationToken)
-			: Task.Run(() => GetOrAdd(key, factory, expiration), cancellationToken);
+		=> ProviderHelpers.RunAsync(() => GetOrAdd(key, factory, expiration), cancellationToken);
 }

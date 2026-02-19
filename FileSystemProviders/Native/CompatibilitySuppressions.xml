@@ -39,6 +39,12 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:System.IO.UnixFileMode</Target>
+    <Left>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
     <Target>T:System.Runtime.CompilerServices.CompilerFeatureRequiredAttribute</Target>
     <Left>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Left>
     <Right>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Right>
@@ -63,7 +69,13 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:System.Runtime.Versioning.OSPlatformAttribute</Target>
+    <Target>T:System.Runtime.Versioning.SupportedOSPlatformGuardAttribute</Target>
+    <Left>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:System.Runtime.Versioning.UnsupportedOSPlatformGuardAttribute</Target>
     <Left>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Left>
     <Right>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Right>
   </Suppression>
@@ -171,12 +183,6 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:System.ISpanFormattable</Target>
-    <Left>lib/netstandard2.1/ktsu.FileSystemProviders.Native.dll</Left>
-    <Right>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Right>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0001</DiagnosticId>
     <Target>T:System.Reflection.NullabilityInfo</Target>
     <Left>lib/netstandard2.1/ktsu.FileSystemProviders.Native.dll</Left>
     <Right>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Right>
@@ -243,6 +249,12 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
+    <Target>T:System.Runtime.Versioning.OSPlatformAttribute</Target>
+    <Left>lib/netstandard2.1/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0001</DiagnosticId>
     <Target>T:System.Runtime.Versioning.RequiresPreviewFeaturesAttribute</Target>
     <Left>lib/netstandard2.1/ktsu.FileSystemProviders.Native.dll</Left>
     <Right>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Right>
@@ -255,12 +267,6 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:System.Runtime.Versioning.SupportedOSPlatformGuardAttribute</Target>
-    <Left>lib/netstandard2.1/ktsu.FileSystemProviders.Native.dll</Left>
-    <Right>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Right>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0001</DiagnosticId>
     <Target>T:System.Runtime.Versioning.TargetPlatformAttribute</Target>
     <Left>lib/netstandard2.1/ktsu.FileSystemProviders.Native.dll</Left>
     <Right>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Right>
@@ -268,12 +274,6 @@
   <Suppression>
     <DiagnosticId>CP0001</DiagnosticId>
     <Target>T:System.Runtime.Versioning.UnsupportedOSPlatformAttribute</Target>
-    <Left>lib/netstandard2.1/ktsu.FileSystemProviders.Native.dll</Left>
-    <Right>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Right>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0001</DiagnosticId>
-    <Target>T:System.Runtime.Versioning.UnsupportedOSPlatformGuardAttribute</Target>
     <Left>lib/netstandard2.1/ktsu.FileSystemProviders.Native.dll</Left>
     <Right>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Right>
   </Suppression>
@@ -435,6 +435,12 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0008</DiagnosticId>
+    <Target>T:System.IO.UnixFileMode</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0008</DiagnosticId>
     <Target>T:System.Text.SpanLineEnumerator</Target>
     <Left>lib/net9.0/ktsu.FileSystemProviders.Native.dll</Left>
     <Right>lib/net10.0/ktsu.FileSystemProviders.Native.dll</Right>
@@ -466,6 +472,12 @@
   <Suppression>
     <DiagnosticId>CP0014</DiagnosticId>
     <Target>M:System.Reflection.NullabilityInfo.get_WriteState:[T:System.Runtime.CompilerServices.CompilerGeneratedAttribute]</Target>
+    <Left>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0014</DiagnosticId>
+    <Target>M:System.Runtime.Versioning.OSPlatformAttribute.get_PlatformName:[T:System.Runtime.CompilerServices.CompilerGeneratedAttribute]</Target>
     <Left>lib/net6.0/ktsu.FileSystemProviders.Native.dll</Left>
     <Right>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Right>
   </Suppression>
@@ -544,6 +556,54 @@
   <Suppression>
     <DiagnosticId>CP0016</DiagnosticId>
     <Target>F:System.Runtime.InteropServices.UnmanagedCallersOnlyAttribute.EntryPoint:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>M:System.Buffers.ReadOnlySpanAction`2.BeginInvoke(System.ReadOnlySpan{`0},`1,System.AsyncCallback,System.Object)$0:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>M:System.Buffers.ReadOnlySpanAction`2.BeginInvoke(System.ReadOnlySpan{`0},`1,System.AsyncCallback,System.Object)$1:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>M:System.Buffers.ReadOnlySpanAction`2.Invoke(System.ReadOnlySpan{`0},`1):[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>M:System.Buffers.ReadOnlySpanAction`2.Invoke(System.ReadOnlySpan{`0},`1)$0:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>M:System.Buffers.SpanAction`2.BeginInvoke(System.Span{`0},`1,System.AsyncCallback,System.Object)$0:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>M:System.Buffers.SpanAction`2.BeginInvoke(System.Span{`0},`1,System.AsyncCallback,System.Object)$1:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>M:System.Buffers.SpanAction`2.Invoke(System.Span{`0},`1):[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>M:System.Buffers.SpanAction`2.Invoke(System.Span{`0},`1)$0:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
     <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
     <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
   </Suppression>
@@ -664,12 +724,6 @@
   <Suppression>
     <DiagnosticId>CP0016</DiagnosticId>
     <Target>M:System.Index.ToString:[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
-    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
-    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
-  </Suppression>
-  <Suppression>
-    <DiagnosticId>CP0016</DiagnosticId>
-    <Target>M:System.ISpanFormattable.TryFormat(System.Span{System.Char},System.Int32@,System.ReadOnlySpan{System.Char},System.IFormatProvider)$3:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
     <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
     <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
   </Suppression>
@@ -880,6 +934,30 @@
   <Suppression>
     <DiagnosticId>CP0016</DiagnosticId>
     <Target>T:ktsu.FileSystemProviders.Native:[T:System.Runtime.CompilerServices.NullableContextAttribute]</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:System.Buffers.ReadOnlySpanAction`2&lt;0&gt;:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:System.Buffers.ReadOnlySpanAction`2&lt;1&gt;:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:System.Buffers.SpanAction`2&lt;0&gt;:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
+    <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
+    <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0016</DiagnosticId>
+    <Target>T:System.Buffers.SpanAction`2&lt;1&gt;:[T:System.Runtime.CompilerServices.NullableAttribute]</Target>
     <Left>lib/net7.0/ktsu.FileSystemProviders.Native.dll</Left>
     <Right>lib/net8.0/ktsu.FileSystemProviders.Native.dll</Right>
   </Suppression>

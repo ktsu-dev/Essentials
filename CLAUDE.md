@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ktsu.Abstractions is a .NET library providing high-performance interfaces for common cross-cutting concerns: compression, encryption, hashing, obfuscation, serialization, and filesystem access. The library emphasizes zero-allocation operations using Span<byte> and default interface implementations to minimize implementation burden.
+ktsu.Abstractions is a .NET library providing high-performance interfaces for common cross-cutting concerns: compression, encoding, encryption, hashing, serialization, caching, validation, and filesystem access. The library emphasizes zero-allocation operations using Span<byte> and default interface implementations to minimize implementation burden.
 
 ## Build and Test Commands
 
@@ -64,14 +64,15 @@ Each provider interface defines:
 - Core: `TryHash()` with Span<byte> and Stream overloads
 - Convenience: `Hash()` methods that allocate the hash buffer
 
-**IObfuscationProvider** (Abstractions/IObfuscationProvider.cs)
-- Core: `TryObfuscate()` and `TryDeobfuscate()`
-- Important: This is NOT cryptography - only for casual hiding, not security
+**IEncodingProvider** (Abstractions/IEncodingProvider.cs)
+- Core: `TryEncode()` and `TryDecode()` with Span<byte> and Stream overloads
+- For format/transport encodings (Base64, Hex, URL encoding) — NOT text character encodings
 
 **ISerializationProvider** (Abstractions/ISerializationProvider.cs)
-- Core: `TrySerialize()` using TextWriter, `Deserialize<T>()` using TextReader or ReadOnlySpan<byte>
+- Core: `TrySerialize()` using TextWriter, `Deserialize<T>()` using ReadOnlySpan<byte>
+- Convenience: `Serialize()`, `Deserialize<T>(string)`, `Deserialize<T>(TextReader)`
 - Generic type support for deserialization
-- Works with System.Text.Json or other serializers
+- Used by both serialization (JSON, MessagePack) and configuration (JSON, YAML, TOML) providers
 
 **IFileSystemProvider** (Abstractions/IFileSystemProvider.cs)
 - Inherits from Testably.Abstractions.IFileSystem
@@ -121,8 +122,9 @@ When modifying the build process, check scripts/PSBuild.psm1 and .github/workflo
 - Interfaces follow XML documentation standards with full parameter descriptions
 - Use expression-bodied members for simple default implementations
 - Null checks use explicit throws (not throw helpers) for netstandard2.1 compatibility
-- Async methods follow the pattern: check cancellation → FromCanceled or Task.Run
+- Async methods use `ProviderHelpers.RunAsync()` for consistent cancellation and Task.Run wrapping
 - Default implementations should not allocate unnecessarily - prefer span operations
+- Common patterns (async wrappers, span-to-stream bridges, UTF8 transforms) are centralized in `ProviderHelpers.cs`
 
 ## Testing Implementations
 

@@ -6,10 +6,9 @@ namespace ktsu.Common.Tests;
 
 using ktsu.Abstractions;
 using ktsu.CompressionProviders;
-using ktsu.ConfigurationProviders;
+using ktsu.SerializationProviders;
 using ktsu.EncryptionProviders;
 using ktsu.HashProviders;
-using ktsu.SerializationProviders;
 using Microsoft.Extensions.DependencyInjection;
 
 public static class ServiceCollectionExtensions
@@ -19,14 +18,12 @@ public static class ServiceCollectionExtensions
 		services.AddCacheProviders();
 		services.AddCommandExecutors();
 		services.AddCompressionProviders();
-		services.AddConfigurationProviders();
 		services.AddEncodingProviders();
 		services.AddEncryptionProviders();
 		services.AddFileSystemProviders();
 		services.AddHashProviders();
 		services.AddLoggingProviders();
 		services.AddNavigationProviders();
-		services.AddObfuscationProviders();
 		services.AddPersistenceProviders();
 		services.AddSerializationProviders();
 		return services;
@@ -73,17 +70,11 @@ public static class ServiceCollectionExtensions
 		return services;
 	}
 
-	public static ServiceCollection AddObfuscationProviders(this ServiceCollection services)
-	{
-		services.AddSingleton<IObfuscationProvider, ObfuscationProviders.Base64>();
-		services.AddSingleton<IObfuscationProvider, ObfuscationProviders.Hex>();
-		return services;
-	}
-
 	public static ServiceCollection AddSerializationProviders(this ServiceCollection services)
 	{
-		services.AddSingleton<ISerializationProvider, SystemTextJson>();
-		services.AddSingleton<ISerializationProvider, NewtonsoftJson>();
+		services.AddSingleton<ISerializationProvider, Json>();
+		services.AddSingleton<ISerializationProvider, Yaml>();
+		services.AddSingleton<ISerializationProvider, Toml>();
 		return services;
 	}
 
@@ -91,14 +82,6 @@ public static class ServiceCollectionExtensions
 	{
 		services.AddSingleton<IEncodingProvider, EncodingProviders.Base64>();
 		services.AddSingleton<IEncodingProvider, EncodingProviders.Hex>();
-		return services;
-	}
-
-	public static ServiceCollection AddConfigurationProviders(this ServiceCollection services)
-	{
-		services.AddSingleton<IConfigurationProvider, Json>();
-		services.AddSingleton<IConfigurationProvider, Yaml>();
-		services.AddSingleton<IConfigurationProvider, Toml>();
 		return services;
 	}
 

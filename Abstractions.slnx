@@ -16,11 +16,6 @@
     <Project Path="CompressionProviders/Gzip/Gzip.csproj" />
     <Project Path="CompressionProviders/ZLib/ZLib.csproj" />
   </Folder>
-  <Folder Name="/ConfigurationProviders/">
-    <Project Path="ConfigurationProviders/Json/Json.csproj" />
-    <Project Path="ConfigurationProviders/Toml/Toml.csproj" />
-    <Project Path="ConfigurationProviders/Yaml/Yaml.csproj" />
-  </Folder>
   <Folder Name="/EncodingProviders/">
     <Project Path="EncodingProviders/Base64/Base64.csproj" />
     <Project Path="EncodingProviders/Hex/Hex.csproj" />
@@ -54,16 +49,13 @@
   <Folder Name="/NavigationProviders/">
     <Project Path="NavigationProviders/InMemory/InMemory.csproj" />
   </Folder>
-  <Folder Name="/ObfuscationProviders/">
-    <Project Path="ObfuscationProviders/Base64/Base64.csproj" />
-    <Project Path="ObfuscationProviders/Hex/Hex.csproj" />
-  </Folder>
   <Folder Name="/PersistenceProviders/">
     <Project Path="PersistenceProviders/InMemory/InMemory.csproj" />
   </Folder>
   <Folder Name="/SerializationProviders/">
-    <Project Path="SerializationProviders/NewtonsoftJson/NewtonsoftJson.csproj" />
-    <Project Path="SerializationProviders/SystemTextJson/SystemTextJson.csproj" />
+    <Project Path="SerializationProviders/Json/Json.csproj" />
+    <Project Path="SerializationProviders/Toml/Toml.csproj" />
+    <Project Path="SerializationProviders/Yaml/Yaml.csproj" />
   </Folder>
   <Project Path="Abstractions/Abstractions.csproj" />
   <Project Path="Tests/Tests.csproj" />

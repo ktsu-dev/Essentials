@@ -60,21 +60,6 @@ public class DiTests
 	}
 
 	[TestMethod]
-	public void DI_Can_Resolve_Multiple_Obfuscation_Providers()
-	{
-		using ServiceProvider serviceProvider = BuildProvider();
-
-		IEnumerable<IObfuscationProvider> obfuscationProviders = serviceProvider.GetServices<IObfuscationProvider>();
-		IObfuscationProvider[] providers = [.. obfuscationProviders];
-
-		Assert.HasCount(2, providers, "Should resolve both obfuscation providers");
-
-		string[] expectedTypes = ["Base64", "Hex"];
-		string[] actualTypes = [.. providers.Select(p => p.GetType().Name).OrderBy(n => n)];
-		CollectionAssert.AreEquivalent(expectedTypes, actualTypes);
-	}
-
-	[TestMethod]
 	public void DI_Can_Resolve_Multiple_Hash_Providers()
 	{
 		using ServiceProvider serviceProvider = BuildProvider();
@@ -106,21 +91,6 @@ public class DiTests
 	}
 
 	[TestMethod]
-	public void DI_Can_Resolve_Multiple_Configuration_Providers()
-	{
-		using ServiceProvider serviceProvider = BuildProvider();
-
-		IEnumerable<IConfigurationProvider> configProviders = serviceProvider.GetServices<IConfigurationProvider>();
-		IConfigurationProvider[] providers = [.. configProviders];
-
-		Assert.HasCount(3, providers, "Should resolve all 3 configuration providers");
-
-		string[] expectedTypes = ["Json", "Toml", "Yaml"];
-		string[] actualTypes = [.. providers.Select(p => p.GetType().Name).OrderBy(n => n)];
-		CollectionAssert.AreEquivalent(expectedTypes, actualTypes);
-	}
-
-	[TestMethod]
 	public void DI_Can_Resolve_Generic_Providers()
 	{
 		using ServiceProvider serviceProvider = BuildProvider();
@@ -143,10 +113,10 @@ public class DiTests
 		IEnumerable<ISerializationProvider> serializationProviders = serviceProvider.GetServices<ISerializationProvider>();
 		ISerializationProvider[] providers = [.. serializationProviders];
 
-		Assert.HasCount(2, providers, "Should resolve both serialization providers");
+		Assert.HasCount(3, providers, "Should resolve all 3 serialization providers");
 
 		// Verify all expected types are present
-		string[] expectedTypes = ["NewtonsoftJson", "SystemTextJson"];
+		string[] expectedTypes = ["Json", "Toml", "Yaml"];
 		string[] actualTypes = [.. providers.Select(p => p.GetType().Name).OrderBy(n => n)];
 		CollectionAssert.AreEquivalent(expectedTypes, actualTypes);
 	}
