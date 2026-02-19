@@ -19,7 +19,7 @@
 - **Compression**: `ICompressionProvider` with Gzip, Brotli, Deflate, and ZLib implementations
 - **Encoding**: `IEncodingProvider` with Base64 and Hex implementations for format/transport encoding
 - **Encryption**: `IEncryptionProvider` with AES implementation including key and IV generation
-- **Hashing**: `IHashProvider` with 17 implementations (MD5, SHA1/256/384/512, FNV1/FNV1a 32/64-bit, CRC32/64, XxHash32/64/3/128)
+- **Hashing**: `IHashProvider` with 15 implementations (MD5, SHA1/256/384/512, FNV1/FNV1a 32/64-bit, CRC32/64, XxHash32/64/3/128)
 - **Serialization**: `ISerializationProvider` with JSON, YAML, and TOML implementations plus configurable `ISerializationOptions`
 - **Caching**: `ICacheProvider<TKey, TValue>` with in-memory implementation supporting expiration and get-or-add semantics
 - **Persistence**: `IPersistenceProvider<TKey>` with AppData, FileSystem, InMemory, and Temp implementations

@@ -91,7 +91,7 @@ The codebase uses `[SuppressMessage]` attributes for APIs not available in netst
 
 Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.Tests/`) references all provider implementations and tests them through the interface contracts. Key test files:
 
-- `HashProviderTests.cs` - Tests all 17 hash provider implementations
+- `HashProviderTests.cs` - Tests all 15 hash provider implementations
 - `CacheProviderTests.cs` - Tests cache operations including expiration
 - `CommandExecutorTests.cs` - Tests command execution
 - `EncodingProviderTests.cs` - Tests Base64 and Hex encoding
@@ -99,7 +99,7 @@ Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.T
 - `LoggingProviderTests.cs` - Tests logging provider
 - `NavigationProviderTests.cs` - Tests navigation stack behavior
 - `PersistenceProviderTests.cs` - Tests all persistence backends
-- `ConfigurationProviderTests.cs` - Tests serialization configuration
+- `SerializationProviderTests.cs` - Tests serialization provider implementations
 - `RoundTripTests.cs` - Tests compression/encoding/encryption round-trips
 - `DiTests.cs` - Tests dependency injection registration
 
