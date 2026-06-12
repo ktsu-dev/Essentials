@@ -1,5 +1,12 @@
-## v1.1.0
+## v1.1.1 (patch)
 
 Changes since v1.1.0:
 
+- Sync .github\workflows\update-sdks.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\dependabot.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .serena\.gitignore ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .gitignore ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .gitattributes ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
 
