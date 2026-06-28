@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <Sdk Name="ktsu.Sdk" />
 
   <PropertyGroup>
@@ -11,10 +11,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Essentials\Essentials.csproj" />
     <PackageReference Include="Testably.Abstractions" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
-    <PackageReference Include="Microsoft.SourceLink.AzureRepos.Git" PrivateAssets="All" />
     <PackageReference Include="Polyfill" PrivateAssets="All" />
-  </ItemGroup>
+  
+    <PackageReference Include="Testably.Abstractions.FileSystem.Interface" /></ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="ktsu.Essentials.Tests" />
