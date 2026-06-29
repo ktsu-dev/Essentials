@@ -21,7 +21,8 @@ public class Base64 : IObfuscationProvider
 
 	/// <summary>Initializes a new instance using the supplied encoder.</summary>
 	/// <param name="encoder">The encoding provider used to perform the transform.</param>
-	private Base64(IEncodingProvider encoder) => _encoder = Ensure.NotNull(encoder);
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0290:Use primary constructor", Justification = "Public constructor required for DI registration via factory lambda")]
+	public Base64(IEncodingProvider encoder) => _encoder = Ensure.NotNull(encoder);
 
 	/// <inheritdoc/>
 	public bool TryObfuscate(ReadOnlySpan<byte> data, Span<byte> destination) => _encoder.TryEncode(data, destination);

@@ -52,7 +52,7 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<IObfuscationProvider, Caesar>();
 		services.AddSingleton<IObfuscationProvider, Reverse>();
 		services.AddSingleton<IObfuscationProvider, BitRotate>();
-		services.AddSingleton<IObfuscationProvider, ObfuscationProviders.Base64>();
+		services.AddSingleton<IObfuscationProvider>(_ => new ObfuscationProviders.Base64());
 		return services;
 	}
 
