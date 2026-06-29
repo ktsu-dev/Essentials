@@ -81,4 +81,16 @@ public class ObfuscationProviderTests
 		string restored = System.Text.Encoding.UTF8.GetString(restoredBytes);
 		Assert.AreEqual(original, restored);
 	}
+
+	[TestMethod]
+	public void Obfuscation_Hex_Roundtrip_String()
+	{
+		IObfuscationProvider provider = new ObfuscationProviders.Hex();
+		string original = "string obfuscate via hex";
+		string obfuscated = provider.Obfuscate(original);
+		byte[] obfuscatedBytes = System.Text.Encoding.UTF8.GetBytes(obfuscated);
+		byte[] restoredBytes = provider.Deobfuscate(obfuscatedBytes);
+		string restored = System.Text.Encoding.UTF8.GetString(restoredBytes);
+		Assert.AreEqual(original, restored);
+	}
 }
