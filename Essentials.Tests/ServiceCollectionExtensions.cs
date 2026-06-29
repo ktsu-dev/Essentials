@@ -8,6 +8,7 @@ using ktsu.Essentials;
 using ktsu.Essentials.CompressionProviders;
 using ktsu.Essentials.EncryptionProviders;
 using ktsu.Essentials.HashProviders;
+using ktsu.Essentials.ObfuscationProviders;
 using ktsu.Essentials.SerializationProviders;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,6 +25,7 @@ public static class ServiceCollectionExtensions
 		services.AddHashProviders();
 		services.AddLoggingProviders();
 		services.AddNavigationProviders();
+		services.AddObfuscationProviders();
 		services.AddPersistenceProviders();
 		services.AddSerializationProviders();
 		return services;
@@ -41,6 +43,12 @@ public static class ServiceCollectionExtensions
 	public static ServiceCollection AddEncryptionProviders(this ServiceCollection services)
 	{
 		services.AddSingleton<IEncryptionProvider, Aes>();
+		return services;
+	}
+
+	public static ServiceCollection AddObfuscationProviders(this ServiceCollection services)
+	{
+		services.AddSingleton<IObfuscationProvider, Xor>();
 		return services;
 	}
 
