@@ -69,4 +69,16 @@ public class ObfuscationProviderTests
 
 		CollectionAssert.AreEqual(original, restored.ToArray(), $"{providerName} async should restore original");
 	}
+
+	[TestMethod]
+	public void Obfuscation_Base64_Roundtrip_String()
+	{
+		IObfuscationProvider provider = new ObfuscationProviders.Base64();
+		string original = "string obfuscate via base64";
+		string obfuscated = provider.Obfuscate(original);
+		byte[] obfuscatedBytes = System.Text.Encoding.UTF8.GetBytes(obfuscated);
+		byte[] restoredBytes = provider.Deobfuscate(obfuscatedBytes);
+		string restored = System.Text.Encoding.UTF8.GetString(restoredBytes);
+		Assert.AreEqual(original, restored);
+	}
 }
