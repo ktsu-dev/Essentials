@@ -27,6 +27,7 @@
     <Project Path="ObfuscationProviders/Base64/Base64.csproj" />
     <Project Path="ObfuscationProviders/BitRotate/BitRotate.csproj" />
     <Project Path="ObfuscationProviders/Caesar/Caesar.csproj" />
+    <Project Path="ObfuscationProviders/Composite/Composite.csproj" />
     <Project Path="ObfuscationProviders/Hex/Hex.csproj" />
     <Project Path="ObfuscationProviders/Reverse/Reverse.csproj" />
     <Project Path="ObfuscationProviders/Xor/Xor.csproj" />

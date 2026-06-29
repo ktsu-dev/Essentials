@@ -54,6 +54,7 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<IObfuscationProvider, BitRotate>();
 		services.AddSingleton<IObfuscationProvider>(_ => new ObfuscationProviders.Base64());
 		services.AddSingleton<IObfuscationProvider>(_ => new ObfuscationProviders.Hex());
+		services.AddSingleton<IObfuscationProvider>(_ => new Composite([new Xor(), new BitRotate()]));
 		return services;
 	}
 
