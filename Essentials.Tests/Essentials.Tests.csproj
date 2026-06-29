@@ -19,6 +19,7 @@
     <ProjectReference Include="..\ObfuscationProviders\Xor\Xor.csproj" />
     <ProjectReference Include="..\ObfuscationProviders\Caesar\Caesar.csproj" />
     <ProjectReference Include="..\ObfuscationProviders\Reverse\Reverse.csproj" />
+    <ProjectReference Include="..\ObfuscationProviders\BitRotate\BitRotate.csproj" />
     <ProjectReference Include="..\FileSystemProviders\Native\Native.csproj" />
     <ProjectReference Include="..\HashProviders\MD5\MD5.csproj" />
     <ProjectReference Include="..\HashProviders\SHA1\SHA1.csproj" />
