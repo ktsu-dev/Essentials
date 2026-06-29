@@ -50,6 +50,7 @@ public static class ServiceCollectionExtensions
 	{
 		services.AddSingleton<IObfuscationProvider, Xor>();
 		services.AddSingleton<IObfuscationProvider, Caesar>();
+		services.AddSingleton<IObfuscationProvider, Reverse>();
 		return services;
 	}
 
