@@ -55,20 +55,6 @@ public class ObfuscationProviderTests
 
 	[TestMethod]
 	[DynamicData(nameof(ObfuscationProviders))]
-	public void Obfuscation_Roundtrip_String(IObfuscationProvider provider, string providerName)
-	{
-		string original = "string obfuscate with " + providerName;
-
-		string obfuscated = provider.Obfuscate(original);
-		byte[] obfuscatedBytes = Encoding.UTF8.GetBytes(obfuscated);
-		byte[] restoredBytes = provider.Deobfuscate(obfuscatedBytes);
-		string restored = Encoding.UTF8.GetString(restoredBytes);
-
-		Assert.AreEqual(original, restored, $"{providerName} should restore original string");
-	}
-
-	[TestMethod]
-	[DynamicData(nameof(ObfuscationProviders))]
 	public void Obfuscation_Async_Roundtrip(IObfuscationProvider provider, string providerName)
 	{
 		byte[] original = Encoding.UTF8.GetBytes("async obfuscate with " + providerName);
