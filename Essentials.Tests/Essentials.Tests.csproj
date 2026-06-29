@@ -17,6 +17,7 @@
     <ProjectReference Include="..\CompressionProviders\Gzip\Gzip.csproj" />
     <ProjectReference Include="..\EncryptionProviders\Aes\Aes.csproj" />
     <ProjectReference Include="..\ObfuscationProviders\Xor\Xor.csproj" />
+    <ProjectReference Include="..\ObfuscationProviders\Caesar\Caesar.csproj" />
     <ProjectReference Include="..\FileSystemProviders\Native\Native.csproj" />
     <ProjectReference Include="..\HashProviders\MD5\MD5.csproj" />
     <ProjectReference Include="..\HashProviders\SHA1\SHA1.csproj" />

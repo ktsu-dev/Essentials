@@ -49,6 +49,7 @@ public static class ServiceCollectionExtensions
 	public static ServiceCollection AddObfuscationProviders(this ServiceCollection services)
 	{
 		services.AddSingleton<IObfuscationProvider, Xor>();
+		services.AddSingleton<IObfuscationProvider, Caesar>();
 		return services;
 	}
 

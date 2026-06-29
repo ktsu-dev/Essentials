@@ -24,6 +24,7 @@
     <Project Path="EncryptionProviders/Aes/Aes.csproj" />
   </Folder>
   <Folder Name="/ObfuscationProviders/">
+    <Project Path="ObfuscationProviders/Caesar/Caesar.csproj" />
     <Project Path="ObfuscationProviders/Xor/Xor.csproj" />
   </Folder>
   <Folder Name="/FileSystemProviders/">
