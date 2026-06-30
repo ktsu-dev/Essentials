@@ -7,6 +7,8 @@ namespace ktsu.Essentials.Tests;
 using System.Collections.Generic;
 using System.Text;
 using ktsu.Essentials;
+using ktsu.Essentials.ObfuscationProviders.Base64;
+using ktsu.Essentials.ObfuscationProviders.Hex;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -73,7 +75,7 @@ public class ObfuscationProviderTests
 	[TestMethod]
 	public void Obfuscation_Base64_Roundtrip_String()
 	{
-		IObfuscationProvider provider = new ObfuscationProviders.Base64();
+		IObfuscationProvider provider = new Base64ObfuscationProvider();
 		string original = "string obfuscate via base64";
 		string obfuscated = provider.Obfuscate(original);
 		byte[] obfuscatedBytes = System.Text.Encoding.UTF8.GetBytes(obfuscated);
@@ -85,7 +87,7 @@ public class ObfuscationProviderTests
 	[TestMethod]
 	public void Obfuscation_Hex_Roundtrip_String()
 	{
-		IObfuscationProvider provider = new ObfuscationProviders.Hex();
+		IObfuscationProvider provider = new HexObfuscationProvider();
 		string original = "string obfuscate via hex";
 		string obfuscated = provider.Obfuscate(original);
 		byte[] obfuscatedBytes = System.Text.Encoding.UTF8.GetBytes(obfuscated);

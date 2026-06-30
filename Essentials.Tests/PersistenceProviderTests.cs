@@ -7,7 +7,10 @@ namespace ktsu.Essentials.Tests;
 using System;
 using System.IO;
 using ktsu.Essentials;
-using ktsu.Essentials.PersistenceProviders;
+using ktsu.Essentials.FileSystemProviders.Native;
+using ktsu.Essentials.PersistenceProviders.AppData;
+using ktsu.Essentials.PersistenceProviders.FileSystem;
+using ktsu.Essentials.PersistenceProviders.Temp;
 using ktsu.Essentials.SerializationProviders.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -26,7 +29,7 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task Persistence_Store_And_Retrieve()
+	public async Task Persistence_Store_And_Retrieve()
 	{
 		IPersistenceProvider<string> persistence = CreatePersistence();
 
@@ -37,7 +40,7 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task Persistence_Retrieve_Missing_Returns_Default()
+	public async Task Persistence_Retrieve_Missing_Returns_Default()
 	{
 		IPersistenceProvider<string> persistence = CreatePersistence();
 
@@ -47,7 +50,7 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task Persistence_Exists()
+	public async Task Persistence_Exists()
 	{
 		IPersistenceProvider<string> persistence = CreatePersistence();
 
@@ -61,7 +64,7 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task Persistence_Remove()
+	public async Task Persistence_Remove()
 	{
 		IPersistenceProvider<string> persistence = CreatePersistence();
 
@@ -73,7 +76,7 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task Persistence_Remove_Missing_Returns_False()
+	public async Task Persistence_Remove_Missing_Returns_False()
 	{
 		IPersistenceProvider<string> persistence = CreatePersistence();
 
@@ -82,7 +85,7 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task Persistence_GetAllKeys()
+	public async Task Persistence_GetAllKeys()
 	{
 		IPersistenceProvider<string> persistence = CreatePersistence();
 
@@ -98,7 +101,7 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task Persistence_Clear()
+	public async Task Persistence_Clear()
 	{
 		IPersistenceProvider<string> persistence = CreatePersistence();
 
@@ -111,7 +114,7 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task Persistence_RetrieveOrCreate()
+	public async Task Persistence_RetrieveOrCreate()
 	{
 		IPersistenceProvider<string> persistence = CreatePersistence();
 
@@ -142,14 +145,14 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task FileSystem_Store_And_Retrieve()
+	public async Task FileSystem_Store_And_Retrieve()
 	{
 		string tempDir = Path.Combine(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
 		try
 		{
-			FileSystemProviders.Native fs = new();
+			NativeFileSystemProvider fs = new();
 			JsonSerializationProvider serializer = new();
-			FileSystem<string> persistence = new(fs, serializer, tempDir);
+			FileSystemPersistenceProvider<string> persistence = new(fs, serializer, tempDir);
 
 			await persistence.StoreAsync("key1", new TestData { Name = "test" }, TestContext.CancellationToken).ConfigureAwait(false);
 			TestData? result = await persistence.RetrieveAsync<TestData>("key1", TestContext.CancellationToken).ConfigureAwait(false);
@@ -164,14 +167,14 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task FileSystem_Exists_And_Remove()
+	public async Task FileSystem_Exists_And_Remove()
 	{
 		string tempDir = Path.Combine(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
 		try
 		{
-			FileSystemProviders.Native fs = new();
+			NativeFileSystemProvider fs = new();
 			JsonSerializationProvider serializer = new();
-			FileSystem<string> persistence = new(fs, serializer, tempDir);
+			FileSystemPersistenceProvider<string> persistence = new(fs, serializer, tempDir);
 
 			await persistence.StoreAsync("key1", "value1", TestContext.CancellationToken).ConfigureAwait(false);
 			Assert.IsTrue(await persistence.ExistsAsync("key1", TestContext.CancellationToken).ConfigureAwait(false));
@@ -187,14 +190,14 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task FileSystem_GetAllKeys_And_Clear()
+	public async Task FileSystem_GetAllKeys_And_Clear()
 	{
 		string tempDir = Path.Combine(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
 		try
 		{
-			FileSystemProviders.Native fs = new();
+			NativeFileSystemProvider fs = new();
 			JsonSerializationProvider serializer = new();
-			FileSystem<string> persistence = new(fs, serializer, tempDir);
+			FileSystemPersistenceProvider<string> persistence = new(fs, serializer, tempDir);
 
 			await persistence.StoreAsync("a", "1", TestContext.CancellationToken).ConfigureAwait(false);
 			await persistence.StoreAsync("b", "2", TestContext.CancellationToken).ConfigureAwait(false);
@@ -216,9 +219,9 @@ public class PersistenceProviderTests
 	public void FileSystem_Properties()
 	{
 		string tempDir = Path.Combine(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
-		FileSystemProviders.Native fs = new();
+		NativeFileSystemProvider fs = new();
 		JsonSerializationProvider serializer = new();
-		FileSystem<string> persistence = new(fs, serializer, tempDir);
+		FileSystemPersistenceProvider<string> persistence = new(fs, serializer, tempDir);
 
 		Assert.AreEqual("FileSystem", persistence.ProviderName);
 		Assert.IsTrue(persistence.IsPersistent);
@@ -227,12 +230,12 @@ public class PersistenceProviderTests
 	// --- AppData Provider Tests ---
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task AppData_Store_And_Retrieve()
+	public async Task AppData_Store_And_Retrieve()
 	{
 		string appName = "PersistenceTests_AD_" + Guid.NewGuid().ToString("N")[..8];
-		FileSystemProviders.Native fs = new();
+		NativeFileSystemProvider fs = new();
 		JsonSerializationProvider serializer = new();
-		AppData<string> persistence = new(fs, serializer, appName);
+		AppDataPersistenceProvider<string> persistence = new(fs, serializer, appName);
 
 		try
 		{
@@ -251,12 +254,12 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task AppData_Exists_And_Remove()
+	public async Task AppData_Exists_And_Remove()
 	{
 		string appName = "PersistenceTests_AD_" + Guid.NewGuid().ToString("N")[..8];
-		FileSystemProviders.Native fs = new();
+		NativeFileSystemProvider fs = new();
 		JsonSerializationProvider serializer = new();
-		AppData<string> persistence = new(fs, serializer, appName);
+		AppDataPersistenceProvider<string> persistence = new(fs, serializer, appName);
 
 		try
 		{
@@ -278,9 +281,9 @@ public class PersistenceProviderTests
 	public void AppData_Properties()
 	{
 		string appName = "PersistenceTests_AD_" + Guid.NewGuid().ToString("N")[..8];
-		FileSystemProviders.Native fs = new();
+		NativeFileSystemProvider fs = new();
 		JsonSerializationProvider serializer = new();
-		AppData<string> persistence = new(fs, serializer, appName);
+		AppDataPersistenceProvider<string> persistence = new(fs, serializer, appName);
 
 		Assert.AreEqual("AppData", persistence.ProviderName);
 		Assert.IsTrue(persistence.IsPersistent);
@@ -289,11 +292,11 @@ public class PersistenceProviderTests
 	// --- Temp Provider Tests ---
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task Temp_Store_And_Retrieve()
+	public async Task Temp_Store_And_Retrieve()
 	{
-		FileSystemProviders.Native fs = new();
+		NativeFileSystemProvider fs = new();
 		JsonSerializationProvider serializer = new();
-		using Temp<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
+		using TempPersistenceProvider<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
 
 		try
 		{
@@ -310,11 +313,11 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task Temp_Exists_And_Remove()
+	public async Task Temp_Exists_And_Remove()
 	{
-		FileSystemProviders.Native fs = new();
+		NativeFileSystemProvider fs = new();
 		JsonSerializationProvider serializer = new();
-		using Temp<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
+		using TempPersistenceProvider<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
 
 		try
 		{
@@ -332,11 +335,11 @@ public class PersistenceProviderTests
 	}
 
 	[TestMethod]
-	public async System.Threading.Tasks.Task Temp_GetAllKeys_And_Clear()
+	public async Task Temp_GetAllKeys_And_Clear()
 	{
-		FileSystemProviders.Native fs = new();
+		NativeFileSystemProvider fs = new();
 		JsonSerializationProvider serializer = new();
-		using Temp<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
+		using TempPersistenceProvider<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
 
 		try
 		{
@@ -359,9 +362,9 @@ public class PersistenceProviderTests
 	[TestMethod]
 	public void Temp_Properties()
 	{
-		FileSystemProviders.Native fs = new();
+		NativeFileSystemProvider fs = new();
 		JsonSerializationProvider serializer = new();
-		using Temp<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
+		using TempPersistenceProvider<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
 
 		try
 		{

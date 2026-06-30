@@ -5,10 +5,41 @@
 namespace ktsu.Essentials.Tests;
 
 using ktsu.Essentials;
-using ktsu.Essentials.CompressionProviders;
-using ktsu.Essentials.EncryptionProviders;
-using ktsu.Essentials.HashProviders;
-using ktsu.Essentials.ObfuscationProviders;
+using ktsu.Essentials.CacheProviders.InMemory;
+using ktsu.Essentials.CommandExecutors.Native;
+using ktsu.Essentials.CompressionProviders.Brotli;
+using ktsu.Essentials.CompressionProviders.Deflate;
+using ktsu.Essentials.CompressionProviders.Gzip;
+using ktsu.Essentials.CompressionProviders.ZLib;
+using ktsu.Essentials.EncodingProviders.Base64;
+using ktsu.Essentials.EncodingProviders.Hex;
+using ktsu.Essentials.EncryptionProviders.Aes;
+using ktsu.Essentials.FileSystemProviders.Native;
+using ktsu.Essentials.HashProviders.CRC32;
+using ktsu.Essentials.HashProviders.CRC64;
+using ktsu.Essentials.HashProviders.FNV1_32;
+using ktsu.Essentials.HashProviders.FNV1_64;
+using ktsu.Essentials.HashProviders.FNV1a_32;
+using ktsu.Essentials.HashProviders.FNV1a_64;
+using ktsu.Essentials.HashProviders.MD5;
+using ktsu.Essentials.HashProviders.SHA1;
+using ktsu.Essentials.HashProviders.SHA256;
+using ktsu.Essentials.HashProviders.SHA384;
+using ktsu.Essentials.HashProviders.SHA512;
+using ktsu.Essentials.HashProviders.XxHash128;
+using ktsu.Essentials.HashProviders.XxHash3;
+using ktsu.Essentials.HashProviders.XxHash32;
+using ktsu.Essentials.HashProviders.XxHash64;
+using ktsu.Essentials.LoggingProviders.Console;
+using ktsu.Essentials.NavigationProviders.InMemory;
+using ktsu.Essentials.ObfuscationProviders.Base64;
+using ktsu.Essentials.ObfuscationProviders.BitRotate;
+using ktsu.Essentials.ObfuscationProviders.Caesar;
+using ktsu.Essentials.ObfuscationProviders.Composite;
+using ktsu.Essentials.ObfuscationProviders.Hex;
+using ktsu.Essentials.ObfuscationProviders.Reverse;
+using ktsu.Essentials.ObfuscationProviders.Xor;
+using ktsu.Essentials.PersistenceProviders.InMemory;
 using ktsu.Essentials.SerializationProviders.Json;
 using ktsu.Essentials.SerializationProviders.Toml;
 using ktsu.Essentials.SerializationProviders.Yaml;
@@ -35,54 +66,54 @@ public static class ServiceCollectionExtensions
 
 	public static ServiceCollection AddCompressionProviders(this ServiceCollection services)
 	{
-		services.AddSingleton<ICompressionProvider, Gzip>();
-		services.AddSingleton<ICompressionProvider, Brotli>();
-		services.AddSingleton<ICompressionProvider, Deflate>();
-		services.AddSingleton<ICompressionProvider, ZLib>();
+		services.AddSingleton<ICompressionProvider, GzipCompressionProvider>();
+		services.AddSingleton<ICompressionProvider, BrotliCompressionProvider>();
+		services.AddSingleton<ICompressionProvider, DeflateCompressionProvider>();
+		services.AddSingleton<ICompressionProvider, ZLibCompressionProvider>();
 		return services;
 	}
 
 	public static ServiceCollection AddEncryptionProviders(this ServiceCollection services)
 	{
-		services.AddSingleton<IEncryptionProvider, Aes>();
+		services.AddSingleton<IEncryptionProvider, AesEncryptionProvider>();
 		return services;
 	}
 
 	public static ServiceCollection AddObfuscationProviders(this ServiceCollection services)
 	{
-		services.AddSingleton<IObfuscationProvider, Xor>();
-		services.AddSingleton<IObfuscationProvider, Caesar>();
-		services.AddSingleton<IObfuscationProvider, Reverse>();
-		services.AddSingleton<IObfuscationProvider, BitRotate>();
-		services.AddSingleton<IObfuscationProvider>(_ => new ObfuscationProviders.Base64());
-		services.AddSingleton<IObfuscationProvider>(_ => new ObfuscationProviders.Hex());
-		services.AddSingleton<IObfuscationProvider>(_ => new Composite([new Xor(), new BitRotate()]));
+		services.AddSingleton<IObfuscationProvider, XorObfuscationProvider>();
+		services.AddSingleton<IObfuscationProvider, CaesarObfuscationProvider>();
+		services.AddSingleton<IObfuscationProvider, ReverseObfuscationProvider>();
+		services.AddSingleton<IObfuscationProvider, BitRotateObfuscationProvider>();
+		services.AddSingleton<IObfuscationProvider>(_ => new Base64ObfuscationProvider());
+		services.AddSingleton<IObfuscationProvider>(_ => new HexObfuscationProvider());
+		services.AddSingleton<IObfuscationProvider>(_ => new CompositeObfuscationProvider([new XorObfuscationProvider(), new BitRotateObfuscationProvider()]));
 		return services;
 	}
 
 	public static ServiceCollection AddFileSystemProviders(this ServiceCollection services)
 	{
-		services.AddSingleton<IFileSystemProvider, FileSystemProviders.Native>();
+		services.AddSingleton<IFileSystemProvider, NativeFileSystemProvider>();
 		return services;
 	}
 
 	public static ServiceCollection AddHashProviders(this ServiceCollection services)
 	{
-		services.AddSingleton<IHashProvider, SHA1>();
-		services.AddSingleton<IHashProvider, SHA256>();
-		services.AddSingleton<IHashProvider, SHA384>();
-		services.AddSingleton<IHashProvider, SHA512>();
-		services.AddSingleton<IHashProvider, MD5>();
-		services.AddSingleton<IHashProvider, FNV1_32>();
-		services.AddSingleton<IHashProvider, FNV1_64>();
-		services.AddSingleton<IHashProvider, FNV1a_32>();
-		services.AddSingleton<IHashProvider, FNV1a_64>();
-		services.AddSingleton<IHashProvider, CRC32>();
-		services.AddSingleton<IHashProvider, CRC64>();
-		services.AddSingleton<IHashProvider, XxHash32>();
-		services.AddSingleton<IHashProvider, XxHash64>();
-		services.AddSingleton<IHashProvider, XxHash3>();
-		services.AddSingleton<IHashProvider, XxHash128>();
+		services.AddSingleton<IHashProvider, SHA1HashProvider>();
+		services.AddSingleton<IHashProvider, SHA256HashProvider>();
+		services.AddSingleton<IHashProvider, SHA384HashProvider>();
+		services.AddSingleton<IHashProvider, SHA512HashProvider>();
+		services.AddSingleton<IHashProvider, MD5HashProvider>();
+		services.AddSingleton<IHashProvider, FNV1_32HashProvider>();
+		services.AddSingleton<IHashProvider, FNV1_64HashProvider>();
+		services.AddSingleton<IHashProvider, FNV1a_32HashProvider>();
+		services.AddSingleton<IHashProvider, FNV1a_64HashProvider>();
+		services.AddSingleton<IHashProvider, CRC32HashProvider>();
+		services.AddSingleton<IHashProvider, CRC64HashProvider>();
+		services.AddSingleton<IHashProvider, XxHash32HashProvider>();
+		services.AddSingleton<IHashProvider, XxHash64HashProvider>();
+		services.AddSingleton<IHashProvider, XxHash3HashProvider>();
+		services.AddSingleton<IHashProvider, XxHash128HashProvider>();
 		return services;
 	}
 
@@ -96,38 +127,38 @@ public static class ServiceCollectionExtensions
 
 	public static ServiceCollection AddEncodingProviders(this ServiceCollection services)
 	{
-		services.AddSingleton<IEncodingProvider, EncodingProviders.Base64>();
-		services.AddSingleton<IEncodingProvider, EncodingProviders.Hex>();
+		services.AddSingleton<IEncodingProvider, Base64EncodingProvider>();
+		services.AddSingleton<IEncodingProvider, HexEncodingProvider>();
 		return services;
 	}
 
 	public static ServiceCollection AddCommandExecutors(this ServiceCollection services)
 	{
-		services.AddSingleton<ICommandExecutor, CommandExecutors.Native>();
+		services.AddSingleton<ICommandExecutor, NativeCommandExecutor>();
 		return services;
 	}
 
 	public static ServiceCollection AddLoggingProviders(this ServiceCollection services)
 	{
-		services.AddSingleton<ILoggingProvider, LoggingProviders.Console>();
+		services.AddSingleton<ILoggingProvider, ConsoleLoggingProvider>();
 		return services;
 	}
 
 	public static ServiceCollection AddCacheProviders(this ServiceCollection services)
 	{
-		services.AddSingleton(typeof(ICacheProvider<,>), typeof(CacheProviders.InMemory<,>));
+		services.AddSingleton(typeof(ICacheProvider<,>), typeof(InMemoryCacheProvider<,>));
 		return services;
 	}
 
 	public static ServiceCollection AddNavigationProviders(this ServiceCollection services)
 	{
-		services.AddTransient(typeof(INavigationProvider<>), typeof(NavigationProviders.InMemory<>));
+		services.AddTransient(typeof(INavigationProvider<>), typeof(InMemoryNavigationProvider<>));
 		return services;
 	}
 
 	public static ServiceCollection AddPersistenceProviders(this ServiceCollection services)
 	{
-		services.AddSingleton(typeof(IPersistenceProvider<>), typeof(PersistenceProviders.InMemory<>));
+		services.AddSingleton(typeof(IPersistenceProvider<>), typeof(InMemoryPersistenceProvider<>));
 		return services;
 	}
 }
