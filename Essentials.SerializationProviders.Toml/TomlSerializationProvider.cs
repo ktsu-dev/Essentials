@@ -2,7 +2,7 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.Essentials.SerializationProviders;
+namespace ktsu.Essentials.SerializationProviders.Toml;
 
 using ktsu.Essentials;
 using System;
@@ -17,7 +17,7 @@ using Tomlyn.Model;
 /// <summary>
 /// A serialization provider that uses Tomlyn for serializing and deserializing objects.
 /// </summary>
-public class Toml : ISerializationProvider
+public class TomlSerializationProvider : ISerializationProvider
 {
 	/// <summary>
 	/// Tries to serialize the specified object into the writer.

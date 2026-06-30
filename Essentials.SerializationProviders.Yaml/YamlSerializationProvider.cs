@@ -2,22 +2,28 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
-namespace ktsu.Essentials.SerializationProviders;
+namespace ktsu.Essentials.SerializationProviders.Yaml;
 
 using ktsu.Essentials;
 using System;
 using System.IO;
-using System.Text.Json;
+using System.Text;
+using YamlDotNet.Core;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 /// <summary>
-/// A serialization provider that uses System.Text.Json for serializing and deserializing objects.
+/// A serialization provider that uses YamlDotNet for serializing and deserializing objects.
 /// </summary>
-public class Json : ISerializationProvider
+public class YamlSerializationProvider : ISerializationProvider
 {
-	private readonly JsonSerializerOptions options = new()
-	{
-		WriteIndented = true,
-	};
+	private readonly IDeserializer deserializer = new DeserializerBuilder()
+		.WithNamingConvention(CamelCaseNamingConvention.Instance)
+		.Build();
+
+	private readonly ISerializer serializer = new SerializerBuilder()
+		.WithNamingConvention(CamelCaseNamingConvention.Instance)
+		.Build();
 
 	/// <summary>
 	/// Tries to serialize the specified object into the writer.
@@ -34,15 +40,10 @@ public class Json : ISerializationProvider
 
 		try
 		{
-			string json = JsonSerializer.Serialize(obj, options);
-			writer.Write(json);
+			serializer.Serialize(writer, obj);
 			return true;
 		}
-		catch (JsonException)
-		{
-			return false;
-		}
-		catch (NotSupportedException)
+		catch (YamlException)
 		{
 			return false;
 		}
@@ -71,13 +72,14 @@ public class Json : ISerializationProvider
 
 		try
 		{
-			return JsonSerializer.Deserialize<T>(data, options);
+			string content = Encoding.UTF8.GetString(data);
+			return deserializer.Deserialize<T>(content);
 		}
-		catch (JsonException)
+		catch (YamlException)
 		{
 			return default;
 		}
-		catch (NotSupportedException)
+		catch (InvalidOperationException)
 		{
 			return default;
 		}

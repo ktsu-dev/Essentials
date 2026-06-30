@@ -8,6 +8,7 @@ using System;
 using System.IO;
 using ktsu.Essentials;
 using ktsu.Essentials.PersistenceProviders;
+using ktsu.Essentials.SerializationProviders.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -147,7 +148,7 @@ public class PersistenceProviderTests
 		try
 		{
 			FileSystemProviders.Native fs = new();
-			SerializationProviders.Json serializer = new();
+			JsonSerializationProvider serializer = new();
 			FileSystem<string> persistence = new(fs, serializer, tempDir);
 
 			await persistence.StoreAsync("key1", new TestData { Name = "test" }, TestContext.CancellationToken).ConfigureAwait(false);
@@ -169,7 +170,7 @@ public class PersistenceProviderTests
 		try
 		{
 			FileSystemProviders.Native fs = new();
-			SerializationProviders.Json serializer = new();
+			JsonSerializationProvider serializer = new();
 			FileSystem<string> persistence = new(fs, serializer, tempDir);
 
 			await persistence.StoreAsync("key1", "value1", TestContext.CancellationToken).ConfigureAwait(false);
@@ -192,7 +193,7 @@ public class PersistenceProviderTests
 		try
 		{
 			FileSystemProviders.Native fs = new();
-			SerializationProviders.Json serializer = new();
+			JsonSerializationProvider serializer = new();
 			FileSystem<string> persistence = new(fs, serializer, tempDir);
 
 			await persistence.StoreAsync("a", "1", TestContext.CancellationToken).ConfigureAwait(false);
@@ -216,7 +217,7 @@ public class PersistenceProviderTests
 	{
 		string tempDir = Path.Combine(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
 		FileSystemProviders.Native fs = new();
-		SerializationProviders.Json serializer = new();
+		JsonSerializationProvider serializer = new();
 		FileSystem<string> persistence = new(fs, serializer, tempDir);
 
 		Assert.AreEqual("FileSystem", persistence.ProviderName);
@@ -230,7 +231,7 @@ public class PersistenceProviderTests
 	{
 		string appName = "PersistenceTests_AD_" + Guid.NewGuid().ToString("N")[..8];
 		FileSystemProviders.Native fs = new();
-		SerializationProviders.Json serializer = new();
+		JsonSerializationProvider serializer = new();
 		AppData<string> persistence = new(fs, serializer, appName);
 
 		try
@@ -254,7 +255,7 @@ public class PersistenceProviderTests
 	{
 		string appName = "PersistenceTests_AD_" + Guid.NewGuid().ToString("N")[..8];
 		FileSystemProviders.Native fs = new();
-		SerializationProviders.Json serializer = new();
+		JsonSerializationProvider serializer = new();
 		AppData<string> persistence = new(fs, serializer, appName);
 
 		try
@@ -278,7 +279,7 @@ public class PersistenceProviderTests
 	{
 		string appName = "PersistenceTests_AD_" + Guid.NewGuid().ToString("N")[..8];
 		FileSystemProviders.Native fs = new();
-		SerializationProviders.Json serializer = new();
+		JsonSerializationProvider serializer = new();
 		AppData<string> persistence = new(fs, serializer, appName);
 
 		Assert.AreEqual("AppData", persistence.ProviderName);
@@ -291,7 +292,7 @@ public class PersistenceProviderTests
 	public async System.Threading.Tasks.Task Temp_Store_And_Retrieve()
 	{
 		FileSystemProviders.Native fs = new();
-		SerializationProviders.Json serializer = new();
+		JsonSerializationProvider serializer = new();
 		using Temp<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
 
 		try
@@ -312,7 +313,7 @@ public class PersistenceProviderTests
 	public async System.Threading.Tasks.Task Temp_Exists_And_Remove()
 	{
 		FileSystemProviders.Native fs = new();
-		SerializationProviders.Json serializer = new();
+		JsonSerializationProvider serializer = new();
 		using Temp<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
 
 		try
@@ -334,7 +335,7 @@ public class PersistenceProviderTests
 	public async System.Threading.Tasks.Task Temp_GetAllKeys_And_Clear()
 	{
 		FileSystemProviders.Native fs = new();
-		SerializationProviders.Json serializer = new();
+		JsonSerializationProvider serializer = new();
 		using Temp<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
 
 		try
@@ -359,7 +360,7 @@ public class PersistenceProviderTests
 	public void Temp_Properties()
 	{
 		FileSystemProviders.Native fs = new();
-		SerializationProviders.Json serializer = new();
+		JsonSerializationProvider serializer = new();
 		using Temp<string> persistence = new(fs, serializer, "PersistenceTests_Temp");
 
 		try

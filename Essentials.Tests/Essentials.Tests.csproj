@@ -44,9 +44,9 @@
     <ProjectReference Include="..\HashProviders\XxHash128\XxHash128.csproj" />
     <ProjectReference Include="..\EncodingProviders\Base64\Base64.csproj" />
     <ProjectReference Include="..\EncodingProviders\Hex\Hex.csproj" />
-    <ProjectReference Include="..\SerializationProviders\Json\Json.csproj" />
-    <ProjectReference Include="..\SerializationProviders\Yaml\Yaml.csproj" />
-    <ProjectReference Include="..\SerializationProviders\Toml\Toml.csproj" />
+    <ProjectReference Include="..\Essentials.SerializationProviders.Json\Essentials.SerializationProviders.Json.csproj" />
+    <ProjectReference Include="..\Essentials.SerializationProviders.Yaml\Essentials.SerializationProviders.Yaml.csproj" />
+    <ProjectReference Include="..\Essentials.SerializationProviders.Toml\Essentials.SerializationProviders.Toml.csproj" />
     <ProjectReference Include="..\CommandExecutors\Native\Native.csproj" />
     <ProjectReference Include="..\LoggingProviders\Console\Console.csproj" />
     <ProjectReference Include="..\CacheProviders\InMemory\InMemory.csproj" />

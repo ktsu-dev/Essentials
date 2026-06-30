@@ -116,7 +116,7 @@ public class DiTests
 		Assert.HasCount(3, providers, "Should resolve all 3 serialization providers");
 
 		// Verify all expected types are present
-		string[] expectedTypes = ["Json", "Toml", "Yaml"];
+		string[] expectedTypes = ["JsonSerializationProvider", "TomlSerializationProvider", "YamlSerializationProvider"];
 		string[] actualTypes = [.. providers.Select(p => p.GetType().Name).OrderBy(n => n)];
 		CollectionAssert.AreEquivalent(expectedTypes, actualTypes);
 	}

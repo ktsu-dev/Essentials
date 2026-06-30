@@ -66,9 +66,9 @@
     <Project Path="PersistenceProviders/Temp/Temp.csproj" />
   </Folder>
   <Folder Name="/SerializationProviders/">
-    <Project Path="SerializationProviders/Json/Json.csproj" />
-    <Project Path="SerializationProviders/Toml/Toml.csproj" />
-    <Project Path="SerializationProviders/Yaml/Yaml.csproj" />
+    <Project Path="Essentials.SerializationProviders.Json/Essentials.SerializationProviders.Json.csproj" />
+    <Project Path="Essentials.SerializationProviders.Toml/Essentials.SerializationProviders.Toml.csproj" />
+    <Project Path="Essentials.SerializationProviders.Yaml/Essentials.SerializationProviders.Yaml.csproj" />
   </Folder>
   <Project Path="Essentials/Essentials.csproj" />
   <Project Path="Essentials.Tests/Essentials.Tests.csproj" />
