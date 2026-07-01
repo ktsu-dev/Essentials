@@ -1,8 +1,4 @@
-## v1.1.1 (patch)
+## v1.1.3
 
-Changes since v1.1.0:
-
-- chore: remove unused SourceLink package versions ([@matt-edmondson](https://github.com/matt-edmondson))
-- chore: simplify package references and drop redundant SourceLink deps ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove stale files ([@matt-edmondson](https://github.com/matt-edmondson))
+No significant changes detected since v1.1.3.
 

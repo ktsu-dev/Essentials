@@ -1,3 +1,20 @@
+## v1.1.3
+
+No significant changes detected since v1.1.3.
+
+## v1.1.3 (patch)
+
+Changes since v1.1.2:
+
+- [patch] fix(core): disable strict ApiCompat package validation ([@matt-edmondson](https://github.com/matt-edmondson))
+- [patch] fix(providers): derive package ids and disable strict ApiCompat ([@matt-edmondson](https://github.com/matt-edmondson))
+
+## v1.1.2 (patch)
+
+Changes since v1.1.1:
+
+- [patch] Pin Testably.Abstractions.FileSystem.Interface to stable 10.0.0 ([@matt-edmondson](https://github.com/matt-edmondson))
+
 ## v1.1.1 (patch)
 
 Changes since v1.1.0:
