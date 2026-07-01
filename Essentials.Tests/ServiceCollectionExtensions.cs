@@ -41,6 +41,7 @@ using ktsu.Essentials.ObfuscationProviders.Reverse;
 using ktsu.Essentials.ObfuscationProviders.Xor;
 using ktsu.Essentials.PersistenceProviders.InMemory;
 using ktsu.Essentials.SerializationProviders.Json;
+using ktsu.Essentials.SerializationProviders.NewtonsoftJson;
 using ktsu.Essentials.SerializationProviders.Toml;
 using ktsu.Essentials.SerializationProviders.Yaml;
 using Microsoft.Extensions.DependencyInjection;
@@ -120,6 +121,7 @@ public static class ServiceCollectionExtensions
 	public static ServiceCollection AddSerializationProviders(this ServiceCollection services)
 	{
 		services.AddSingleton<ISerializationProvider, JsonSerializationProvider>();
+		services.AddSingleton<ISerializationProvider, NewtonsoftJsonSerializationProvider>();
 		services.AddSingleton<ISerializationProvider, YamlSerializationProvider>();
 		services.AddSingleton<ISerializationProvider, TomlSerializationProvider>();
 		return services;

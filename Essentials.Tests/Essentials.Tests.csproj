@@ -45,6 +45,7 @@
     <ProjectReference Include="..\Essentials.EncodingProviders.Base64\Essentials.EncodingProviders.Base64.csproj" />
     <ProjectReference Include="..\Essentials.EncodingProviders.Hex\Essentials.EncodingProviders.Hex.csproj" />
     <ProjectReference Include="..\Essentials.SerializationProviders.Json\Essentials.SerializationProviders.Json.csproj" />
+    <ProjectReference Include="..\Essentials.SerializationProviders.NewtonsoftJson\Essentials.SerializationProviders.NewtonsoftJson.csproj" />
     <ProjectReference Include="..\Essentials.SerializationProviders.Yaml\Essentials.SerializationProviders.Yaml.csproj" />
     <ProjectReference Include="..\Essentials.SerializationProviders.Toml\Essentials.SerializationProviders.Toml.csproj" />
     <ProjectReference Include="..\Essentials.CommandExecutors.Native\Essentials.CommandExecutors.Native.csproj" />

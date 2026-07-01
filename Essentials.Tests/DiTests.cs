@@ -116,10 +116,10 @@ public class DiTests
 		IEnumerable<ISerializationProvider> serializationProviders = serviceProvider.GetServices<ISerializationProvider>();
 		ISerializationProvider[] providers = [.. serializationProviders];
 
-		Assert.HasCount(3, providers, "Should resolve all 3 serialization providers");
+		Assert.HasCount(4, providers, "Should resolve all 4 serialization providers");
 
 		// Verify all expected types are present
-		string[] expectedTypes = ["JsonSerializationProvider", "TomlSerializationProvider", "YamlSerializationProvider"];
+		string[] expectedTypes = ["JsonSerializationProvider", "NewtonsoftJsonSerializationProvider", "TomlSerializationProvider", "YamlSerializationProvider"];
 		string[] actualTypes = [.. providers.Select(p => p.GetType().Name).OrderBy(n => n)];
 		CollectionAssert.AreEquivalent(expectedTypes, actualTypes);
 	}
