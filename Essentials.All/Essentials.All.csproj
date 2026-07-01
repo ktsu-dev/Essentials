@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="ktsu.Sdk" />
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net9.0;net8.0;net7.0;net6.0;netstandard2.1</TargetFrameworks>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <Description>Batteries-included meta-package that references every ktsu.Essentials provider implementation.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Essentials.CacheProviders.InMemory\Essentials.CacheProviders.InMemory.csproj" />
+    <ProjectReference Include="..\Essentials.CommandExecutors.Native\Essentials.CommandExecutors.Native.csproj" />
+    <ProjectReference Include="..\Essentials.CompressionProviders.Brotli\Essentials.CompressionProviders.Brotli.csproj" />
+    <ProjectReference Include="..\Essentials.CompressionProviders.Deflate\Essentials.CompressionProviders.Deflate.csproj" />
+    <ProjectReference Include="..\Essentials.CompressionProviders.Gzip\Essentials.CompressionProviders.Gzip.csproj" />
+    <!-- ZLib targets net6.0+ only (requires ZLibStream); excluded from netstandard2.1 -->
+    <ProjectReference Include="..\Essentials.CompressionProviders.ZLib\Essentials.CompressionProviders.ZLib.csproj" Condition="'$(TargetFramework)' != 'netstandard2.1'" />
+    <ProjectReference Include="..\Essentials.EncodingProviders.Base64\Essentials.EncodingProviders.Base64.csproj" />
+    <ProjectReference Include="..\Essentials.EncodingProviders.Hex\Essentials.EncodingProviders.Hex.csproj" />
+    <ProjectReference Include="..\Essentials.EncryptionProviders.Aes\Essentials.EncryptionProviders.Aes.csproj" />
+    <ProjectReference Include="..\Essentials.FileSystemProviders.Native\Essentials.FileSystemProviders.Native.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.CRC32\Essentials.HashProviders.CRC32.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.CRC64\Essentials.HashProviders.CRC64.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.FNV1_32\Essentials.HashProviders.FNV1_32.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.FNV1_64\Essentials.HashProviders.FNV1_64.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.FNV1a_32\Essentials.HashProviders.FNV1a_32.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.FNV1a_64\Essentials.HashProviders.FNV1a_64.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.MD5\Essentials.HashProviders.MD5.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.SHA1\Essentials.HashProviders.SHA1.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.SHA256\Essentials.HashProviders.SHA256.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.SHA384\Essentials.HashProviders.SHA384.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.SHA512\Essentials.HashProviders.SHA512.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.XxHash128\Essentials.HashProviders.XxHash128.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.XxHash3\Essentials.HashProviders.XxHash3.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.XxHash32\Essentials.HashProviders.XxHash32.csproj" />
+    <ProjectReference Include="..\Essentials.HashProviders.XxHash64\Essentials.HashProviders.XxHash64.csproj" />
+    <ProjectReference Include="..\Essentials.LoggingProviders.Console\Essentials.LoggingProviders.Console.csproj" />
+    <ProjectReference Include="..\Essentials.NavigationProviders.InMemory\Essentials.NavigationProviders.InMemory.csproj" />
+    <ProjectReference Include="..\Essentials.ObfuscationProviders.Base64\Essentials.ObfuscationProviders.Base64.csproj" />
+    <ProjectReference Include="..\Essentials.ObfuscationProviders.BitRotate\Essentials.ObfuscationProviders.BitRotate.csproj" />
+    <ProjectReference Include="..\Essentials.ObfuscationProviders.Caesar\Essentials.ObfuscationProviders.Caesar.csproj" />
+    <ProjectReference Include="..\Essentials.ObfuscationProviders.Composite\Essentials.ObfuscationProviders.Composite.csproj" />
+    <ProjectReference Include="..\Essentials.ObfuscationProviders.Hex\Essentials.ObfuscationProviders.Hex.csproj" />
+    <ProjectReference Include="..\Essentials.ObfuscationProviders.Reverse\Essentials.ObfuscationProviders.Reverse.csproj" />
+    <ProjectReference Include="..\Essentials.ObfuscationProviders.Xor\Essentials.ObfuscationProviders.Xor.csproj" />
+    <ProjectReference Include="..\Essentials.PersistenceProviders.AppData\Essentials.PersistenceProviders.AppData.csproj" />
+    <ProjectReference Include="..\Essentials.PersistenceProviders.FileSystem\Essentials.PersistenceProviders.FileSystem.csproj" />
+    <ProjectReference Include="..\Essentials.PersistenceProviders.InMemory\Essentials.PersistenceProviders.InMemory.csproj" />
+    <ProjectReference Include="..\Essentials.PersistenceProviders.Temp\Essentials.PersistenceProviders.Temp.csproj" />
+    <ProjectReference Include="..\Essentials.SerializationProviders.Json\Essentials.SerializationProviders.Json.csproj" />
+    <ProjectReference Include="..\Essentials.SerializationProviders.NewtonsoftJson\Essentials.SerializationProviders.NewtonsoftJson.csproj" />
+    <ProjectReference Include="..\Essentials.SerializationProviders.Toml\Essentials.SerializationProviders.Toml.csproj" />
+    <ProjectReference Include="..\Essentials.SerializationProviders.Yaml\Essentials.SerializationProviders.Yaml.csproj" />
+  </ItemGroup>
+
+</Project>

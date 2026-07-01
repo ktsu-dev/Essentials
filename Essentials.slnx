@@ -71,6 +71,7 @@
     <Project Path="Essentials.SerializationProviders.Yaml/Essentials.SerializationProviders.Yaml.csproj" />
   </Folder>
   <Project Path="Essentials/Essentials.csproj" />
+  <Project Path="Essentials.All/Essentials.All.csproj" />
   <Project Path="Essentials.SerializationProviders.NewtonsoftJson/Essentials.SerializationProviders.NewtonsoftJson.csproj" />
   <Project Path="Essentials.Tests/Essentials.Tests.csproj" />
 </Solution>
