@@ -19,7 +19,7 @@ dotnet build -c Release
 
 ## Project Structure
 
-This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces and implementations for common cross-cutting concerns: compression, encoding, encryption, hashing, serialization, caching, persistence, validation, logging, navigation, command execution, and filesystem access. The solution uses:
+This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces and implementations for common cross-cutting concerns: compression, encoding, obfuscation, encryption, hashing, serialization, caching, persistence, validation, logging, navigation, command execution, and filesystem access. The solution uses:
 
 - **ktsu.Sdk** - Custom SDK providing shared build configuration
 - **MSTest.Sdk** - Test project SDK with Microsoft Testing Platform
@@ -29,6 +29,7 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 
 - `Essentials/ICompressionProvider.cs` - Compression/decompression interface with Span, Stream, and string support
 - `Essentials/IEncodingProvider.cs` - Format/transport encoding interface (Base64, Hex)
+- `Essentials/IObfuscationProvider.cs` - Reversible obfuscation interface (NOT encryption); implementations compose encoding transforms and simple byte operations
 - `Essentials/IEncryptionProvider.cs` - Encryption/decryption interface with key/IV management
 - `Essentials/IHashProvider.cs` - Hashing interface with configurable output length
 - `Essentials/ISerializationProvider.cs` - Object serialization/deserialization interface
@@ -46,21 +47,26 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 
 ### Provider Implementations (in solution)
 
-- **CompressionProviders/**: Gzip, Brotli, Deflate, ZLib — namespace `ktsu.Essentials.CompressionProviders`
-- **EncodingProviders/**: Base64, Hex — namespace `ktsu.Essentials.EncodingProviders`
-- **EncryptionProviders/**: Aes — namespace `ktsu.Essentials.EncryptionProviders`
-- **HashProviders/**: MD5, SHA1, SHA256, SHA384, SHA512, FNV1_32, FNV1a_32, FNV1_64, FNV1a_64, CRC32, CRC64, XxHash32, XxHash64, XxHash3, XxHash128 — namespace `ktsu.Essentials.HashProviders`
-- **SerializationProviders/**: Json, Yaml, Toml — namespace `ktsu.Essentials.SerializationProviders`
-- **FileSystemProviders/**: Native — namespace `ktsu.Essentials.FileSystemProviders`
-- **CommandExecutors/**: Native — namespace `ktsu.Essentials.CommandExecutors`
-- **LoggingProviders/**: Console — namespace `ktsu.Essentials.LoggingProviders`
-- **CacheProviders/**: InMemory — namespace `ktsu.Essentials.CacheProviders`
-- **NavigationProviders/**: InMemory — namespace `ktsu.Essentials.NavigationProviders`
-- **PersistenceProviders/**: AppData, FileSystem, InMemory, Temp — namespace `ktsu.Essentials.PersistenceProviders`
+Each provider implementation ships as its own project/package named `Essentials.<Category>.<Impl>` (NuGet id `ktsu.Essentials.<Category>.<Impl>`):
 
-### Namespace Convention
+- **CompressionProviders**: Gzip, Brotli, Deflate, ZLib (ZLib targets net6.0+ only, not netstandard2.1)
+- **EncodingProviders**: Base64, Hex
+- **ObfuscationProviders**: Xor, Caesar, Reverse, BitRotate, Base64, Hex, Composite
+- **EncryptionProviders**: Aes
+- **HashProviders**: MD5, SHA1, SHA256, SHA384, SHA512, FNV1_32, FNV1a_32, FNV1_64, FNV1a_64, CRC32, CRC64, XxHash32, XxHash64, XxHash3, XxHash128
+- **SerializationProviders**: Json (System.Text.Json), NewtonsoftJson, Yaml, Toml
+- **FileSystemProviders**: Native
+- **CommandExecutors**: Native
+- **LoggingProviders**: Console
+- **CacheProviders**: InMemory
+- **NavigationProviders**: InMemory
+- **PersistenceProviders**: AppData, FileSystem, InMemory, Temp
 
-Interfaces are defined in the `ktsu.Essentials` namespace (in the `Essentials/` directory). Provider implementations use sub-namespaces matching their category directory: `ktsu.Essentials.<Category>`. For example, `SHA256` is in `ktsu.Essentials.HashProviders` and `Gzip` is in `ktsu.Essentials.CompressionProviders`.
+The **`Essentials.All`** project (`ktsu.Essentials.All`) is a meta-package that references every provider implementation for a one-install "batteries-included" experience; consumers can otherwise cherry-pick individual provider packages.
+
+### Namespace & Naming Convention
+
+Interfaces are defined in the `ktsu.Essentials` namespace (in the `Essentials/` directory). Each provider implementation lives in its own directory `Essentials.<Category>.<Impl>/`, in namespace `ktsu.Essentials.<Category>.<Impl>`, with the class named `<Impl><Category-singular>Provider`. For example, the SHA-256 hash provider is class `SHA256HashProvider` in namespace `ktsu.Essentials.HashProviders.SHA256`, and the XOR obfuscator is class `XorObfuscationProvider` in `ktsu.Essentials.ObfuscationProviders.Xor`. Higher-level concerns compose primitives rather than duplicating them: configuration is an `IPersistenceProvider<TKey>` over a serializer, and each obfuscator composes an encoding transform or a simple reversible byte operation. Obfuscators that wrap an `IEncodingProvider` (Base64, Hex) keep both a parameterless and an encoder-accepting constructor public and are registered via a DI factory lambda to avoid greedy-constructor selection.
 
 ### Dependencies
 
@@ -95,6 +101,7 @@ Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.T
 - `CacheProviderTests.cs` - Tests cache operations including expiration
 - `CommandExecutorTests.cs` - Tests command execution
 - `EncodingProviderTests.cs` - Tests Base64 and Hex encoding
+- `ObfuscationProviderTests.cs` - Tests all obfuscation providers via round-trip (obfuscate → deobfuscate)
 - `FileSystemProviderTests.cs` - Tests filesystem operations
 - `LoggingProviderTests.cs` - Tests logging provider
 - `NavigationProviderTests.cs` - Tests navigation stack behavior

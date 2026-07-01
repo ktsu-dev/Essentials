@@ -1,6 +1,6 @@
 # ktsu.Essentials
 
-> A comprehensive .NET library providing high-performance interfaces and implementations for common cross-cutting concerns including compression, encoding, encryption, hashing, serialization, caching, persistence, validation, logging, navigation, command execution, and filesystem access.
+> A comprehensive .NET library providing high-performance interfaces and implementations for common cross-cutting concerns including compression, encoding, obfuscation, encryption, hashing, serialization, caching, persistence, validation, logging, navigation, command execution, and filesystem access.
 
 [![License](https://img.shields.io/github/license/ktsu-dev/Essentials.svg?label=License&logo=nuget)](LICENSE.md)
 [![NuGet Version](https://img.shields.io/nuget/v/ktsu.Essentials?label=Stable&logo=nuget)](https://nuget.org/packages/ktsu.Essentials)
@@ -12,15 +12,16 @@
 
 ## Introduction
 
-`ktsu.Essentials` defines a consistent, high-performance API for common cross-cutting concerns in .NET applications. Each provider interface follows a three-tier pattern: zero-allocation `Try*` methods using `Span<byte>` and `Stream`, convenient self-allocating methods, and async variants with `CancellationToken` support. Implementers only need to provide the core `Try*` methods — all convenience and async methods are provided via default interface implementations. The package also includes ready-to-use provider implementations for compression, hashing, encoding, encryption, serialization, caching, persistence, logging, navigation, and command execution.
+`ktsu.Essentials` defines a consistent, high-performance API for common cross-cutting concerns in .NET applications. Each provider interface follows a three-tier pattern: zero-allocation `Try*` methods using `Span<byte>` and `Stream`, convenient self-allocating methods, and async variants with `CancellationToken` support. Implementers only need to provide the core `Try*` methods — all convenience and async methods are provided via default interface implementations. The package also includes ready-to-use provider implementations for compression, hashing, encoding, obfuscation, encryption, serialization, caching, persistence, logging, navigation, and command execution. Higher-level concerns are expressed by composition rather than duplication — configuration is simply an `IPersistenceProvider<TKey>` over a serializer, and obfuscation composes encoding transforms.
 
 ## Features
 
 - **Compression**: `ICompressionProvider` with Gzip, Brotli, Deflate, and ZLib implementations
 - **Encoding**: `IEncodingProvider` with Base64 and Hex implementations for format/transport encoding
+- **Obfuscation**: `IObfuscationProvider` with XOR, Caesar, bit-rotation, byte-reversal, Base64, and Hex implementations, plus a `Composite` provider that pipelines several together. Obfuscation is reversible but is **not** encryption — it provides no confidentiality
 - **Encryption**: `IEncryptionProvider` with AES implementation including key and IV generation
 - **Hashing**: `IHashProvider` with 15 implementations (MD5, SHA1/256/384/512, FNV1/FNV1a 32/64-bit, CRC32/64, XxHash32/64/3/128)
-- **Serialization**: `ISerializationProvider` with JSON, YAML, and TOML implementations plus configurable `ISerializationOptions`
+- **Serialization**: `ISerializationProvider` with System.Text.Json, Newtonsoft.Json, YAML, and TOML implementations plus configurable `ISerializationOptions`
 - **Caching**: `ICacheProvider<TKey, TValue>` with in-memory implementation supporting expiration and get-or-add semantics
 - **Persistence**: `IPersistenceProvider<TKey>` with AppData, FileSystem, InMemory, and Temp implementations
 - **Validation**: `IValidationProvider<T>` with structured results, error codes, and throw-on-failure support
@@ -31,6 +32,7 @@
 - **Zero-Allocation Core**: All byte-oriented providers support `Span<byte>` and `Stream` for allocation-free operations
 - **Minimal Implementation Burden**: Default interface implementations reduce boilerplate — implement only the core `Try*` methods
 - **Comprehensive Async Support**: Every operation has async variants with proper `CancellationToken` support
+- **Batteries-Included or Cherry-Pick**: Each provider ships as its own `ktsu.Essentials.<Category>.<Impl>` package; install the `ktsu.Essentials.All` meta-package to get every provider at once, or reference only the ones you need
 
 ## Installation
 
