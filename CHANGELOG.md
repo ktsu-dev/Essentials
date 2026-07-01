@@ -1,6 +1,31 @@
-## v1.1.3
+## v1.2.0 (minor)
 
-No significant changes detected since v1.1.3.
+Changes since v1.1.0:
+
+- Merge origin/main into consolidate-into-essentials ([@matt-edmondson](https://github.com/matt-edmondson))
+- docs: document obfuscation, NewtonsoftJson, All meta-package, and new naming convention ([@matt-edmondson](https://github.com/matt-edmondson))
+- feat: add ktsu.Essentials.All meta-package ([@matt-edmondson](https://github.com/matt-edmondson))
+- feat: port NewtonsoftJson serialization provider from Common ([@matt-edmondson](https://github.com/matt-edmondson))
+- refactor: conform all providers to SDK naming convention ([@matt-edmondson](https://github.com/matt-edmondson))
+- refactor: conform serialization providers to SDK naming convention ([@matt-edmondson](https://github.com/matt-edmondson))
+- feat: add Composite obfuscation provider that pipelines a chain ([@matt-edmondson](https://github.com/matt-edmondson))
+- [patch] fix(core): disable strict ApiCompat package validation ([@matt-edmondson](https://github.com/matt-edmondson))
+- feat: add Hex obfuscation provider composing the Hex encoder ([@matt-edmondson](https://github.com/matt-edmondson))
+- [patch] fix(providers): derive package ids and disable strict ApiCompat ([@matt-edmondson](https://github.com/matt-edmondson))
+- fix: keep Base64 obfuscator encoder ctor public; register via factory to avoid DI greedy-ctor ([@matt-edmondson](https://github.com/matt-edmondson))
+- feat: add Base64 obfuscation provider composing the Base64 encoder ([@matt-edmondson](https://github.com/matt-edmondson))
+- feat: add BitRotate obfuscation provider ([@matt-edmondson](https://github.com/matt-edmondson))
+- feat: add Reverse obfuscation provider ([@matt-edmondson](https://github.com/matt-edmondson))
+- test: scope obfuscation string round-trip out of the shared byte-transform harness ([@matt-edmondson](https://github.com/matt-edmondson))
+- feat: add Caesar obfuscation provider ([@matt-edmondson](https://github.com/matt-edmondson))
+- feat: add Xor obfuscation provider and obfuscation test harness ([@matt-edmondson](https://github.com/matt-edmondson))
+- feat: add IObfuscationProvider interface to Essentials core ([@matt-edmondson](https://github.com/matt-edmondson))
+- docs: implementation plan for Essentials consolidation (Phase 1) ([@matt-edmondson](https://github.com/matt-edmondson))
+- docs: design spec for consolidating Abstractions + Common into Essentials ([@matt-edmondson](https://github.com/matt-edmondson))
+- [patch] Pin Testably.Abstractions.FileSystem.Interface to stable 10.0.0 ([@matt-edmondson](https://github.com/matt-edmondson))
+- chore: remove unused SourceLink package versions ([@matt-edmondson](https://github.com/matt-edmondson))
+- chore: simplify package references and drop redundant SourceLink deps ([@matt-edmondson](https://github.com/matt-edmondson))
+- Remove stale files ([@matt-edmondson](https://github.com/matt-edmondson))
 
 ## v1.1.3 (patch)
 
