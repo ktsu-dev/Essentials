@@ -7,7 +7,9 @@ namespace ktsu.Essentials.Tests;
 using System.Collections.Generic;
 using System.Text;
 using ktsu.Essentials;
-using ktsu.Essentials.SerializationProviders;
+using ktsu.Essentials.SerializationProviders.Json;
+using ktsu.Essentials.SerializationProviders.Toml;
+using ktsu.Essentials.SerializationProviders.Yaml;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -17,9 +19,9 @@ public class ConfigurationProviderTests
 	private static ServiceProvider BuildProvider()
 	{
 		ServiceCollection services = new();
-		services.AddSingleton<ISerializationProvider, Json>();
-		services.AddSingleton<ISerializationProvider, Yaml>();
-		services.AddSingleton<ISerializationProvider, Toml>();
+		services.AddSingleton<ISerializationProvider, JsonSerializationProvider>();
+		services.AddSingleton<ISerializationProvider, YamlSerializationProvider>();
+		services.AddSingleton<ISerializationProvider, TomlSerializationProvider>();
 		return services.BuildServiceProvider();
 	}
 

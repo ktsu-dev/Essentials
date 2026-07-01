@@ -6,7 +6,10 @@ namespace ktsu.Essentials.Tests;
 
 using System.Collections.Generic;
 using ktsu.Essentials;
-using ktsu.Essentials.EncryptionProviders;
+using ktsu.Essentials.CommandExecutors.Native;
+using ktsu.Essentials.EncryptionProviders.Aes;
+using ktsu.Essentials.FileSystemProviders.Native;
+using ktsu.Essentials.LoggingProviders.Console;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -29,19 +32,19 @@ public class DiTests
 		// Test single-implementation providers
 		IEncryptionProvider encryption = serviceProvider.GetRequiredService<IEncryptionProvider>();
 		Assert.IsNotNull(encryption);
-		Assert.IsInstanceOfType<Aes>(encryption);
+		Assert.IsInstanceOfType<AesEncryptionProvider>(encryption);
 
 		IFileSystemProvider fileSystem = serviceProvider.GetRequiredService<IFileSystemProvider>();
 		Assert.IsNotNull(fileSystem);
-		Assert.IsInstanceOfType<FileSystemProviders.Native>(fileSystem);
+		Assert.IsInstanceOfType<NativeFileSystemProvider>(fileSystem);
 
 		ICommandExecutor commandExecutor = serviceProvider.GetRequiredService<ICommandExecutor>();
 		Assert.IsNotNull(commandExecutor);
-		Assert.IsInstanceOfType<CommandExecutors.Native>(commandExecutor);
+		Assert.IsInstanceOfType<NativeCommandExecutor>(commandExecutor);
 
 		ILoggingProvider logging = serviceProvider.GetRequiredService<ILoggingProvider>();
 		Assert.IsNotNull(logging);
-		Assert.IsInstanceOfType<LoggingProviders.Console>(logging);
+		Assert.IsInstanceOfType<ConsoleLoggingProvider>(logging);
 	}
 
 	[TestMethod]
@@ -54,7 +57,7 @@ public class DiTests
 
 		Assert.HasCount(4, providers, "Should resolve all 4 compression providers");
 
-		string[] expectedTypes = ["Brotli", "Deflate", "Gzip", "ZLib"];
+		string[] expectedTypes = ["BrotliCompressionProvider", "DeflateCompressionProvider", "GzipCompressionProvider", "ZLibCompressionProvider"];
 		string[] actualTypes = [.. providers.Select(p => p.GetType().Name).OrderBy(n => n)];
 		CollectionAssert.AreEquivalent(expectedTypes, actualTypes);
 	}
@@ -70,7 +73,7 @@ public class DiTests
 		Assert.HasCount(15, providers, "Should resolve all 15 hash providers");
 
 		// Verify all expected types are present
-		string[] expectedTypes = ["MD5", "SHA1", "SHA256", "SHA384", "SHA512", "FNV1_32", "FNV1a_32", "FNV1_64", "FNV1a_64", "CRC32", "CRC64", "XxHash32", "XxHash64", "XxHash3", "XxHash128"];
+		string[] expectedTypes = ["MD5HashProvider", "SHA1HashProvider", "SHA256HashProvider", "SHA384HashProvider", "SHA512HashProvider", "FNV1_32HashProvider", "FNV1a_32HashProvider", "FNV1_64HashProvider", "FNV1a_64HashProvider", "CRC32HashProvider", "CRC64HashProvider", "XxHash32HashProvider", "XxHash64HashProvider", "XxHash3HashProvider", "XxHash128HashProvider"];
 		string[] actualTypes = [.. providers.Select(p => p.GetType().Name).OrderBy(n => n)];
 		CollectionAssert.AreEquivalent(expectedTypes, actualTypes);
 	}
@@ -85,7 +88,7 @@ public class DiTests
 
 		Assert.HasCount(2, providers, "Should resolve both encoding providers");
 
-		string[] expectedTypes = ["Base64", "Hex"];
+		string[] expectedTypes = ["Base64EncodingProvider", "HexEncodingProvider"];
 		string[] actualTypes = [.. providers.Select(p => p.GetType().Name).OrderBy(n => n)];
 		CollectionAssert.AreEquivalent(expectedTypes, actualTypes);
 	}
@@ -113,10 +116,10 @@ public class DiTests
 		IEnumerable<ISerializationProvider> serializationProviders = serviceProvider.GetServices<ISerializationProvider>();
 		ISerializationProvider[] providers = [.. serializationProviders];
 
-		Assert.HasCount(3, providers, "Should resolve all 3 serialization providers");
+		Assert.HasCount(4, providers, "Should resolve all 4 serialization providers");
 
 		// Verify all expected types are present
-		string[] expectedTypes = ["Json", "Toml", "Yaml"];
+		string[] expectedTypes = ["JsonSerializationProvider", "NewtonsoftJsonSerializationProvider", "TomlSerializationProvider", "YamlSerializationProvider"];
 		string[] actualTypes = [.. providers.Select(p => p.GetType().Name).OrderBy(n => n)];
 		CollectionAssert.AreEquivalent(expectedTypes, actualTypes);
 	}

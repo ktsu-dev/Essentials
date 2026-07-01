@@ -5,61 +5,73 @@
     <Platform Name="x86" />
   </Configurations>
   <Folder Name="/CacheProviders/">
-    <Project Path="CacheProviders/InMemory/InMemory.csproj" />
+    <Project Path="Essentials.CacheProviders.InMemory/Essentials.CacheProviders.InMemory.csproj" />
   </Folder>
   <Folder Name="/CommandExecutors/">
-    <Project Path="CommandExecutors/Native/Native.csproj" />
+    <Project Path="Essentials.CommandExecutors.Native/Essentials.CommandExecutors.Native.csproj" />
   </Folder>
   <Folder Name="/CompressionProviders/">
-    <Project Path="CompressionProviders/Brotli/Brotli.csproj" />
-    <Project Path="CompressionProviders/Deflate/Deflate.csproj" />
-    <Project Path="CompressionProviders/Gzip/Gzip.csproj" />
-    <Project Path="CompressionProviders/ZLib/ZLib.csproj" />
+    <Project Path="Essentials.CompressionProviders.Brotli/Essentials.CompressionProviders.Brotli.csproj" />
+    <Project Path="Essentials.CompressionProviders.Deflate/Essentials.CompressionProviders.Deflate.csproj" />
+    <Project Path="Essentials.CompressionProviders.Gzip/Essentials.CompressionProviders.Gzip.csproj" />
+    <Project Path="Essentials.CompressionProviders.ZLib/Essentials.CompressionProviders.ZLib.csproj" />
   </Folder>
   <Folder Name="/EncodingProviders/">
-    <Project Path="EncodingProviders/Base64/Base64.csproj" />
-    <Project Path="EncodingProviders/Hex/Hex.csproj" />
+    <Project Path="Essentials.EncodingProviders.Base64/Essentials.EncodingProviders.Base64.csproj" />
+    <Project Path="Essentials.EncodingProviders.Hex/Essentials.EncodingProviders.Hex.csproj" />
   </Folder>
   <Folder Name="/EncryptionProviders/">
-    <Project Path="EncryptionProviders/Aes/Aes.csproj" />
+    <Project Path="Essentials.EncryptionProviders.Aes/Essentials.EncryptionProviders.Aes.csproj" />
   </Folder>
+  <Folder Name="/ObfuscationProviders/">
+    <Project Path="Essentials.ObfuscationProviders.Base64/Essentials.ObfuscationProviders.Base64.csproj" />
+    <Project Path="Essentials.ObfuscationProviders.BitRotate/Essentials.ObfuscationProviders.BitRotate.csproj" />
+    <Project Path="Essentials.ObfuscationProviders.Caesar/Essentials.ObfuscationProviders.Caesar.csproj" />
+    <Project Path="Essentials.ObfuscationProviders.Composite/Essentials.ObfuscationProviders.Composite.csproj" />
+    <Project Path="Essentials.ObfuscationProviders.Hex/Essentials.ObfuscationProviders.Hex.csproj" />
+    <Project Path="Essentials.ObfuscationProviders.Reverse/Essentials.ObfuscationProviders.Reverse.csproj" />
+    <Project Path="Essentials.ObfuscationProviders.Xor/Essentials.ObfuscationProviders.Xor.csproj" />
+  </Folder>
+  <Folder Name="/Essentials/" />
   <Folder Name="/FileSystemProviders/">
-    <Project Path="FileSystemProviders/Native/Native.csproj" />
+    <Project Path="Essentials.FileSystemProviders.Native/Essentials.FileSystemProviders.Native.csproj" />
   </Folder>
   <Folder Name="/HashProviders/">
-    <Project Path="HashProviders/CRC32/CRC32.csproj" />
-    <Project Path="HashProviders/CRC64/CRC64.csproj" />
-    <Project Path="HashProviders/FNV1a_32/FNV1a_32.csproj" />
-    <Project Path="HashProviders/FNV1a_64/FNV1a_64.csproj" />
-    <Project Path="HashProviders/FNV1_32/FNV1_32.csproj" />
-    <Project Path="HashProviders/FNV1_64/FNV1_64.csproj" />
-    <Project Path="HashProviders/MD5/MD5.csproj" />
-    <Project Path="HashProviders/SHA1/SHA1.csproj" />
-    <Project Path="HashProviders/SHA256/SHA256.csproj" />
-    <Project Path="HashProviders/SHA384/SHA384.csproj" />
-    <Project Path="HashProviders/SHA512/SHA512.csproj" />
-    <Project Path="HashProviders/XxHash128/XxHash128.csproj" />
-    <Project Path="HashProviders/XxHash3/XxHash3.csproj" />
-    <Project Path="HashProviders/XxHash32/XxHash32.csproj" />
-    <Project Path="HashProviders/XxHash64/XxHash64.csproj" />
+    <Project Path="Essentials.HashProviders.CRC32/Essentials.HashProviders.CRC32.csproj" />
+    <Project Path="Essentials.HashProviders.CRC64/Essentials.HashProviders.CRC64.csproj" />
+    <Project Path="Essentials.HashProviders.FNV1a_32/Essentials.HashProviders.FNV1a_32.csproj" />
+    <Project Path="Essentials.HashProviders.FNV1a_64/Essentials.HashProviders.FNV1a_64.csproj" />
+    <Project Path="Essentials.HashProviders.FNV1_32/Essentials.HashProviders.FNV1_32.csproj" />
+    <Project Path="Essentials.HashProviders.FNV1_64/Essentials.HashProviders.FNV1_64.csproj" />
+    <Project Path="Essentials.HashProviders.MD5/Essentials.HashProviders.MD5.csproj" />
+    <Project Path="Essentials.HashProviders.SHA1/Essentials.HashProviders.SHA1.csproj" />
+    <Project Path="Essentials.HashProviders.SHA256/Essentials.HashProviders.SHA256.csproj" />
+    <Project Path="Essentials.HashProviders.SHA384/Essentials.HashProviders.SHA384.csproj" />
+    <Project Path="Essentials.HashProviders.SHA512/Essentials.HashProviders.SHA512.csproj" />
+    <Project Path="Essentials.HashProviders.XxHash128/Essentials.HashProviders.XxHash128.csproj" />
+    <Project Path="Essentials.HashProviders.XxHash3/Essentials.HashProviders.XxHash3.csproj" />
+    <Project Path="Essentials.HashProviders.XxHash32/Essentials.HashProviders.XxHash32.csproj" />
+    <Project Path="Essentials.HashProviders.XxHash64/Essentials.HashProviders.XxHash64.csproj" />
   </Folder>
   <Folder Name="/LoggingProviders/">
-    <Project Path="LoggingProviders/Console/Console.csproj" />
+    <Project Path="Essentials.LoggingProviders.Console/Essentials.LoggingProviders.Console.csproj" />
   </Folder>
   <Folder Name="/NavigationProviders/">
-    <Project Path="NavigationProviders/InMemory/InMemory.csproj" />
+    <Project Path="Essentials.NavigationProviders.InMemory/Essentials.NavigationProviders.InMemory.csproj" />
   </Folder>
   <Folder Name="/PersistenceProviders/">
-    <Project Path="PersistenceProviders/AppData/AppData.csproj" />
-    <Project Path="PersistenceProviders/FileSystem/FileSystem.csproj" />
-    <Project Path="PersistenceProviders/InMemory/InMemory.csproj" />
-    <Project Path="PersistenceProviders/Temp/Temp.csproj" />
+    <Project Path="Essentials.PersistenceProviders.AppData/Essentials.PersistenceProviders.AppData.csproj" />
+    <Project Path="Essentials.PersistenceProviders.FileSystem/Essentials.PersistenceProviders.FileSystem.csproj" />
+    <Project Path="Essentials.PersistenceProviders.InMemory/Essentials.PersistenceProviders.InMemory.csproj" />
+    <Project Path="Essentials.PersistenceProviders.Temp/Essentials.PersistenceProviders.Temp.csproj" />
   </Folder>
   <Folder Name="/SerializationProviders/">
-    <Project Path="SerializationProviders/Json/Json.csproj" />
-    <Project Path="SerializationProviders/Toml/Toml.csproj" />
-    <Project Path="SerializationProviders/Yaml/Yaml.csproj" />
+    <Project Path="Essentials.SerializationProviders.Json/Essentials.SerializationProviders.Json.csproj" />
+    <Project Path="Essentials.SerializationProviders.Toml/Essentials.SerializationProviders.Toml.csproj" />
+    <Project Path="Essentials.SerializationProviders.Yaml/Essentials.SerializationProviders.Yaml.csproj" />
   </Folder>
   <Project Path="Essentials/Essentials.csproj" />
+  <Project Path="Essentials.All/Essentials.All.csproj" />
+  <Project Path="Essentials.SerializationProviders.NewtonsoftJson/Essentials.SerializationProviders.NewtonsoftJson.csproj" />
   <Project Path="Essentials.Tests/Essentials.Tests.csproj" />
 </Solution>

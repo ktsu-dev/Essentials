@@ -157,7 +157,7 @@ public class HashProviderTests
 	{
 		using ServiceProvider serviceProvider = BuildProvider();
 		IEnumerable<IHashProvider> hashes = serviceProvider.GetServices<IHashProvider>();
-		IHashProvider? md5 = hashes.FirstOrDefault(h => h.GetType().Name == "MD5");
+		IHashProvider? md5 = hashes.FirstOrDefault(h => h.GetType().Name == "MD5HashProvider");
 		Assert.IsNotNull(md5);
 
 		// MD5 of "abc" should be 900150983cd24fb0d6963f7d28e17f72
@@ -172,7 +172,7 @@ public class HashProviderTests
 	{
 		using ServiceProvider serviceProvider = BuildProvider();
 		IEnumerable<IHashProvider> hashes = serviceProvider.GetServices<IHashProvider>();
-		IHashProvider? sha1 = hashes.FirstOrDefault(h => h.GetType().Name == "SHA1");
+		IHashProvider? sha1 = hashes.FirstOrDefault(h => h.GetType().Name == "SHA1HashProvider");
 		Assert.IsNotNull(sha1);
 
 		// SHA1 of "abc" should be a9993e364706816aba3e25717850c26c9cd0d89d
@@ -187,7 +187,7 @@ public class HashProviderTests
 	{
 		using ServiceProvider serviceProvider = BuildProvider();
 		IEnumerable<IHashProvider> hashes = serviceProvider.GetServices<IHashProvider>();
-		IHashProvider? sha256 = hashes.FirstOrDefault(h => h.GetType().Name == "SHA256");
+		IHashProvider? sha256 = hashes.FirstOrDefault(h => h.GetType().Name == "SHA256HashProvider");
 		Assert.IsNotNull(sha256);
 
 		// SHA256 of "abc" should be ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
@@ -202,7 +202,7 @@ public class HashProviderTests
 	{
 		using ServiceProvider serviceProvider = BuildProvider();
 		IEnumerable<IHashProvider> hashes = serviceProvider.GetServices<IHashProvider>();
-		IHashProvider? sha384 = hashes.FirstOrDefault(h => h.GetType().Name == "SHA384");
+		IHashProvider? sha384 = hashes.FirstOrDefault(h => h.GetType().Name == "SHA384HashProvider");
 		Assert.IsNotNull(sha384);
 
 		// SHA384 of "abc" should be cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7
@@ -217,7 +217,7 @@ public class HashProviderTests
 	{
 		using ServiceProvider serviceProvider = BuildProvider();
 		IEnumerable<IHashProvider> hashes = serviceProvider.GetServices<IHashProvider>();
-		IHashProvider? sha512 = hashes.FirstOrDefault(h => h.GetType().Name == "SHA512");
+		IHashProvider? sha512 = hashes.FirstOrDefault(h => h.GetType().Name == "SHA512HashProvider");
 		Assert.IsNotNull(sha512);
 
 		// SHA512 of "abc" should be ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f
@@ -232,7 +232,7 @@ public class HashProviderTests
 	{
 		using ServiceProvider serviceProvider = BuildProvider();
 		IEnumerable<IHashProvider> hashes = serviceProvider.GetServices<IHashProvider>();
-		IHashProvider? fnv1_32 = hashes.FirstOrDefault(h => h.GetType().Name == "FNV1_32");
+		IHashProvider? fnv1_32 = hashes.FirstOrDefault(h => h.GetType().Name == "FNV1_32HashProvider");
 		Assert.IsNotNull(fnv1_32);
 
 		// FNV-1 32-bit of "hello" produces 0xb7049f97 (3069866343)
@@ -247,7 +247,7 @@ public class HashProviderTests
 	{
 		using ServiceProvider serviceProvider = BuildProvider();
 		IEnumerable<IHashProvider> hashes = serviceProvider.GetServices<IHashProvider>();
-		IHashProvider? fnv1a_32 = hashes.FirstOrDefault(h => h.GetType().Name == "FNV1a_32");
+		IHashProvider? fnv1a_32 = hashes.FirstOrDefault(h => h.GetType().Name == "FNV1a_32HashProvider");
 		Assert.IsNotNull(fnv1a_32);
 
 		// FNV-1a 32-bit of "hello" produces 0x4f9f2cab (1335831723)
@@ -262,7 +262,7 @@ public class HashProviderTests
 	{
 		using ServiceProvider serviceProvider = BuildProvider();
 		IEnumerable<IHashProvider> hashes = serviceProvider.GetServices<IHashProvider>();
-		IHashProvider? fnv1_64 = hashes.FirstOrDefault(h => h.GetType().Name == "FNV1_64");
+		IHashProvider? fnv1_64 = hashes.FirstOrDefault(h => h.GetType().Name == "FNV1_64HashProvider");
 		Assert.IsNotNull(fnv1_64);
 
 		// FNV-1 64-bit of "hello" produces 0x7b495389bdbdd4c7 (8883723591023973575)
@@ -277,7 +277,7 @@ public class HashProviderTests
 	{
 		using ServiceProvider serviceProvider = BuildProvider();
 		IEnumerable<IHashProvider> hashes = serviceProvider.GetServices<IHashProvider>();
-		IHashProvider? fnv1a_64 = hashes.FirstOrDefault(h => h.GetType().Name == "FNV1a_64");
+		IHashProvider? fnv1a_64 = hashes.FirstOrDefault(h => h.GetType().Name == "FNV1a_64HashProvider");
 		Assert.IsNotNull(fnv1a_64);
 
 		// FNV-1a 64-bit of "hello" produces 0xa430d84680aabd0b (11831194018420276491)
