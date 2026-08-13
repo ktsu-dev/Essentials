@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.Tests;
 
@@ -253,7 +253,7 @@ public class ProviderContractTests
 	{
 		// Registered as a singleton, so a single instance is used concurrently by design.
 		// The transform methods are default interface implementations, so access them through the interface.
-		using AesEncryptionProvider instance = new();
+		AesEncryptionProvider instance = new();
 		IEncryptionProvider encryptor = instance;
 
 		(byte[] Key, byte[] Iv, string Text)[] cases = [.. Enumerable.Range(0, 64).Select(i =>
@@ -272,7 +272,7 @@ public class ProviderContractTests
 	[TestMethod]
 	public void Encryption_Keys_And_IVs_Are_Not_Repeated()
 	{
-		using AesEncryptionProvider encryptor = new();
+		AesEncryptionProvider encryptor = new();
 
 		HashSet<string> keys = [.. Enumerable.Range(0, 32).Select(_ => Convert.ToBase64String(encryptor.GenerateKey()))];
 		HashSet<string> ivs = [.. Enumerable.Range(0, 32).Select(_ => Convert.ToBase64String(encryptor.GenerateIV()))];
@@ -282,46 +282,132 @@ public class ProviderContractTests
 	}
 
 	/// <summary>
-	/// Regression test for ciphertext whose final byte is zero.
+	/// The span API must report the exact ciphertext length rather than leaving the caller to infer it.
 	/// </summary>
 	/// <remarks>
-	/// The span-based decrypt path has to recover the ciphertext length from a buffer that may be larger
-	/// than the ciphertext, and it does so by trimming trailing zeros. Trimming naively corrupts any
-	/// ciphertext that legitimately ends in a zero byte — about one in every 256. Searching for such a
-	/// case makes that failure deterministic rather than intermittent.
+	/// Before <c>bytesWritten</c> existed, an oversized buffer left the ciphertext followed by zeros and
+	/// the provider recovered the length by trimming them — corrupting roughly one ciphertext in 256,
+	/// namely any whose final byte was legitimately zero. Encrypting into a deliberately oversized buffer
+	/// and decrypting only the reported bytes proves that guesswork is gone.
 	/// </remarks>
 	[TestMethod]
-	public void Encryption_Span_Handles_Ciphertext_Ending_In_Zero()
+	public void Encryption_Span_Reports_Exact_Ciphertext_Length()
 	{
-		// The transform methods are default interface implementations, so access them through the interface.
-		using AesEncryptionProvider instance = new();
-		IEncryptionProvider encryptor = instance;
+		AesEncryptionProvider encryptor = new();
 		byte[] iv = encryptor.GenerateIV();
 
 		for (int attempt = 0; attempt < 2000; attempt++)
 		{
 			byte[] key = encryptor.GenerateKey();
 			byte[] plaintext = Encoding.UTF8.GetBytes($"ciphertext trailing zero probe {attempt}");
-			byte[] ciphertext = encryptor.Encrypt(plaintext, key, iv);
 
-			if (ciphertext[^1] != 0)
-			{
-				continue;
-			}
+			byte[] oversized = new byte[encryptor.GetMaxEncryptedLength(plaintext.Length) * 4];
+			Assert.IsTrue(encryptor.TryEncrypt(plaintext, key, iv, oversized, out int cipherLength));
+			Assert.IsLessThan(oversized.Length, cipherLength, "The buffer is deliberately larger than the ciphertext");
 
-			// Oversized buffer, so the trailing zero is ambiguous with buffer padding.
-			byte[] destination = new byte[ciphertext.Length * 2];
+			byte[] restored = new byte[cipherLength];
 			Assert.IsTrue(
-				encryptor.TryDecrypt(ciphertext, key, iv, destination),
-				"Ciphertext ending in a zero byte should still decrypt");
-			CollectionAssert.AreEqual(
-				plaintext,
-				destination[..plaintext.Length],
-				"Ciphertext ending in a zero byte should decrypt to the original plaintext");
-			return;
+				encryptor.TryDecrypt(oversized.AsSpan(0, cipherLength), key, iv, restored, out int plainLength),
+				"Decrypting the reported ciphertext must succeed regardless of its final byte");
+			CollectionAssert.AreEqual(plaintext, restored[..plainLength], "Round-trip must be exact");
+
+			// Keep going until a ciphertext ending in zero has actually been exercised.
+			if (oversized[cipherLength - 1] == 0)
+			{
+				return;
+			}
 		}
 
 		Assert.Inconclusive("No ciphertext ending in a zero byte was produced in 2000 attempts.");
+	}
+
+	#endregion
+
+	#region Buffer length contract
+
+	/// <remarks>
+	/// Every span transform must report the exact number of bytes it wrote, and must leave the rest of
+	/// the caller's buffer alone. The previous API returned only a bool and zero-filled the tail, so a
+	/// caller had no way to tell payload from padding — the defect behind both the AES ciphertext
+	/// truncation and the Base64 decoder's trailing-zero guesswork.
+	/// </remarks>
+	[TestMethod]
+	[DynamicData(nameof(EncodingProviders))]
+	public void Encoding_Reports_Exact_Length_And_Leaves_Tail_Untouched(IEncodingProvider encoder, string providerName)
+	{
+		byte[] original = Encoding.UTF8.GetBytes("length contract for " + providerName);
+
+		byte[] buffer = new byte[encoder.GetMaxEncodedLength(original.Length) + 32];
+		buffer.AsSpan().Fill(0xCD);
+
+		Assert.IsTrue(encoder.TryEncode(original, buffer, out int encodedLength),
+			$"{providerName} should succeed with a buffer sized by GetMaxEncodedLength");
+		Assert.IsGreaterThan(0, encodedLength, $"{providerName} should report the bytes it wrote");
+
+		foreach (byte b in buffer.AsSpan(encodedLength))
+		{
+			Assert.AreEqual(0xCD, b, $"{providerName} must not write past the length it reported");
+		}
+
+		byte[] decoded = new byte[encoder.GetMaxDecodedLength(encodedLength)];
+		Assert.IsTrue(encoder.TryDecode(buffer.AsSpan(0, encodedLength), decoded, out int decodedLength),
+			$"{providerName} should decode exactly the bytes it reported writing");
+		CollectionAssert.AreEqual(original, decoded[..decodedLength], $"{providerName} should round-trip exactly");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(ObfuscationProviders))]
+	public void Obfuscation_Reports_Exact_Length_And_Leaves_Tail_Untouched(IObfuscationProvider obfuscator, string providerName)
+	{
+		byte[] original = Encoding.UTF8.GetBytes("length contract for " + providerName);
+
+		byte[] buffer = new byte[obfuscator.GetMaxObfuscatedLength(original.Length) + 32];
+		buffer.AsSpan().Fill(0xCD);
+
+		Assert.IsTrue(obfuscator.TryObfuscate(original, buffer, out int obfuscatedLength),
+			$"{providerName} should succeed with a buffer sized by GetMaxObfuscatedLength");
+
+		foreach (byte b in buffer.AsSpan(obfuscatedLength))
+		{
+			Assert.AreEqual(0xCD, b, $"{providerName} must not write past the length it reported");
+		}
+
+		byte[] restored = new byte[obfuscator.GetMaxDeobfuscatedLength(obfuscatedLength)];
+		Assert.IsTrue(obfuscator.TryDeobfuscate(buffer.AsSpan(0, obfuscatedLength), restored, out int restoredLength),
+			$"{providerName} should deobfuscate exactly the bytes it reported writing");
+		CollectionAssert.AreEqual(original, restored[..restoredLength], $"{providerName} should round-trip exactly");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(CompressionProviders))]
+	public void Compression_Bound_Holds_For_Incompressible_Input(ICompressionProvider compressor, string providerName)
+	{
+		// Random data cannot be compressed, so the output exceeds the input and exercises the bound's margin.
+		byte[] incompressible = new byte[4096];
+		new Random(20260814).NextBytes(incompressible);
+
+		byte[] buffer = new byte[compressor.GetMaxCompressedLength(incompressible.Length)];
+		Assert.IsTrue(compressor.TryCompress(incompressible, buffer, out int written),
+			$"{providerName}: GetMaxCompressedLength must be large enough even when the data cannot be compressed");
+
+		byte[] restored = compressor.Decompress(buffer.AsSpan(0, written));
+		CollectionAssert.AreEqual(incompressible, restored, $"{providerName} should round-trip incompressible data");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(HashProviders))]
+	public void Hash_Reports_Exact_Length_And_Leaves_Tail_Untouched(IHashProvider hasher, string providerName)
+	{
+		byte[] buffer = new byte[hasher.HashLengthBytes + 16];
+		buffer.AsSpan().Fill(0xCD);
+
+		Assert.IsTrue(hasher.TryHash("length contract"u8, buffer, out int written), $"{providerName} should hash into a large enough buffer");
+		Assert.AreEqual(hasher.HashLengthBytes, written, $"{providerName} should report exactly HashLengthBytes");
+
+		foreach (byte b in buffer.AsSpan(written))
+		{
+			Assert.AreEqual(0xCD, b, $"{providerName} must not write past the length it reported");
+		}
 	}
 
 	#endregion

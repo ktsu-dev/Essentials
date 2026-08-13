@@ -22,36 +22,18 @@ public interface IHashProvider
 	/// </summary>
 	/// <param name="data">The data to hash.</param>
 	/// <param name="destination">The hash buffer to write the result to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the hash operation was successful, false otherwise.</returns>
-	public bool TryHash(ReadOnlySpan<byte> data, Span<byte> destination);
+	public bool TryHash(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten);
 
 	/// <summary>
 	/// Tries to hash the specified data into the provided hash buffer.
 	/// </summary>
 	/// <param name="data">The data to hash.</param>
 	/// <param name="destination">The hash buffer to write the result to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the hash operation was successful, false otherwise.</returns>
-	public bool TryHash(Stream data, Span<byte> destination);
-
-	/// <summary>
-	/// Tries to hash the specified data into the provided hash buffer asynchronously.
-	/// </summary>
-	/// <param name="data">The data to hash.</param>
-	/// <param name="destination">The hash buffer to write the result to.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>True if the hash operation was successful, false otherwise.</returns>
-	public Task<bool> TryHashAsync(ReadOnlyMemory<byte> data, Memory<byte> destination, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => TryHash(data.Span, destination.Span), cancellationToken);
-
-	/// <summary>
-	/// Tries to hash the specified data into the provided hash buffer asynchronously.
-	/// </summary>
-	/// <param name="data">The data to hash.</param>
-	/// <param name="destination">The hash buffer to write the result to.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>True if the hash operation was successful, false otherwise.</returns>
-	public Task<bool> TryHashAsync(Stream data, Memory<byte> destination, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => TryHash(data, destination.Span), cancellationToken);
+	public bool TryHash(Stream data, Span<byte> destination, out int bytesWritten);
 
 	/// <summary>
 	/// Asynchronously hashes the specified data.
@@ -69,13 +51,10 @@ public interface IHashProvider
 	/// <returns>A byte array containing the hash of the data.</returns>
 	public byte[] Hash(ReadOnlySpan<byte> data)
 	{
-		Span<byte> hash = new byte[HashLengthBytes];
-		if (!TryHash(data, hash))
-		{
-			throw new InvalidOperationException("Hashing failed to produce output with the allocated buffer.");
-		}
-
-		return hash[..HashLengthBytes].ToArray();
+		byte[] hash = new byte[HashLengthBytes];
+		return !TryHash(data, hash, out int bytesWritten) || bytesWritten != HashLengthBytes
+			? throw new InvalidOperationException($"Hashing failed to produce {HashLengthBytes} bytes of output.")
+			: hash;
 	}
 
 	/// <summary>
@@ -96,12 +75,9 @@ public interface IHashProvider
 	/// <returns>A byte array containing the hash of the data.</returns>
 	public byte[] Hash(Stream data)
 	{
-		Span<byte> hash = new byte[HashLengthBytes];
-		if (!TryHash(data, hash))
-		{
-			throw new InvalidOperationException("Hashing failed to produce output with the allocated buffer.");
-		}
-
-		return hash[..HashLengthBytes].ToArray();
+		byte[] hash = new byte[HashLengthBytes];
+		return !TryHash(data, hash, out int bytesWritten) || bytesWritten != HashLengthBytes
+			? throw new InvalidOperationException($"Hashing failed to produce {HashLengthBytes} bytes of output.")
+			: hash;
 	}
 }

@@ -15,11 +15,15 @@ using System.Security.Cryptography;
 /// <see cref="System.Security.Cryptography.Aes"/> instance from the caller-supplied key and IV.
 /// It is therefore safe to register as a singleton.
 /// </remarks>
-public class AesEncryptionProvider : IEncryptionProvider, IDisposable
+public class AesEncryptionProvider : IEncryptionProvider
 {
 	private const int KeySize = 32; // 256 bits
 	private const int IVSize = 16; // 128 bits
 	private const int BlockSizeBytes = 16; // AES block size is always 128 bits
+
+	/// <inheritdoc/>
+	/// <remarks>CBC with PKCS7 always pads to the next whole block, adding a full block when already aligned.</remarks>
+	public int GetMaxEncryptedLength(int sourceLength) => ((sourceLength / BlockSizeBytes) + 1) * BlockSizeBytes;
 
 	/// <summary>
 	/// Generates a new encryption key.
@@ -52,9 +56,12 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 	/// <param name="key">The key to use for encryption.</param>
 	/// <param name="iv">The initialization vector to use for encryption.</param>
 	/// <param name="destination">The destination to write the encrypted data to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the encryption was successful, false otherwise.</returns>
-	public bool TryEncrypt(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, Span<byte> destination)
+	public bool TryEncrypt(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		if (key.Length != KeySize || iv.Length != IVSize)
 		{
 			return false;
@@ -72,8 +79,7 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 			}
 
 			encryptedData.CopyTo(destination);
-			// Clear the rest of the destination buffer to ensure only encrypted data is present
-			destination[encryptedData.Length..].Clear();
+			bytesWritten = encryptedData.Length;
 			return true;
 		}
 		catch (ArgumentException)
@@ -138,25 +144,25 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 	/// <param name="key">The key to use for decryption.</param>
 	/// <param name="iv">The initialization vector to use for decryption.</param>
 	/// <param name="destination">The destination to write the decrypted data to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the decryption was successful, false otherwise.</returns>
-	public bool TryDecrypt(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, Span<byte> destination)
+	public bool TryDecrypt(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, Span<byte> destination, out int bytesWritten)
 	{
-		if (key.Length != KeySize || iv.Length != IVSize)
+		bytesWritten = 0;
+
+		if (key.Length != KeySize || iv.Length != IVSize || data.IsEmpty)
 		{
 			return false;
 		}
 
 		try
 		{
-			ReadOnlySpan<byte> actualData = TrimBufferPadding(data);
-			if (actualData.IsEmpty)
-			{
-				return false; // All zeros is not valid encrypted data
-			}
-
+			// The ciphertext is exactly the span the caller passed. Earlier versions had to guess its
+			// length by trimming trailing zeros, because the API could not report how many bytes the
+			// matching encrypt call wrote; that corrupted any ciphertext ending in a zero byte.
 			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
 			using ICryptoTransform decryptor = aes.CreateDecryptor(key.ToArray(), iv.ToArray());
-			byte[] decryptedData = decryptor.TransformFinalBlock(actualData.ToArray(), 0, actualData.Length);
+			byte[] decryptedData = decryptor.TransformFinalBlock(data.ToArray(), 0, data.Length);
 
 			if (decryptedData.Length > destination.Length)
 			{
@@ -164,8 +170,7 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 			}
 
 			decryptedData.CopyTo(destination);
-			// Clear the rest of the destination buffer
-			destination[decryptedData.Length..].Clear();
+			bytesWritten = decryptedData.Length;
 			return true;
 		}
 		catch (ArgumentException)
@@ -180,37 +185,6 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 		{
 			return false;
 		}
-	}
-
-	/// <summary>
-	/// Recovers the ciphertext length from a buffer that may be larger than the ciphertext itself.
-	/// </summary>
-	/// <remarks>
-	/// <see cref="TryEncrypt(ReadOnlySpan{byte}, ReadOnlySpan{byte}, ReadOnlySpan{byte}, Span{byte})"/> zero-fills
-	/// the unused tail of the caller's buffer, and the span-based API has no way to report how many bytes it wrote.
-	/// Trailing zeros are therefore stripped, then the length is rounded back up to the next whole AES block —
-	/// ciphertext is always a whole number of blocks, so this preserves ciphertext that legitimately ends in zero
-	/// bytes (roughly 1 in 256 of all ciphertexts), which naive zero-stripping would corrupt.
-	/// </remarks>
-	/// <param name="data">The buffer holding ciphertext followed by zero or more padding zeros.</param>
-	/// <returns>The ciphertext, or an empty span if the buffer is entirely zeros.</returns>
-	private static ReadOnlySpan<byte> TrimBufferPadding(ReadOnlySpan<byte> data)
-	{
-		int lastNonZero = data.Length - 1;
-		while (lastNonZero >= 0 && data[lastNonZero] == 0)
-		{
-			lastNonZero--;
-		}
-
-		if (lastNonZero < 0)
-		{
-			return default;
-		}
-
-		// Round up to the next whole block, without exceeding the buffer we were given.
-		int blocks = (lastNonZero / BlockSizeBytes) + 1;
-		int length = Math.Min(blocks * BlockSizeBytes, data.Length);
-		return data[..length];
 	}
 
 	/// <summary>
@@ -252,31 +226,5 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 		{
 			return false;
 		}
-	}
-
-	/// <summary>
-	/// Releases the resources used by this provider.
-	/// </summary>
-	/// <remarks>
-	/// This provider holds no disposable state; the method exists only so that existing callers using
-	/// <c>using</c> or DI-managed disposal continue to compile. It will be removed in the next major version.
-	/// </remarks>
-	/// <param name="disposing">True when called from <see cref="Dispose()"/>.</param>
-	protected virtual void Dispose(bool disposing)
-	{
-		// Nothing to dispose — all cryptographic state is created and released per call.
-	}
-
-	/// <summary>
-	/// Releases the resources used by this provider.
-	/// </summary>
-	/// <remarks>
-	/// This provider holds no disposable state; calling this method is not required. It exists only for
-	/// source compatibility with earlier versions and will be removed in the next major version.
-	/// </remarks>
-	public void Dispose()
-	{
-		Dispose(disposing: true);
-		GC.SuppressFinalize(this);
 	}
 }

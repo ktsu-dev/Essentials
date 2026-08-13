@@ -16,6 +16,17 @@ using System.Threading.Tasks;
 public interface ISerializationProvider
 {
 	/// <summary>
+	/// Gets the conventional file extension for this format, including the leading dot.
+	/// </summary>
+	/// <remarks>
+	/// File-backed persistence providers name their files with this, so a provider configured with a YAML
+	/// or TOML serializer writes <c>.yaml</c> or <c>.toml</c> files. There is deliberately no default:
+	/// a format that does not state its own extension previously had <c>.json</c> assumed for it, which
+	/// produced files whose names contradicted their contents.
+	/// </remarks>
+	public string FileExtension { get; }
+
+	/// <summary>
 	/// Tries to serialize the specified object into the destination buffer without allocating.
 	/// </summary>
 	/// <param name="obj">The object to serialize.</param>

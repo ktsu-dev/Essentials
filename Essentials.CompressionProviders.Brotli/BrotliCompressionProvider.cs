@@ -12,17 +12,31 @@ using System.IO.Compression;
 /// </summary>
 public class BrotliCompressionProvider : ICompressionProvider
 {
+	/// <inheritdoc/>
+	/// <remarks>
+	/// Incompressible input can grow slightly: the deflate family emits stored blocks of up to 65535
+	/// bytes with a 5-byte header each, plus a fixed container header and trailer. The margin below
+	/// covers that for every algorithm here.
+	/// </remarks>
+	public int GetMaxCompressedLength(int sourceLength)
+		=> sourceLength + (((sourceLength / 65535) + 1) * 5) + 64;
+
 	/// <summary>
 	/// Tries to compress the data from the span and write the result to the destination.
 	/// </summary>
 	/// <param name="data">The data to compress.</param>
 	/// <param name="destination">The destination to write the compressed data to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the compression was successful, false otherwise.</returns>
-	public bool TryCompress(ReadOnlySpan<byte> data, Span<byte> destination)
+	public bool TryCompress(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		try
 		{
-			using MemoryStream inputStream = new(data.ToArray());
+			using MemoryStream inputStream = new();
+			inputStream.Write(data);
+			inputStream.Position = 0;
 			using MemoryStream outputStream = new();
 
 			if (!TryCompress(inputStream, outputStream))
@@ -37,6 +51,7 @@ public class BrotliCompressionProvider : ICompressionProvider
 			}
 
 			compressedData.CopyTo(destination);
+			bytesWritten = compressedData.Length;
 			return true;
 		}
 		catch (ArgumentException)
@@ -95,12 +110,17 @@ public class BrotliCompressionProvider : ICompressionProvider
 	/// </summary>
 	/// <param name="compressedData">The compressed data to decompress.</param>
 	/// <param name="destination">The destination to write the decompressed data to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the decompression was successful, false otherwise.</returns>
-	public bool TryDecompress(ReadOnlySpan<byte> compressedData, Span<byte> destination)
+	public bool TryDecompress(ReadOnlySpan<byte> compressedData, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		try
 		{
-			using MemoryStream inputStream = new(compressedData.ToArray());
+			using MemoryStream inputStream = new();
+			inputStream.Write(compressedData);
+			inputStream.Position = 0;
 			using MemoryStream outputStream = new();
 
 			if (!TryDecompress(inputStream, outputStream))
@@ -115,6 +135,7 @@ public class BrotliCompressionProvider : ICompressionProvider
 			}
 
 			decompressedData.CopyTo(destination);
+			bytesWritten = decompressedData.Length;
 			return true;
 		}
 		catch (ArgumentException)

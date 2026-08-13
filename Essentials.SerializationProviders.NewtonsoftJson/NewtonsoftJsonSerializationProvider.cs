@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.SerializationProviders.NewtonsoftJson;
 
@@ -13,6 +13,11 @@ using Newtonsoft.Json;
 /// </summary>
 public class NewtonsoftJsonSerializationProvider : ISerializationProvider
 {
+	/// <summary>
+	/// Gets the conventional file extension for JSON, including the leading dot.
+	/// </summary>
+	public string FileExtension => ".json";
+
 	private readonly JsonSerializerSettings settings = new();
 
 	/// <summary>

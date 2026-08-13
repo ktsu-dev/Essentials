@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.SerializationProviders.Toml;
 
@@ -17,6 +17,11 @@ using Tomlyn.Model;
 /// </summary>
 public class TomlSerializationProvider : ISerializationProvider
 {
+	/// <summary>
+	/// Gets the conventional file extension for TOML, including the leading dot.
+	/// </summary>
+	public string FileExtension => ".toml";
+
 	/// <summary>
 	/// Tries to serialize the specified object into the writer.
 	/// </summary>

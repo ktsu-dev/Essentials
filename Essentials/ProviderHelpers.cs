@@ -3,6 +3,7 @@
 namespace ktsu.Essentials;
 
 using System;
+using System.Buffers;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -55,6 +56,49 @@ internal static class ProviderHelpers
 		}
 
 		return outputStream.ToArray();
+	}
+
+	/// <summary>
+	/// A span-to-span transform that reports how many bytes it wrote.
+	/// </summary>
+	/// <param name="source">The input data.</param>
+	/// <param name="destination">The buffer to write to.</param>
+	/// <param name="bytesWritten">The number of bytes written.</param>
+	/// <returns>True if the operation succeeded, false otherwise.</returns>
+	internal delegate bool SpanTransform(ReadOnlySpan<byte> source, Span<byte> destination, out int bytesWritten);
+
+	/// <summary>
+	/// Runs a span transform into a pooled buffer and returns an array trimmed to the bytes actually written.
+	/// </summary>
+	/// <remarks>
+	/// Used by the self-allocating convenience methods where the output size is known in advance. The
+	/// scratch buffer is rented rather than allocated, so the only lasting allocation is the returned
+	/// array. Providers whose output size cannot be predicted — decompression, for one — still use the
+	/// stream path in <see cref="ExecuteToByteArray"/>.
+	/// </remarks>
+	/// <param name="maxLength">The largest output the operation can produce for this input.</param>
+	/// <param name="source">The input data.</param>
+	/// <param name="transform">The operation to run.</param>
+	/// <param name="failureMessage">The message for the exception if the operation fails.</param>
+	/// <returns>The output, trimmed to the bytes actually written.</returns>
+	internal static byte[] ExecuteToExactArray(int maxLength, ReadOnlySpan<byte> source, SpanTransform transform, string failureMessage)
+	{
+		byte[] buffer = ArrayPool<byte>.Shared.Rent(maxLength);
+		try
+		{
+			if (!transform(source, buffer.AsSpan(0, maxLength), out int bytesWritten))
+			{
+				throw new InvalidOperationException(failureMessage);
+			}
+
+			byte[] result = new byte[bytesWritten];
+			buffer.AsSpan(0, bytesWritten).CopyTo(result);
+			return result;
+		}
+		finally
+		{
+			ArrayPool<byte>.Shared.Return(buffer);
+		}
 	}
 
 	/// <summary>

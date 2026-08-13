@@ -1,0 +1,12 @@
+<Project>
+
+  <PropertyGroup>
+    <!--
+      Keep Polyfill's backported BCL types internal. When they are public they land in each package's
+      API surface, where they differ between target frameworks and produce hundreds of spurious
+      package-validation diagnostics. Nothing here exposes a polyfilled type from its own public API.
+    -->
+    <PolyPublic>false</PolyPublic>
+  </PropertyGroup>
+
+</Project>

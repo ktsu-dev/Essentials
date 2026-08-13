@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -78,9 +78,9 @@ Interfaces are defined in the `ktsu.Essentials` namespace (in the `Essentials/` 
 
 All provider interfaces follow a consistent three-tier pattern:
 
-1. **Core Try\* methods**: Zero-allocation methods working with `Span<byte>` or `Stream` parameters that return `bool` for success/failure. These are the only methods implementers must provide.
+1. **Core Try\* methods**: Buffer-based methods over `Span<byte>` or `Stream`. Span overloads are `bool TryX(source, destination, out int bytesWritten)`, paired with a `GetMax…Length` bound per category so callers can size buffers. These are the only methods implementers must provide.
 2. **Convenience methods**: Self-allocating methods that call Try\* methods and manage buffers automatically. Provided via default interface implementations.
-3. **Async variants**: Task-based async versions with `CancellationToken` support. Provided via `ProviderHelpers.RunAsync()`.
+3. **Async variants**: Task-based async versions with `CancellationToken` support, provided via `ProviderHelpers.RunAsync()`. Note these are `Task.Run` wrappers over synchronous work, not genuine async I/O. Span-destination async overloads do not exist — an `out` parameter cannot cross an async boundary.
 
 Common patterns are centralized in `ProviderHelpers.cs`:
 

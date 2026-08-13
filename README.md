@@ -1,4 +1,4 @@
-# ktsu.Essentials
+﻿# ktsu.Essentials
 
 > A comprehensive .NET library providing high-performance interfaces and implementations for common cross-cutting concerns including compression, encoding, obfuscation, encryption, hashing, serialization, caching, persistence, validation, logging, navigation, command execution, and filesystem access.
 
@@ -12,7 +12,7 @@
 
 ## Introduction
 
-`ktsu.Essentials` defines a consistent, high-performance API for common cross-cutting concerns in .NET applications. Each provider interface follows a three-tier pattern: zero-allocation `Try*` methods using `Span<byte>` and `Stream`, convenient self-allocating methods, and async variants with `CancellationToken` support. Implementers only need to provide the core `Try*` methods — all convenience and async methods are provided via default interface implementations. The package also includes ready-to-use provider implementations for compression, hashing, encoding, obfuscation, encryption, serialization, caching, persistence, logging, navigation, and command execution. Higher-level concerns are expressed by composition rather than duplication — configuration is simply an `IPersistenceProvider<TKey>` over a serializer, and obfuscation composes encoding transforms.
+`ktsu.Essentials` defines a consistent, high-performance API for common cross-cutting concerns in .NET applications. Each provider interface follows a three-tier pattern: core `Try*` methods over `Span<byte>` and `Stream` that report how many bytes they wrote, convenient self-allocating methods, and async variants with `CancellationToken` support. Implementers only need to provide the core `Try*` methods — all convenience and async methods are provided via default interface implementations. The `ktsu.Essentials` package is interfaces only; implementations ship as separate `ktsu.Essentials.<Category>.<Impl>` packages, with `ktsu.Essentials.All` bundling every one of them. Higher-level concerns are expressed by composition rather than duplication — configuration is simply an `IPersistenceProvider<TKey>` over a serializer, and obfuscation composes encoding transforms.
 
 ## Features
 
@@ -30,7 +30,7 @@
 - **Navigation**: `INavigationProvider<T>` with in-memory implementation for browser-like back/forward navigation
 - **Command Execution**: `ICommandExecutor` with native implementation for running shell commands and capturing output
 - **Filesystem**: `IFileSystemProvider` extending Testably.Abstractions for testable filesystem access
-- **Zero-Allocation Core**: All byte-oriented providers support `Span<byte>` and `Stream` for allocation-free operations
+- **Explicit Buffer Contract**: every span operation is `bool TryX(source, destination, out int bytesWritten)` and each category exposes a `GetMax…Length` bound, so callers can size a buffer up front and know exactly how much was written. Encoding, hashing and obfuscation run allocation-free on the span path; compression and encryption still buffer internally, because the underlying BCL APIs for those are stream-only
 - **Minimal Implementation Burden**: Default interface implementations reduce boilerplate — implement only the core `Try*` methods
 - **Comprehensive Async Support**: Every operation has async variants with proper `CancellationToken` support
 - **Batteries-Included or Cherry-Pick**: Each provider ships as its own `ktsu.Essentials.<Category>.<Impl>` package; install the `ktsu.Essentials.All` meta-package to get every provider at once, or reference only the ones you need
@@ -87,11 +87,11 @@ IHashProvider hashProvider = sha256;
 // Convenience method (auto-allocates buffer)
 byte[] hash = hashProvider.Hash("Hello, World!");
 
-// Zero-allocation method
+// Buffer-based method — no allocation, and it tells you how much it wrote
 Span<byte> buffer = stackalloc byte[hashProvider.HashLengthBytes];
-if (hashProvider.TryHash("Hello, World!"u8, buffer))
+if (hashProvider.TryHash("Hello, World!"u8, buffer, out int written))
 {
-    string hex = Convert.ToHexString(buffer);
+    string hex = Convert.ToHexString(buffer[..written]);
 }
 
 // Async method
@@ -175,21 +175,25 @@ public sealed class MyHashProvider : IHashProvider
 {
     public int HashLengthBytes => 32;
 
-    public bool TryHash(ReadOnlySpan<byte> data, Span<byte> destination)
+    public bool TryHash(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten)
     {
+        bytesWritten = 0;
         if (destination.Length < HashLengthBytes) return false;
         // Custom hash logic here
+        bytesWritten = HashLengthBytes;
         return true;
     }
 
-    public bool TryHash(Stream data, Span<byte> destination)
+    public bool TryHash(Stream data, Span<byte> destination, out int bytesWritten)
     {
+        bytesWritten = 0;
         if (destination.Length < HashLengthBytes) return false;
         // Custom stream hash logic here
+        bytesWritten = HashLengthBytes;
         return true;
     }
 
-    // Hash(), HashAsync(), TryHashAsync(), string overloads — all inherited
+    // Hash(), HashAsync(), string overloads — all inherited
 }
 ```
 
@@ -201,11 +205,12 @@ Compress and decompress data with Span, Stream, and string support.
 
 | Name | Return Type | Description |
 | ---- | ----------- | ----------- |
-| `TryCompress(ReadOnlySpan<byte>, Span<byte>)` | `bool` | Zero-allocation compression |
+| `GetMaxCompressedLength(int)` | `int` | Buffer size that always fits the output |
+| `TryCompress(ReadOnlySpan<byte>, Span<byte>, out int)` | `bool` | Compress, reporting bytes written |
 | `TryCompress(Stream, Stream)` | `bool` | Stream-based compression |
 | `Compress(ReadOnlySpan<byte>)` | `byte[]` | Self-allocating compression |
 | `Compress(string)` | `string` | Compresses UTF8 text, returns Base64 |
-| `TryDecompress(ReadOnlySpan<byte>, Span<byte>)` | `bool` | Zero-allocation decompression |
+| `TryDecompress(ReadOnlySpan<byte>, Span<byte>, out int)` | `bool` | Decompress, reporting bytes written |
 | `Decompress(ReadOnlySpan<byte>)` | `byte[]` | Self-allocating decompression |
 | `Decompress(string)` | `string` | Reverses `Compress(string)` |
 
@@ -215,11 +220,12 @@ Format/transport encoding (Base64, Hex) — not text character encodings.
 
 | Name | Return Type | Description |
 | ---- | ----------- | ----------- |
-| `TryEncode(ReadOnlySpan<byte>, Span<byte>)` | `bool` | Zero-allocation encoding |
+| `GetMaxEncodedLength(int)` / `GetMaxDecodedLength(int)` | `int` | Buffer sizes that always fit the output |
+| `TryEncode(ReadOnlySpan<byte>, Span<byte>, out int)` | `bool` | Encode, reporting bytes written |
 | `TryEncode(Stream, Stream)` | `bool` | Stream-based encoding |
 | `Encode(ReadOnlySpan<byte>)` | `byte[]` | Self-allocating encoding |
 | `Encode(string)` | `string` | Encodes UTF8 text |
-| `TryDecode(ReadOnlySpan<byte>, Span<byte>)` | `bool` | Zero-allocation decoding |
+| `TryDecode(ReadOnlySpan<byte>, Span<byte>, out int)` | `bool` | Decode, reporting bytes written |
 | `Decode(ReadOnlySpan<byte>)` | `byte[]` | Self-allocating decoding |
 | `Decode(string)` | `string` | Reverses `Encode(string)` |
 
@@ -229,8 +235,9 @@ Encrypt and decrypt data with key and IV management.
 
 | Name | Return Type | Description |
 | ---- | ----------- | ----------- |
-| `TryEncrypt(ReadOnlySpan<byte>, Span<byte>, byte[], byte[])` | `bool` | Zero-allocation encryption |
-| `TryDecrypt(ReadOnlySpan<byte>, Span<byte>, byte[], byte[])` | `bool` | Zero-allocation decryption |
+| `GetMaxEncryptedLength(int)` | `int` | Buffer size that always fits the ciphertext |
+| `TryEncrypt(ReadOnlySpan<byte>, …, Span<byte>, out int)` | `bool` | Encrypt, reporting bytes written |
+| `TryDecrypt(ReadOnlySpan<byte>, …, Span<byte>, out int)` | `bool` | Decrypt, reporting bytes written |
 | `Encrypt(string, ...)` | `string` | Encrypts UTF8 text, returns Base64 |
 | `Decrypt(string, ...)` | `string` | Reverses `Encrypt(string, ...)` |
 | `GenerateKey()` | `byte[]` | Generates a new encryption key |
@@ -242,8 +249,8 @@ Hash data with configurable output length. Exposes `HashLengthBytes` property fo
 
 | Name | Return Type | Description |
 | ---- | ----------- | ----------- |
-| `TryHash(ReadOnlySpan<byte>, Span<byte>)` | `bool` | Zero-allocation hashing |
-| `TryHash(Stream, Span<byte>)` | `bool` | Stream-based hashing |
+| `TryHash(ReadOnlySpan<byte>, Span<byte>, out int)` | `bool` | Hash, reporting bytes written |
+| `TryHash(Stream, Span<byte>, out int)` | `bool` | Stream-based hashing |
 | `Hash(ReadOnlySpan<byte>)` | `byte[]` | Self-allocating hashing |
 | `Hash(string)` | `byte[]` | Hash a UTF8 string |
 
@@ -253,6 +260,7 @@ Serialize and deserialize objects supporting JSON, YAML, TOML, and other text-ba
 
 | Name | Return Type | Description |
 | ---- | ----------- | ----------- |
+| `FileExtension` | `string` | Conventional extension for the format, e.g. `.yaml` |
 | `TrySerialize(object, TextWriter)` | `bool` | Serialize to a TextWriter |
 | `Serialize(object)` | `string` | Serialize to a string |
 | `Deserialize<T>(ReadOnlySpan<byte>)` | `T?` | Deserialize from bytes |

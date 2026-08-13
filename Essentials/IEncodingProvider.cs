@@ -8,18 +8,35 @@ using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
-/// Interface for encoding providers that can encode and decode data using format encodings such as Base64, Hex, or URL encoding.
-/// This is NOT for text character encodings (System.Text.Encoding) — it is for format/transport encodings.
+/// Interface for encoding providers that apply a reversible format or transport encoding, such as
+/// Base64 or hexadecimal. These are not text character encodings.
 /// </summary>
 public interface IEncodingProvider
 {
+	/// <summary>
+	/// Gets the largest number of bytes <see cref="TryEncode(ReadOnlySpan{byte}, Span{byte}, out int)"/>
+	/// can produce for an input of the given length.
+	/// </summary>
+	/// <param name="sourceLength">The length of the data to encode.</param>
+	/// <returns>The buffer size required to guarantee the encode succeeds.</returns>
+	public int GetMaxEncodedLength(int sourceLength);
+
+	/// <summary>
+	/// Gets the largest number of bytes <see cref="TryDecode(ReadOnlySpan{byte}, Span{byte}, out int)"/>
+	/// can produce for encoded data of the given length.
+	/// </summary>
+	/// <param name="encodedLength">The length of the encoded data.</param>
+	/// <returns>The buffer size required to guarantee the decode succeeds.</returns>
+	public int GetMaxDecodedLength(int encodedLength);
+
 	/// <summary>
 	/// Tries to encode the data from the span and write the result to the destination.
 	/// </summary>
 	/// <param name="data">The data to encode.</param>
 	/// <param name="destination">The destination to write the encoded data to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the encoding was successful, false otherwise.</returns>
-	public bool TryEncode(ReadOnlySpan<byte> data, Span<byte> destination);
+	public bool TryEncode(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten);
 
 	/// <summary>
 	/// Tries to encode the data from the stream and write the result to the destination.
@@ -44,15 +61,11 @@ public interface IEncodingProvider
 	/// <param name="data">The data to encode.</param>
 	/// <returns>The encoded data.</returns>
 	public byte[] Encode(ReadOnlySpan<byte> data)
-	{
-		using MemoryStream outputStream = new();
-		if (!TryEncode(data, outputStream))
-		{
-			throw new InvalidOperationException("Encoding failed to produce output with the allocated buffer.");
-		}
-
-		return outputStream.ToArray();
-	}
+		=> ProviderHelpers.ExecuteToExactArray(
+			GetMaxEncodedLength(data.Length),
+			data,
+			TryEncode,
+			"Encoding failed to produce output with the allocated buffer.");
 
 	/// <summary>
 	/// Encodes the data from the stream and returns the result.
@@ -71,16 +84,6 @@ public interface IEncodingProvider
 	/// <returns>The encoded data.</returns>
 	public string Encode(string data)
 		=> ProviderHelpers.Utf8Transform(data, bytes => Encode(bytes));
-
-	/// <summary>
-	/// Tries to encode the data from the span and write the result to the destination asynchronously.
-	/// </summary>
-	/// <param name="data">The data to encode.</param>
-	/// <param name="destination">The destination to write the encoded data to.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>True if the encoding was successful, false otherwise.</returns>
-	public Task<bool> TryEncodeAsync(ReadOnlyMemory<byte> data, Memory<byte> destination, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => TryEncode(data.Span, destination.Span), cancellationToken);
 
 	/// <summary>
 	/// Tries to encode the data from the span and write the result to the destination stream asynchronously.
@@ -134,8 +137,9 @@ public interface IEncodingProvider
 	/// </summary>
 	/// <param name="encodedData">The encoded data to decode.</param>
 	/// <param name="destination">The destination to write the decoded data to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the decoding was successful, false otherwise.</returns>
-	public bool TryDecode(ReadOnlySpan<byte> encodedData, Span<byte> destination);
+	public bool TryDecode(ReadOnlySpan<byte> encodedData, Span<byte> destination, out int bytesWritten);
 
 	/// <summary>
 	/// Tries to decode the data from the stream and write the result to the destination.
@@ -160,15 +164,11 @@ public interface IEncodingProvider
 	/// <param name="encodedData">The encoded data to decode.</param>
 	/// <returns>The decoded data.</returns>
 	public byte[] Decode(ReadOnlySpan<byte> encodedData)
-	{
-		using MemoryStream outputStream = new();
-		if (!TryDecode(encodedData, outputStream))
-		{
-			throw new InvalidOperationException("Decoding failed to produce output with the allocated buffer.");
-		}
-
-		return outputStream.ToArray();
-	}
+		=> ProviderHelpers.ExecuteToExactArray(
+			GetMaxDecodedLength(encodedData.Length),
+			encodedData,
+			TryDecode,
+			"Decoding failed to produce output with the allocated buffer.");
 
 	/// <summary>
 	/// Decodes the data from the stream and returns the result.
@@ -187,16 +187,6 @@ public interface IEncodingProvider
 	/// <returns>The decoded data as a UTF8 string.</returns>
 	public string Decode(string encodedData)
 		=> ProviderHelpers.Utf8Transform(encodedData, bytes => Decode(bytes));
-
-	/// <summary>
-	/// Tries to decode the data from the span and write the result to the destination asynchronously.
-	/// </summary>
-	/// <param name="encodedData">The encoded data to decode.</param>
-	/// <param name="destination">The destination to write the decoded data to.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>True if the decoding was successful, false otherwise.</returns>
-	public Task<bool> TryDecodeAsync(ReadOnlyMemory<byte> encodedData, Memory<byte> destination, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => TryDecode(encodedData.Span, destination.Span), cancellationToken);
 
 	/// <summary>
 	/// Tries to decode the data from the span and write the result to the destination stream asynchronously.

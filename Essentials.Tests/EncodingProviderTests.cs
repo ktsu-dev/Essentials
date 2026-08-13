@@ -77,8 +77,9 @@ public class EncodingProviderTests
 	{
 		byte[] original = Encoding.UTF8.GetBytes("data for buffer test with " + providerName);
 		Span<byte> small = stackalloc byte[1];
-		bool result = encoder.TryEncode(original, small);
+		bool result = encoder.TryEncode(original, small, out int written);
 		Assert.IsFalse(result, $"{providerName} should return false for insufficient buffer");
+		Assert.AreEqual(0, written, $"{providerName} should report no bytes written on failure");
 	}
 
 	[TestMethod]
