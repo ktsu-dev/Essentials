@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Essentials\Essentials.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="YamlDotNet" />
     <PackageReference Include="Polyfill" PrivateAssets="All" />
   </ItemGroup>

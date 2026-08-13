@@ -60,7 +60,8 @@
     <Project Path="Essentials.NavigationProviders.InMemory/Essentials.NavigationProviders.InMemory.csproj" />
   </Folder>
   <Folder Name="/PersistenceProviders/">
-    <Project Path="Essentials.PersistenceProviders.AppData/Essentials.PersistenceProviders.AppData.csproj" />
+    <Project Path="Essentials.PersistenceProviders.ConfigHome/Essentials.PersistenceProviders.ConfigHome.csproj" />
+    <Project Path="Essentials.PersistenceProviders.DataHome/Essentials.PersistenceProviders.DataHome.csproj" />
     <Project Path="Essentials.PersistenceProviders.FileSystem/Essentials.PersistenceProviders.FileSystem.csproj" />
     <Project Path="Essentials.PersistenceProviders.InMemory/Essentials.PersistenceProviders.InMemory.csproj" />
     <Project Path="Essentials.PersistenceProviders.Temp/Essentials.PersistenceProviders.Temp.csproj" />

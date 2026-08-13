@@ -60,7 +60,7 @@ Each provider implementation ships as its own project/package named `Essentials.
 - **LoggingProviders**: Console
 - **CacheProviders**: InMemory
 - **NavigationProviders**: InMemory
-- **PersistenceProviders**: AppData, FileSystem, InMemory, Temp
+- **PersistenceProviders**: DataHome, ConfigHome, FileSystem, InMemory, Temp (DataHome and ConfigHome resolve XDG paths — `$XDG_DATA_HOME` else `~/.local/share/<app>`, `$XDG_CONFIG_HOME` else `~/.config/<app>` — with the same layout on every platform; `~` is `%USERPROFILE%` on Windows. Both delegate storage to `FileSystemPersistenceProvider`.)
 
 The **`Essentials.All`** project (`ktsu.Essentials.All`) is a meta-package that references every provider implementation for a one-install "batteries-included" experience; consumers can otherwise cherry-pick individual provider packages.
 

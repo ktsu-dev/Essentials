@@ -66,12 +66,16 @@ public interface IObfuscationProvider
 			"Obfuscation failed to produce output with the allocated buffer.");
 
 	/// <summary>
-	/// Obfuscates the data from the string and returns the result.
+	/// Obfuscates a string and returns the obfuscated bytes as Base64 text.
 	/// </summary>
+	/// <remarks>
+	/// The input is encoded as UTF8, obfuscated, and the obfuscated bytes are Base64-encoded so the
+	/// result is safe to store or transmit as text. Use <see cref="Deobfuscate(string)"/> to reverse it.
+	/// </remarks>
 	/// <param name="data">The data to obfuscate.</param>
-	/// <returns>The obfuscated data.</returns>
+	/// <returns>The obfuscated data as a Base64 string.</returns>
 	public string Obfuscate(string data)
-		=> ProviderHelpers.Utf8Transform(data, bytes => Obfuscate(bytes));
+		=> ProviderHelpers.Utf8ToBase64Transform(data, bytes => Obfuscate(bytes));
 
 	/// <summary>
 	/// Tries to obfuscate the data from the span and write the result to the destination asynchronously.
@@ -182,6 +186,15 @@ public interface IObfuscationProvider
 			"Deobfuscation failed to produce output with the allocated buffer.");
 
 	/// <summary>
+	/// Deobfuscates Base64 text produced by <see cref="Obfuscate(string)"/> and returns the original string.
+	/// </summary>
+	/// <param name="obfuscatedData">The Base64-encoded obfuscated data.</param>
+	/// <returns>The deobfuscated data as a UTF8 string.</returns>
+	/// <exception cref="FormatException"><paramref name="obfuscatedData"/> is not valid Base64.</exception>
+	public string Deobfuscate(string obfuscatedData)
+		=> ProviderHelpers.Base64ToUtf8Transform(obfuscatedData, bytes => Deobfuscate(bytes));
+
+	/// <summary>
 	/// Tries to deobfuscate the data from the span and write the result to the destination asynchronously.
 	/// </summary>
 	/// <param name="obfuscatedData">The obfuscated data to deobfuscate.</param>
@@ -227,5 +240,14 @@ public interface IObfuscationProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The deobfuscated data.</returns>
 	public Task<byte[]> DeobfuscateAsync(Stream obfuscatedData, CancellationToken cancellationToken = default)
+		=> ProviderHelpers.RunAsync(() => Deobfuscate(obfuscatedData), cancellationToken);
+
+	/// <summary>
+	/// Deobfuscates Base64 text produced by <see cref="Obfuscate(string)"/> asynchronously.
+	/// </summary>
+	/// <param name="obfuscatedData">The Base64-encoded obfuscated data.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The deobfuscated data as a UTF8 string.</returns>
+	public Task<string> DeobfuscateAsync(string obfuscatedData, CancellationToken cancellationToken = default)
 		=> ProviderHelpers.RunAsync(() => Deobfuscate(obfuscatedData), cancellationToken);
 }

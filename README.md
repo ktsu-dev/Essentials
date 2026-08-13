@@ -19,11 +19,12 @@
 - **Compression**: `ICompressionProvider` with Gzip, Brotli, Deflate, and ZLib implementations
 - **Encoding**: `IEncodingProvider` with Base64 and Hex implementations for format/transport encoding
 - **Obfuscation**: `IObfuscationProvider` with XOR, Caesar, bit-rotation, byte-reversal, Base64, and Hex implementations, plus a `Composite` provider that pipelines several together. Obfuscation is reversible but is **not** encryption — it provides no confidentiality
+- **Dependency Injection**: every provider package ships an `Add<Impl><Category>Provider()` extension; `ktsu.Essentials.All` adds per-category helpers and a single `AddEssentials()`. Registrations are idempotent and expose each provider by both concrete type and interface
 - **Encryption**: `IEncryptionProvider` with AES implementation including key and IV generation
 - **Hashing**: `IHashProvider` with 15 implementations (MD5, SHA1/256/384/512, FNV1/FNV1a 32/64-bit, CRC32/64, XxHash32/64/3/128)
 - **Serialization**: `ISerializationProvider` with System.Text.Json, Newtonsoft.Json, YAML, and TOML implementations plus configurable `ISerializationOptions`
 - **Caching**: `ICacheProvider<TKey, TValue>` with in-memory implementation supporting expiration and get-or-add semantics
-- **Persistence**: `IPersistenceProvider<TKey>` with AppData, FileSystem, InMemory, and Temp implementations
+- **Persistence**: `IPersistenceProvider<TKey>` with DataHome, ConfigHome, FileSystem, InMemory, and Temp implementations. `DataHome` and `ConfigHome` follow the XDG Base Directory layout on every platform — `$XDG_DATA_HOME` or `~/.local/share/<app>` for application state, `$XDG_CONFIG_HOME` or `~/.config/<app>` for user settings — with `~` resolving to `%USERPROFILE%` on Windows
 - **Validation**: `IValidationProvider<T>` with structured results, error codes, and throw-on-failure support
 - **Logging**: `ILoggingProvider` with console implementation supporting six severity levels
 - **Navigation**: `INavigationProvider<T>` with in-memory implementation for browser-like back/forward navigation
@@ -60,19 +61,28 @@ dotnet add package ktsu.Essentials
 
 ```csharp
 using ktsu.Essentials;
-using ktsu.Essentials.HashProviders;
-using ktsu.Essentials.CompressionProviders;
-using ktsu.Essentials.EncodingProviders;
+using ktsu.Essentials.All;
+using ktsu.Essentials.HashProviders.SHA256;
 using Microsoft.Extensions.DependencyInjection;
 
-// Register provider implementations via DI
+// Each provider package ships its own registration extension
 IServiceCollection services = new ServiceCollection();
-services.AddSingleton<IHashProvider, SHA256>();
-services.AddSingleton<ICompressionProvider, Gzip>();
-services.AddSingleton<IEncodingProvider, EncodingProviders.Base64>();
+services.AddSHA256HashProvider();
+services.AddGzipCompressionProvider();
+services.AddBase64EncodingProvider();
 
-using IServiceProvider provider = services.BuildServiceProvider();
-IHashProvider hashProvider = provider.GetRequiredService<IHashProvider>();
+// ...or register everything at once with the ktsu.Essentials.All package
+services.AddEssentials();
+
+using ServiceProvider provider = services.BuildServiceProvider();
+
+// Resolve a specific implementation by its concrete type...
+SHA256HashProvider sha256 = provider.GetRequiredService<SHA256HashProvider>();
+
+// ...or every registered implementation of an interface
+IEnumerable<IHashProvider> allHashProviders = provider.GetServices<IHashProvider>();
+
+IHashProvider hashProvider = sha256;
 
 // Convenience method (auto-allocates buffer)
 byte[] hash = hashProvider.Hash("Hello, World!");
@@ -96,8 +106,9 @@ ICompressionProvider compressor = provider.GetRequiredService<ICompressionProvid
 byte[] compressed = compressor.Compress(originalData);
 byte[] decompressed = compressor.Decompress(compressed);
 
-// String convenience
+// String convenience — compressed bytes are returned as Base64 so they survive as text
 string compressedText = compressor.Compress("Large text content...");
+string originalText = compressor.Decompress(compressedText);
 ```
 
 ### Serialization
@@ -129,6 +140,28 @@ IPersistenceProvider<string> persistence = provider.GetRequiredService<IPersiste
 await persistence.StoreAsync("settings", mySettings);
 MySettings? loaded = await persistence.RetrieveAsync<MySettings>("settings");
 MySettings guaranteed = await persistence.RetrieveOrCreateAsync<MySettings>("settings");
+```
+
+The `DataHome` and `ConfigHome` providers need an application name, so register them explicitly rather than
+through `AddEssentials()`:
+
+```csharp
+using ktsu.Essentials.PersistenceProviders.ConfigHome;
+using ktsu.Essentials.PersistenceProviders.DataHome;
+
+// User settings   -> $XDG_CONFIG_HOME/MyApp   or ~/.config/MyApp
+services.AddConfigHomePersistenceProvider<string>("MyApp");
+
+// Application state -> $XDG_DATA_HOME/MyApp   or ~/.local/share/MyApp
+services.AddDataHomePersistenceProvider<string>("MyApp");
+```
+
+Both use the same layout on every platform, with `~` resolving to `%USERPROFILE%` on Windows. If you need
+the paths without a persistence provider, `UserDirectories` exposes them directly:
+
+```csharp
+string dataDir = UserDirectories.GetApplicationDataDirectory("MyApp");
+string configDir = UserDirectories.GetApplicationConfigDirectory("MyApp");
 ```
 
 ### Implementing a Custom Provider
@@ -171,9 +204,10 @@ Compress and decompress data with Span, Stream, and string support.
 | `TryCompress(ReadOnlySpan<byte>, Span<byte>)` | `bool` | Zero-allocation compression |
 | `TryCompress(Stream, Stream)` | `bool` | Stream-based compression |
 | `Compress(ReadOnlySpan<byte>)` | `byte[]` | Self-allocating compression |
-| `Compress(string)` | `string` | UTF8 string compression |
+| `Compress(string)` | `string` | Compresses UTF8 text, returns Base64 |
 | `TryDecompress(ReadOnlySpan<byte>, Span<byte>)` | `bool` | Zero-allocation decompression |
 | `Decompress(ReadOnlySpan<byte>)` | `byte[]` | Self-allocating decompression |
+| `Decompress(string)` | `string` | Reverses `Compress(string)` |
 
 ### `IEncodingProvider`
 
@@ -184,8 +218,10 @@ Format/transport encoding (Base64, Hex) — not text character encodings.
 | `TryEncode(ReadOnlySpan<byte>, Span<byte>)` | `bool` | Zero-allocation encoding |
 | `TryEncode(Stream, Stream)` | `bool` | Stream-based encoding |
 | `Encode(ReadOnlySpan<byte>)` | `byte[]` | Self-allocating encoding |
+| `Encode(string)` | `string` | Encodes UTF8 text |
 | `TryDecode(ReadOnlySpan<byte>, Span<byte>)` | `bool` | Zero-allocation decoding |
 | `Decode(ReadOnlySpan<byte>)` | `byte[]` | Self-allocating decoding |
+| `Decode(string)` | `string` | Reverses `Encode(string)` |
 
 ### `IEncryptionProvider`
 
@@ -195,6 +231,8 @@ Encrypt and decrypt data with key and IV management.
 | ---- | ----------- | ----------- |
 | `TryEncrypt(ReadOnlySpan<byte>, Span<byte>, byte[], byte[])` | `bool` | Zero-allocation encryption |
 | `TryDecrypt(ReadOnlySpan<byte>, Span<byte>, byte[], byte[])` | `bool` | Zero-allocation decryption |
+| `Encrypt(string, ...)` | `string` | Encrypts UTF8 text, returns Base64 |
+| `Decrypt(string, ...)` | `string` | Reverses `Encrypt(string, ...)` |
 | `GenerateKey()` | `byte[]` | Generates a new encryption key |
 | `GenerateIV()` | `byte[]` | Generates a new initialization vector |
 

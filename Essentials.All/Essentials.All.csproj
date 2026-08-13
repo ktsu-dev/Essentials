@@ -1,14 +1,15 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <Sdk Name="ktsu.Sdk" />
 
   <PropertyGroup>
     <TargetFrameworks>net10.0;net9.0;net8.0;net7.0;net6.0;netstandard2.1</TargetFrameworks>
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <Description>Batteries-included meta-package that references every ktsu.Essentials provider implementation.</Description>
+    <Description>Batteries-included package that references every ktsu.Essentials provider implementation and registers them all with one AddEssentials() call.</Description>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Polyfill" PrivateAssets="All" />
     <ProjectReference Include="..\Essentials.CacheProviders.InMemory\Essentials.CacheProviders.InMemory.csproj" />
     <ProjectReference Include="..\Essentials.CommandExecutors.Native\Essentials.CommandExecutors.Native.csproj" />
     <ProjectReference Include="..\Essentials.CompressionProviders.Brotli\Essentials.CompressionProviders.Brotli.csproj" />
@@ -44,7 +45,8 @@
     <ProjectReference Include="..\Essentials.ObfuscationProviders.Hex\Essentials.ObfuscationProviders.Hex.csproj" />
     <ProjectReference Include="..\Essentials.ObfuscationProviders.Reverse\Essentials.ObfuscationProviders.Reverse.csproj" />
     <ProjectReference Include="..\Essentials.ObfuscationProviders.Xor\Essentials.ObfuscationProviders.Xor.csproj" />
-    <ProjectReference Include="..\Essentials.PersistenceProviders.AppData\Essentials.PersistenceProviders.AppData.csproj" />
+    <ProjectReference Include="..\Essentials.PersistenceProviders.ConfigHome\Essentials.PersistenceProviders.ConfigHome.csproj" />
+    <ProjectReference Include="..\Essentials.PersistenceProviders.DataHome\Essentials.PersistenceProviders.DataHome.csproj" />
     <ProjectReference Include="..\Essentials.PersistenceProviders.FileSystem\Essentials.PersistenceProviders.FileSystem.csproj" />
     <ProjectReference Include="..\Essentials.PersistenceProviders.InMemory\Essentials.PersistenceProviders.InMemory.csproj" />
     <ProjectReference Include="..\Essentials.PersistenceProviders.Temp\Essentials.PersistenceProviders.Temp.csproj" />

@@ -181,6 +181,14 @@ public interface IEncodingProvider
 			"Decoding failed to produce output with the allocated buffer.");
 
 	/// <summary>
+	/// Decodes text produced by <see cref="Encode(string)"/> and returns the original string.
+	/// </summary>
+	/// <param name="encodedData">The encoded text.</param>
+	/// <returns>The decoded data as a UTF8 string.</returns>
+	public string Decode(string encodedData)
+		=> ProviderHelpers.Utf8Transform(encodedData, bytes => Decode(bytes));
+
+	/// <summary>
 	/// Tries to decode the data from the span and write the result to the destination asynchronously.
 	/// </summary>
 	/// <param name="encodedData">The encoded data to decode.</param>
@@ -226,5 +234,14 @@ public interface IEncodingProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The decoded data.</returns>
 	public Task<byte[]> DecodeAsync(Stream encodedData, CancellationToken cancellationToken = default)
+		=> ProviderHelpers.RunAsync(() => Decode(encodedData), cancellationToken);
+
+	/// <summary>
+	/// Decodes text produced by <see cref="Encode(string)"/> asynchronously.
+	/// </summary>
+	/// <param name="encodedData">The encoded text.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The decoded data as a UTF8 string.</returns>
+	public Task<string> DecodeAsync(string encodedData, CancellationToken cancellationToken = default)
 		=> ProviderHelpers.RunAsync(() => Decode(encodedData), cancellationToken);
 }

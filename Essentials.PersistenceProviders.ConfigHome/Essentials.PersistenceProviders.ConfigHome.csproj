@@ -8,10 +8,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Essentials\Essentials.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <ProjectReference Include="..\Essentials.PersistenceProviders.FileSystem\Essentials.PersistenceProviders.FileSystem.csproj" />
     <PackageReference Include="Testably.Abstractions" />
     <PackageReference Include="Polyfill" PrivateAssets="All" />
-  
-    <PackageReference Include="Testably.Abstractions.FileSystem.Interface" /></ItemGroup>
+    <PackageReference Include="Testably.Abstractions.FileSystem.Interface" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="ktsu.Essentials.Tests" />

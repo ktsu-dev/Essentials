@@ -64,12 +64,16 @@ public interface ICompressionProvider
 			"Compression failed to produce output with the allocated buffer.");
 
 	/// <summary>
-	/// Compresses the data from the string and returns the result.
+	/// Compresses a string and returns the compressed bytes as Base64 text.
 	/// </summary>
+	/// <remarks>
+	/// The input is encoded as UTF8, compressed, and the compressed bytes are Base64-encoded so the
+	/// result is safe to store or transmit as text. Use <see cref="Decompress(string)"/> to reverse it.
+	/// </remarks>
 	/// <param name="data">The data to compress.</param>
-	/// <returns>The compressed data.</returns>
+	/// <returns>The compressed data as a Base64 string.</returns>
 	public string Compress(string data)
-		=> ProviderHelpers.Utf8Transform(data, bytes => Compress(bytes));
+		=> ProviderHelpers.Utf8ToBase64Transform(data, bytes => Compress(bytes));
 
 	/// <summary>
 	/// Tries to compress the data from the span and write the result to the destination asynchronously.
@@ -180,6 +184,15 @@ public interface ICompressionProvider
 			"Decompression failed to produce output with the allocated buffer.");
 
 	/// <summary>
+	/// Decompresses Base64 text produced by <see cref="Compress(string)"/> and returns the original string.
+	/// </summary>
+	/// <param name="compressedData">The Base64-encoded compressed data.</param>
+	/// <returns>The decompressed data as a UTF8 string.</returns>
+	/// <exception cref="FormatException"><paramref name="compressedData"/> is not valid Base64.</exception>
+	public string Decompress(string compressedData)
+		=> ProviderHelpers.Base64ToUtf8Transform(compressedData, bytes => Decompress(bytes));
+
+	/// <summary>
 	/// Tries to decompress the data from the span and write the result to the destination asynchronously.
 	/// </summary>
 	/// <param name="compressedData">The compressed data to decompress.</param>
@@ -222,5 +235,14 @@ public interface ICompressionProvider
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The decompressed data.</returns>
 	public Task<byte[]> DecompressAsync(Stream compressedData, CancellationToken cancellationToken = default)
+		=> ProviderHelpers.RunAsync(() => Decompress(compressedData), cancellationToken);
+
+	/// <summary>
+	/// Decompresses Base64 text produced by <see cref="Compress(string)"/> asynchronously.
+	/// </summary>
+	/// <param name="compressedData">The Base64-encoded compressed data.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The decompressed data as a UTF8 string.</returns>
+	public Task<string> DecompressAsync(string compressedData, CancellationToken cancellationToken = default)
 		=> ProviderHelpers.RunAsync(() => Decompress(compressedData), cancellationToken);
 }

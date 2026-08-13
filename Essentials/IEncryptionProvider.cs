@@ -128,15 +128,21 @@ public interface IEncryptionProvider
 	}
 
 	/// <summary>
-	/// Encrypts the data from the string and returns the result.
+	/// Encrypts a string and returns the ciphertext as Base64 text.
 	/// </summary>
+	/// <remarks>
+	/// The input is encoded as UTF8, encrypted, and the ciphertext is Base64-encoded so the result is
+	/// safe to store or transmit as text. Use <see cref="Decrypt(string, ReadOnlySpan{byte}, ReadOnlySpan{byte})"/>
+	/// to reverse it.
+	/// </remarks>
 	/// <param name="data">The data to encrypt.</param>
 	/// <param name="key">The key to use for encryption.</param>
 	/// <param name="iv">The initialization vector to use for encryption.</param>
+	/// <returns>The ciphertext as a Base64 string.</returns>
 	public string Encrypt(string data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
 	{
 		byte[] bytes = Encoding.UTF8.GetBytes(data);
-		return Encoding.UTF8.GetString(Encrypt(bytes, key, iv));
+		return Convert.ToBase64String(Encrypt(bytes, key, iv));
 	}
 
 	/// <summary>
@@ -274,14 +280,17 @@ public interface IEncryptionProvider
 	}
 
 	/// <summary>
-	/// Decrypts the data from the string and returns the result.
+	/// Decrypts Base64 ciphertext produced by <see cref="Encrypt(string, ReadOnlySpan{byte}, ReadOnlySpan{byte})"/>
+	/// and returns the original string.
 	/// </summary>
-	/// <param name="data">The data to decrypt.</param>
+	/// <param name="data">The Base64-encoded ciphertext.</param>
 	/// <param name="key">The key to use for decryption.</param>
 	/// <param name="iv">The initialization vector to use for decryption.</param>
+	/// <returns>The plaintext as a UTF8 string.</returns>
+	/// <exception cref="FormatException"><paramref name="data"/> is not valid Base64.</exception>
 	public string Decrypt(string data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
 	{
-		byte[] bytes = Encoding.UTF8.GetBytes(data);
+		byte[] bytes = Convert.FromBase64String(data);
 		return Encoding.UTF8.GetString(Decrypt(bytes, key, iv));
 	}
 

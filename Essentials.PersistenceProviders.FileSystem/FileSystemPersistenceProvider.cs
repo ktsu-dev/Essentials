@@ -29,7 +29,11 @@ public sealed class FileSystemPersistenceProvider<TKey>(
 {
 	private readonly IFileSystemProvider _fileSystemProvider = Ensure.NotNull(fileSystemProvider);
 	private readonly ISerializationProvider _serializationProvider = Ensure.NotNull(serializationProvider);
-	private readonly string _baseDirectory = Ensure.NotNull(baseDirectory);
+
+	/// <summary>
+	/// Gets the directory this provider stores objects in.
+	/// </summary>
+	public string BaseDirectory { get; } = Ensure.NotNull(baseDirectory);
 
 	/// <inheritdoc/>
 	public string ProviderName => "FileSystem";
@@ -166,12 +170,12 @@ public sealed class FileSystemPersistenceProvider<TKey>(
 
 		try
 		{
-			if (!_fileSystemProvider.Directory.Exists(_baseDirectory))
+			if (!_fileSystemProvider.Directory.Exists(BaseDirectory))
 			{
 				return Task.FromResult(Enumerable.Empty<TKey>());
 			}
 
-			string[] files = _fileSystemProvider.Directory.GetFiles(_baseDirectory, "*.json", SearchOption.TopDirectoryOnly);
+			string[] files = _fileSystemProvider.Directory.GetFiles(BaseDirectory, "*.json", SearchOption.TopDirectoryOnly);
 			List<TKey> keys = [.. files
 				.Select(f => _fileSystemProvider.Path.GetFileNameWithoutExtension(f))
 				.Where(name => !string.IsNullOrEmpty(name))
@@ -194,12 +198,12 @@ public sealed class FileSystemPersistenceProvider<TKey>(
 
 		try
 		{
-			if (!_fileSystemProvider.Directory.Exists(_baseDirectory))
+			if (!_fileSystemProvider.Directory.Exists(BaseDirectory))
 			{
 				return Task.CompletedTask;
 			}
 
-			string[] files = _fileSystemProvider.Directory.GetFiles(_baseDirectory, "*.json", SearchOption.TopDirectoryOnly);
+			string[] files = _fileSystemProvider.Directory.GetFiles(BaseDirectory, "*.json", SearchOption.TopDirectoryOnly);
 			foreach (string file in files)
 			{
 				_fileSystemProvider.File.Delete(file);
@@ -216,6 +220,6 @@ public sealed class FileSystemPersistenceProvider<TKey>(
 	private string GetFilePath(TKey key)
 	{
 		string fileName = PersistenceProviderUtilities.GetSafeFileName(key.ToString()!) + ".json";
-		return _fileSystemProvider.Path.Combine(_baseDirectory, fileName);
+		return _fileSystemProvider.Path.Combine(BaseDirectory, fileName);
 	}
 }

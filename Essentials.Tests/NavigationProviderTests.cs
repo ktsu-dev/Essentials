@@ -1,8 +1,9 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.Tests;
 
 using ktsu.Essentials;
+using ktsu.Essentials.All;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

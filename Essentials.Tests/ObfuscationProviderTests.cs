@@ -16,7 +16,7 @@ public class ObfuscationProviderTests
 	private static ServiceProvider BuildProvider()
 	{
 		ServiceCollection services = new();
-		services.AddObfuscationProviders();
+		services.AddObfuscationProvidersWithComposite();
 		return services.BuildServiceProvider();
 	}
 
@@ -75,10 +75,11 @@ public class ObfuscationProviderTests
 	{
 		IObfuscationProvider provider = new Base64ObfuscationProvider();
 		string original = "string obfuscate via base64";
+
 		string obfuscated = provider.Obfuscate(original);
-		byte[] obfuscatedBytes = System.Text.Encoding.UTF8.GetBytes(obfuscated);
-		byte[] restoredBytes = provider.Deobfuscate(obfuscatedBytes);
-		string restored = System.Text.Encoding.UTF8.GetString(restoredBytes);
+		string restored = provider.Deobfuscate(obfuscated);
+
+		Assert.AreNotEqual(original, obfuscated, "Obfuscated text should not match the input");
 		Assert.AreEqual(original, restored);
 	}
 
@@ -87,10 +88,11 @@ public class ObfuscationProviderTests
 	{
 		IObfuscationProvider provider = new HexObfuscationProvider();
 		string original = "string obfuscate via hex";
+
 		string obfuscated = provider.Obfuscate(original);
-		byte[] obfuscatedBytes = System.Text.Encoding.UTF8.GetBytes(obfuscated);
-		byte[] restoredBytes = provider.Deobfuscate(obfuscatedBytes);
-		string restored = System.Text.Encoding.UTF8.GetString(restoredBytes);
+		string restored = provider.Deobfuscate(obfuscated);
+
+		Assert.AreNotEqual(original, obfuscated, "Obfuscated text should not match the input");
 		Assert.AreEqual(original, restored);
 	}
 }

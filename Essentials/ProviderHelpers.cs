@@ -74,12 +74,48 @@ internal static class ProviderHelpers
 	/// Applies a byte-level operation to a UTF8 string, returning the result as a string.
 	/// Encodes the input string to UTF8 bytes, applies the operation, and decodes the result.
 	/// </summary>
+	/// <remarks>
+	/// Only valid when the operation is guaranteed to produce well-formed UTF8 output — for example
+	/// format encoders such as Base64 or Hex, whose output is ASCII. Operations that produce arbitrary
+	/// binary (compression, encryption, obfuscation) must use <see cref="Utf8ToBase64Transform"/> instead,
+	/// because decoding arbitrary bytes as UTF8 silently replaces invalid sequences with U+FFFD.
+	/// </remarks>
 	/// <param name="data">The input string.</param>
-	/// <param name="operation">The byte-level operation to apply.</param>
+	/// <param name="operation">The byte-level operation to apply. Must produce well-formed UTF8.</param>
 	/// <returns>The result as a UTF8-decoded string.</returns>
 	internal static string Utf8Transform(string data, Func<byte[], byte[]> operation)
 	{
 		byte[] bytes = Encoding.UTF8.GetBytes(data);
+		return Encoding.UTF8.GetString(operation(bytes));
+	}
+
+	/// <summary>
+	/// Applies a byte-level operation to a UTF8 string and returns the binary result as Base64 text.
+	/// </summary>
+	/// <remarks>
+	/// Use for operations that produce arbitrary binary output, so the result survives as text.
+	/// <see cref="Base64ToUtf8Transform"/> is the exact inverse.
+	/// </remarks>
+	/// <param name="data">The input string.</param>
+	/// <param name="operation">The byte-level operation to apply.</param>
+	/// <returns>The result encoded as a Base64 string.</returns>
+	internal static string Utf8ToBase64Transform(string data, Func<byte[], byte[]> operation)
+	{
+		byte[] bytes = Encoding.UTF8.GetBytes(data);
+		return Convert.ToBase64String(operation(bytes));
+	}
+
+	/// <summary>
+	/// Decodes Base64 text, applies a byte-level operation, and returns the result as a UTF8 string.
+	/// </summary>
+	/// <remarks>The exact inverse of <see cref="Utf8ToBase64Transform"/>.</remarks>
+	/// <param name="data">The Base64-encoded input string.</param>
+	/// <param name="operation">The byte-level operation to apply.</param>
+	/// <returns>The result as a UTF8-decoded string.</returns>
+	/// <exception cref="FormatException"><paramref name="data"/> is not valid Base64.</exception>
+	internal static string Base64ToUtf8Transform(string data, Func<byte[], byte[]> operation)
+	{
+		byte[] bytes = Convert.FromBase64String(data);
 		return Encoding.UTF8.GetString(operation(bytes));
 	}
 }
