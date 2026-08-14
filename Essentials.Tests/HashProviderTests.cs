@@ -1,10 +1,11 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.Tests;
 
 using System.Collections.Generic;
 using System.Text;
 using ktsu.Essentials;
+using ktsu.Essentials.All;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -42,19 +43,22 @@ public class HashProviderTests
 
 		// Test insufficient buffer
 		Span<byte> tooSmall = stackalloc byte[Math.Max(1, provider.HashLengthBytes - 1)];
-		bool smallOk = provider.TryHash(data, tooSmall);
+		bool smallOk = provider.TryHash(data, tooSmall, out int smallWritten);
 		Assert.IsFalse(smallOk, $"{providerName} should return false for insufficient buffer");
+		Assert.AreEqual(0, smallWritten, $"{providerName} should report no bytes written on failure");
 
 		// Test sufficient buffer for byte array
 		byte[] dest = new byte[provider.HashLengthBytes];
-		bool ok = provider.TryHash(data, dest);
+		bool ok = provider.TryHash(data, dest, out int written);
 		Assert.IsTrue(ok, $"{providerName} should return true for sufficient buffer");
+		Assert.AreEqual(provider.HashLengthBytes, written, $"{providerName} should report the full hash length");
 
 		// Test stream hashing
 		using MemoryStream stream = new(data);
 		Array.Fill(dest, (byte)0);
-		bool streamOk = provider.TryHash(stream, dest);
+		bool streamOk = provider.TryHash(stream, dest, out int streamWritten);
 		Assert.IsTrue(streamOk, $"{providerName} should hash streams successfully");
+		Assert.AreEqual(provider.HashLengthBytes, streamWritten, $"{providerName} should report the full hash length from a stream");
 	}
 
 	[TestMethod]
@@ -67,16 +71,9 @@ public class HashProviderTests
 		byte[] result = provider.HashAsync(data, TestContext.CancellationToken).Result;
 		Assert.HasCount(provider.HashLengthBytes, result, $"{providerName} async should produce correct length");
 
-		// Test TryHashAsync with byte array
-		byte[] dest = new byte[provider.HashLengthBytes];
-		bool tryOk = provider.TryHashAsync(data, dest, TestContext.CancellationToken).Result;
-		Assert.IsTrue(tryOk, $"{providerName} async should return true for sufficient buffer");
-
-		// Test TryHashAsync with stream
-		using MemoryStream stream = new(data);
-		Array.Fill(dest, (byte)0);
-		bool tryStreamOk = provider.TryHashAsync(stream, dest, TestContext.CancellationToken).Result;
-		Assert.IsTrue(tryStreamOk, $"{providerName} async should hash streams successfully");
+		// The span-destination async overloads are gone: they cannot carry an out parameter, and were
+		// only Task.Run wrappers over synchronous work. Callers use the synchronous Try* instead.
+		CollectionAssert.AreEqual(provider.Hash(data), result, $"{providerName} async should match the synchronous result");
 	}
 
 	[TestMethod]

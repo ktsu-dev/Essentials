@@ -29,8 +29,35 @@ public class CompositeObfuscationProvider : IObfuscationProvider
 	}
 
 	/// <inheritdoc/>
-	public bool TryObfuscate(ReadOnlySpan<byte> data, Span<byte> destination)
+	/// <remarks>Each stage can expand its input, so the bound is the composition of every stage's bound.</remarks>
+	public int GetMaxObfuscatedLength(int sourceLength)
 	{
+		int length = sourceLength;
+		foreach (IObfuscationProvider stage in _stages)
+		{
+			length = stage.GetMaxObfuscatedLength(length);
+		}
+
+		return length;
+	}
+
+	/// <inheritdoc/>
+	public int GetMaxDeobfuscatedLength(int obfuscatedLength)
+	{
+		int length = obfuscatedLength;
+		for (int i = _stages.Count - 1; i >= 0; i--)
+		{
+			length = _stages[i].GetMaxDeobfuscatedLength(length);
+		}
+
+		return length;
+	}
+
+	/// <inheritdoc/>
+	public bool TryObfuscate(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten)
+	{
+		bytesWritten = 0;
+
 		byte[] current = data.ToArray();
 		foreach (IObfuscationProvider stage in _stages)
 		{
@@ -43,7 +70,7 @@ public class CompositeObfuscationProvider : IObfuscationProvider
 		}
 
 		current.CopyTo(destination);
-		destination[current.Length..].Clear();
+		bytesWritten = current.Length;
 		return true;
 	}
 
@@ -68,8 +95,10 @@ public class CompositeObfuscationProvider : IObfuscationProvider
 	}
 
 	/// <inheritdoc/>
-	public bool TryDeobfuscate(ReadOnlySpan<byte> obfuscatedData, Span<byte> destination)
+	public bool TryDeobfuscate(ReadOnlySpan<byte> obfuscatedData, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		byte[] current = obfuscatedData.ToArray();
 		for (int i = _stages.Count - 1; i >= 0; i--)
 		{
@@ -82,7 +111,7 @@ public class CompositeObfuscationProvider : IObfuscationProvider
 		}
 
 		current.CopyTo(destination);
-		destination[current.Length..].Clear();
+		bytesWritten = current.Length;
 		return true;
 	}
 

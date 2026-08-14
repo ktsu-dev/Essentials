@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.Tests;
 
@@ -47,12 +47,20 @@ public class RoundTripTests
 	{
 		byte[] original = Encoding.UTF8.GetBytes("some data that will compress using " + providerName);
 		Span<byte> smallDestination = stackalloc byte[4];
-		bool smallResult = compressor.TryCompress(original, smallDestination);
+		bool smallResult = compressor.TryCompress(original, smallDestination, out int smallWritten);
 		Assert.IsFalse(smallResult, $"{providerName} should return false for insufficient buffer");
+		Assert.AreEqual(0, smallWritten, $"{providerName} should report no bytes written on failure");
 
-		byte[] largeBuffer = new byte[original.Length * 10];
-		bool largeResult = compressor.TryCompress(original, largeBuffer);
-		Assert.IsTrue(largeResult, $"{providerName} should return true for sufficient buffer");
+		// A buffer sized by the provider's own bound must always be enough.
+		byte[] exactBuffer = new byte[compressor.GetMaxCompressedLength(original.Length)];
+		bool largeResult = compressor.TryCompress(original, exactBuffer, out int written);
+		Assert.IsTrue(largeResult, $"{providerName} should succeed with a buffer sized by GetMaxCompressedLength");
+		Assert.IsGreaterThan(0, written, $"{providerName} should report the bytes it wrote");
+		Assert.IsLessThanOrEqualTo(exactBuffer.Length, written, $"{providerName} should not report more than the buffer holds");
+
+		// The reported length must be exactly the ciphertext, with no padding to strip.
+		byte[] restored = compressor.Decompress(exactBuffer.AsSpan(0, written));
+		CollectionAssert.AreEqual(original, restored, $"{providerName} should round-trip the reported bytes exactly");
 	}
 
 	[TestMethod]
@@ -62,8 +70,9 @@ public class RoundTripTests
 		byte[] original = Encoding.UTF8.GetBytes("payload to compress and then decompress with " + providerName);
 		byte[] compressed = compressor.Compress(original);
 		byte[] destination = new byte[original.Length];
-		bool ok = compressor.TryDecompress(compressed, destination);
+		bool ok = compressor.TryDecompress(compressed, destination, out int written);
 		Assert.IsTrue(ok, $"{providerName} should successfully decompress");
+		Assert.AreEqual(original.Length, written, $"{providerName} should report the decompressed length");
 		CollectionAssert.AreEqual(original, destination, $"{providerName} should produce original data");
 	}
 
@@ -125,19 +134,22 @@ public class RoundTripTests
 
 		// Test insufficient buffer
 		Span<byte> smallDest = stackalloc byte[4];
-		bool small = encryptor.TryEncrypt(data, key, iv, smallDest);
+		bool small = encryptor.TryEncrypt(data, key, iv, smallDest, out int smallWritten);
 		Assert.IsFalse(small, $"{providerName} should return false for insufficient encryption buffer");
+		Assert.AreEqual(0, smallWritten, $"{providerName} should report no bytes written on failure");
 
-		// Test sufficient buffer
-		byte[] large = new byte[data.Length * 4];
-		bool ok = encryptor.TryEncrypt(data, key, iv, large);
-		Assert.IsTrue(ok, $"{providerName} should return true for sufficient encryption buffer");
+		// A buffer sized by the provider's own bound must always be enough.
+		byte[] cipherBuffer = new byte[encryptor.GetMaxEncryptedLength(data.Length)];
+		bool ok = encryptor.TryEncrypt(data, key, iv, cipherBuffer, out int cipherLength);
+		Assert.IsTrue(ok, $"{providerName} should succeed with a buffer sized by GetMaxEncryptedLength");
 
-		// Test decryption
-		byte[] decryptedDest = new byte[data.Length * 4];
-		bool decOk = encryptor.TryDecrypt(large, key, iv, decryptedDest);
+		// Decrypt exactly the reported ciphertext. Passing the whole oversized buffer used to work only
+		// because the provider guessed the length by stripping trailing zeros.
+		byte[] plainBuffer = new byte[cipherLength];
+		bool decOk = encryptor.TryDecrypt(cipherBuffer.AsSpan(0, cipherLength), key, iv, plainBuffer, out int plainLength);
 		Assert.IsTrue(decOk, $"{providerName} should successfully decrypt");
-		CollectionAssert.AreEqual(data, decryptedDest[..data.Length], $"{providerName} should produce original data");
+		Assert.AreEqual(data.Length, plainLength, $"{providerName} should report the plaintext length");
+		CollectionAssert.AreEqual(data, plainBuffer[..plainLength], $"{providerName} should produce original data");
 	}
 
 	[TestMethod]

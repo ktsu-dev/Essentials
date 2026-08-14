@@ -15,8 +15,16 @@ public class CaesarObfuscationProvider(byte shift = 13) : IObfuscationProvider
 	private readonly byte _shift = shift;
 
 	/// <inheritdoc/>
-	public bool TryObfuscate(ReadOnlySpan<byte> data, Span<byte> destination)
+	public int GetMaxObfuscatedLength(int sourceLength) => sourceLength;
+
+	/// <inheritdoc/>
+	public int GetMaxDeobfuscatedLength(int obfuscatedLength) => obfuscatedLength;
+
+	/// <inheritdoc/>
+	public bool TryObfuscate(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		if (destination.Length < data.Length)
 		{
 			return false;
@@ -27,7 +35,7 @@ public class CaesarObfuscationProvider(byte shift = 13) : IObfuscationProvider
 			destination[i] = (byte)(data[i] + _shift);
 		}
 
-		destination[data.Length..].Clear();
+		bytesWritten = data.Length;
 		return true;
 	}
 
@@ -49,8 +57,10 @@ public class CaesarObfuscationProvider(byte shift = 13) : IObfuscationProvider
 	}
 
 	/// <inheritdoc/>
-	public bool TryDeobfuscate(ReadOnlySpan<byte> obfuscatedData, Span<byte> destination)
+	public bool TryDeobfuscate(ReadOnlySpan<byte> obfuscatedData, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		if (destination.Length < obfuscatedData.Length)
 		{
 			return false;
@@ -61,7 +71,7 @@ public class CaesarObfuscationProvider(byte shift = 13) : IObfuscationProvider
 			destination[i] = (byte)(obfuscatedData[i] - _shift);
 		}
 
-		destination[obfuscatedData.Length..].Clear();
+		bytesWritten = obfuscatedData.Length;
 		return true;
 	}
 

@@ -1,55 +1,43 @@
-﻿// Copyright (c) 2023-2026 ktsu-dev contributors
+// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.EncodingProviders.Base64;
 
 using ktsu.Essentials;
 using System;
+using System.Buffers;
 using System.IO;
-using System.Text;
+using SysBase64 = System.Buffers.Text.Base64;
 
 /// <summary>
 /// An encoding provider that uses Base64 encoding for data encoding and decoding.
 /// </summary>
+/// <remarks>
+/// The span paths use the UTF8 Base64 primitives directly, so they neither allocate an intermediate
+/// string nor copy through a temporary array.
+/// </remarks>
 public class Base64EncodingProvider : IEncodingProvider
 {
-	/// <summary>
-	/// Tries to encode the data from the span and write the result to the destination.
-	/// </summary>
-	/// <param name="data">The data to encode.</param>
-	/// <param name="destination">The destination to write the encoded data to.</param>
-	/// <returns>True if the encoding was successful, false otherwise.</returns>
-	public bool TryEncode(ReadOnlySpan<byte> data, Span<byte> destination)
+	/// <inheritdoc/>
+	public int GetMaxEncodedLength(int sourceLength) => SysBase64.GetMaxEncodedToUtf8Length(sourceLength);
+
+	/// <inheritdoc/>
+	public int GetMaxDecodedLength(int encodedLength) => SysBase64.GetMaxDecodedFromUtf8Length(encodedLength);
+
+	/// <inheritdoc/>
+	public bool TryEncode(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten)
 	{
-		try
+		OperationStatus status = SysBase64.EncodeToUtf8(data, destination, out int consumed, out bytesWritten);
+
+		if (status == OperationStatus.Done && consumed == data.Length)
 		{
-			string base64String = Convert.ToBase64String(data);
-			byte[] encodedData = Encoding.UTF8.GetBytes(base64String);
-
-			if (encodedData.Length > destination.Length)
-			{
-				return false;
-			}
-
-			encodedData.CopyTo(destination);
-			destination[encodedData.Length..].Clear();
 			return true;
 		}
-		catch (ArgumentException)
-		{
-			return false;
-		}
-		catch (FormatException)
-		{
-			return false;
-		}
+
+		bytesWritten = 0;
+		return false;
 	}
 
-	/// <summary>
-	/// Tries to encode the data from the stream and write the result to the destination stream.
-	/// </summary>
-	/// <param name="data">The stream containing data to encode.</param>
-	/// <param name="destination">The destination stream to write the encoded data to.</param>
-	/// <returns>True if the encoding was successful, false otherwise.</returns>
+	/// <inheritdoc/>
 	public bool TryEncode(Stream data, Stream destination)
 	{
 		if (data is null || destination is null)
@@ -61,12 +49,16 @@ public class Base64EncodingProvider : IEncodingProvider
 		{
 			using MemoryStream inputBuffer = new();
 			data.CopyTo(inputBuffer);
-			byte[] inputData = inputBuffer.ToArray();
 
-			string base64String = Convert.ToBase64String(inputData);
-			byte[] encodedData = Encoding.UTF8.GetBytes(base64String);
+			byte[] source = inputBuffer.ToArray();
+			byte[] encoded = new byte[GetMaxEncodedLength(source.Length)];
 
-			destination.Write(encodedData, 0, encodedData.Length);
+			if (!TryEncode(source, encoded, out int bytesWritten))
+			{
+				return false;
+			}
+
+			destination.Write(encoded, 0, bytesWritten);
 			return true;
 		}
 		catch (ArgumentException)
@@ -77,71 +69,27 @@ public class Base64EncodingProvider : IEncodingProvider
 		{
 			return false;
 		}
-		catch (FormatException)
-		{
-			return false;
-		}
 		catch (ObjectDisposedException)
 		{
 			return false;
 		}
 	}
 
-	/// <summary>
-	/// Tries to decode the data from the span and write the result to the destination.
-	/// </summary>
-	/// <param name="encodedData">The encoded data to decode.</param>
-	/// <param name="destination">The destination to write the decoded data to.</param>
-	/// <returns>True if the decoding was successful, false otherwise.</returns>
-	public bool TryDecode(ReadOnlySpan<byte> encodedData, Span<byte> destination)
+	/// <inheritdoc/>
+	public bool TryDecode(ReadOnlySpan<byte> encodedData, Span<byte> destination, out int bytesWritten)
 	{
-		try
+		OperationStatus status = SysBase64.DecodeFromUtf8(encodedData, destination, out int consumed, out bytesWritten);
+
+		if (status == OperationStatus.Done && consumed == encodedData.Length)
 		{
-			// Find the actual length of encoded data (excluding trailing zeros)
-			ReadOnlySpan<byte> actualData = encodedData;
-			int lastNonZero = encodedData.Length - 1;
-			while (lastNonZero >= 0 && encodedData[lastNonZero] == 0)
-			{
-				lastNonZero--;
-			}
-
-			if (lastNonZero >= 0)
-			{
-				actualData = encodedData[..(lastNonZero + 1)];
-			}
-			else
-			{
-				return false;
-			}
-
-			string base64String = Encoding.UTF8.GetString(actualData);
-			byte[] decodedData = Convert.FromBase64String(base64String);
-
-			if (decodedData.Length > destination.Length)
-			{
-				return false;
-			}
-
-			decodedData.CopyTo(destination);
-			destination[decodedData.Length..].Clear();
 			return true;
 		}
-		catch (ArgumentException)
-		{
-			return false;
-		}
-		catch (FormatException)
-		{
-			return false;
-		}
+
+		bytesWritten = 0;
+		return false;
 	}
 
-	/// <summary>
-	/// Tries to decode the data from the stream and write the result to the destination stream.
-	/// </summary>
-	/// <param name="encodedData">The stream containing encoded data to decode.</param>
-	/// <param name="destination">The destination stream to write the decoded data to.</param>
-	/// <returns>True if the decoding was successful, false otherwise.</returns>
+	/// <inheritdoc/>
 	public bool TryDecode(Stream encodedData, Stream destination)
 	{
 		if (encodedData is null || destination is null)
@@ -153,10 +101,16 @@ public class Base64EncodingProvider : IEncodingProvider
 		{
 			using MemoryStream inputBuffer = new();
 			encodedData.CopyTo(inputBuffer);
-			string base64String = Encoding.UTF8.GetString(inputBuffer.ToArray());
 
-			byte[] decodedData = Convert.FromBase64String(base64String);
-			destination.Write(decodedData, 0, decodedData.Length);
+			byte[] source = inputBuffer.ToArray();
+			byte[] decoded = new byte[GetMaxDecodedLength(source.Length)];
+
+			if (!TryDecode(source, decoded, out int bytesWritten))
+			{
+				return false;
+			}
+
+			destination.Write(decoded, 0, bytesWritten);
 			return true;
 		}
 		catch (ArgumentException)
@@ -164,10 +118,6 @@ public class Base64EncodingProvider : IEncodingProvider
 			return false;
 		}
 		catch (IOException)
-		{
-			return false;
-		}
-		catch (FormatException)
 		{
 			return false;
 		}

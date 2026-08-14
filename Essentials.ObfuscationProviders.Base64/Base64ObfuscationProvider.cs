@@ -23,13 +23,21 @@ public class Base64ObfuscationProvider : IObfuscationProvider
 	public Base64ObfuscationProvider(IEncodingProvider encoder) => _encoder = Ensure.NotNull(encoder);
 
 	/// <inheritdoc/>
-	public bool TryObfuscate(ReadOnlySpan<byte> data, Span<byte> destination) => _encoder.TryEncode(data, destination);
+	public int GetMaxObfuscatedLength(int sourceLength) => _encoder.GetMaxEncodedLength(sourceLength);
+
+	/// <inheritdoc/>
+	public int GetMaxDeobfuscatedLength(int obfuscatedLength) => _encoder.GetMaxDecodedLength(obfuscatedLength);
+
+	/// <inheritdoc/>
+	public bool TryObfuscate(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten)
+		=> _encoder.TryEncode(data, destination, out bytesWritten);
 
 	/// <inheritdoc/>
 	public bool TryObfuscate(Stream data, Stream destination) => _encoder.TryEncode(data, destination);
 
 	/// <inheritdoc/>
-	public bool TryDeobfuscate(ReadOnlySpan<byte> obfuscatedData, Span<byte> destination) => _encoder.TryDecode(obfuscatedData, destination);
+	public bool TryDeobfuscate(ReadOnlySpan<byte> obfuscatedData, Span<byte> destination, out int bytesWritten)
+		=> _encoder.TryDecode(obfuscatedData, destination, out bytesWritten);
 
 	/// <inheritdoc/>
 	public bool TryDeobfuscate(Stream obfuscatedData, Stream destination) => _encoder.TryDecode(obfuscatedData, destination);

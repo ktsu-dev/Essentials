@@ -172,13 +172,24 @@ public sealed class TempPersistenceProvider<TKey>(
 				return Task.FromResult(Enumerable.Empty<TKey>());
 			}
 
-			string[] files = _fileSystemProvider.Directory.GetFiles(_tempDirectory, "*.json", SearchOption.TopDirectoryOnly);
-			List<TKey> keys = [.. files
-				.Select(f => _fileSystemProvider.Path.GetFileNameWithoutExtension(f))
-				.Where(name => !string.IsNullOrEmpty(name))
-				.Select(name => PersistenceProviderUtilities.ConvertToKey<TKey>(name!))
-				.Where(key => key is not null)
-				.Cast<TKey>()];
+			string[] files = _fileSystemProvider.Directory.GetFiles(_tempDirectory, "*" + _serializationProvider.FileExtension, SearchOption.TopDirectoryOnly);
+			List<TKey> keys = [];
+			foreach (string file in files)
+			{
+				string? name = _fileSystemProvider.Path.GetFileNameWithoutExtension(file);
+				if (string.IsNullOrEmpty(name))
+				{
+					continue;
+				}
+
+				// Names are percent-encoded, so the original key is recovered exactly. Truncated
+				// names cannot be decoded and are skipped rather than reported as a wrong key.
+				string? decoded = PersistenceProviderUtilities.GetKeyFromFileName(name!);
+				if (decoded is not null && PersistenceProviderUtilities.TryConvertToKey(decoded, out TKey key))
+				{
+					keys.Add(key);
+				}
+			}
 
 			return Task.FromResult<IEnumerable<TKey>>(keys);
 		}
@@ -200,7 +211,7 @@ public sealed class TempPersistenceProvider<TKey>(
 				return Task.CompletedTask;
 			}
 
-			string[] files = _fileSystemProvider.Directory.GetFiles(_tempDirectory, "*.json", SearchOption.TopDirectoryOnly);
+			string[] files = _fileSystemProvider.Directory.GetFiles(_tempDirectory, "*" + _serializationProvider.FileExtension, SearchOption.TopDirectoryOnly);
 			foreach (string file in files)
 			{
 				_fileSystemProvider.File.Delete(file);
@@ -243,7 +254,7 @@ public sealed class TempPersistenceProvider<TKey>(
 
 	private string GetFilePath(TKey key)
 	{
-		string fileName = PersistenceProviderUtilities.GetSafeFileName(key.ToString()!) + ".json";
+		string fileName = PersistenceProviderUtilities.GetSafeFileName(key.ToString()!) + _serializationProvider.FileExtension;
 		return _fileSystemProvider.Path.Combine(_tempDirectory, fileName);
 	}
 

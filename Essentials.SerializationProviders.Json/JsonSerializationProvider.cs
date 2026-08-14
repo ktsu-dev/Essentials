@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.SerializationProviders.Json;
 
@@ -12,6 +12,11 @@ using System.Text.Json;
 /// </summary>
 public class JsonSerializationProvider : ISerializationProvider
 {
+	/// <summary>
+	/// Gets the conventional file extension for JSON, including the leading dot.
+	/// </summary>
+	public string FileExtension => ".json";
+
 	private readonly JsonSerializerOptions options = new()
 	{
 		WriteIndented = true,

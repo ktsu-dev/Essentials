@@ -34,8 +34,16 @@ public class BitRotateObfuscationProvider : IObfuscationProvider
 	private static byte RotateRight(byte value, int bits) => (byte)((value >> bits) | (value << (8 - bits)));
 
 	/// <inheritdoc/>
-	public bool TryObfuscate(ReadOnlySpan<byte> data, Span<byte> destination)
+	public int GetMaxObfuscatedLength(int sourceLength) => sourceLength;
+
+	/// <inheritdoc/>
+	public int GetMaxDeobfuscatedLength(int obfuscatedLength) => obfuscatedLength;
+
+	/// <inheritdoc/>
+	public bool TryObfuscate(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		if (destination.Length < data.Length)
 		{
 			return false;
@@ -46,7 +54,7 @@ public class BitRotateObfuscationProvider : IObfuscationProvider
 			destination[i] = RotateLeft(data[i], _bits);
 		}
 
-		destination[data.Length..].Clear();
+		bytesWritten = data.Length;
 		return true;
 	}
 
@@ -68,8 +76,10 @@ public class BitRotateObfuscationProvider : IObfuscationProvider
 	}
 
 	/// <inheritdoc/>
-	public bool TryDeobfuscate(ReadOnlySpan<byte> obfuscatedData, Span<byte> destination)
+	public bool TryDeobfuscate(ReadOnlySpan<byte> obfuscatedData, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		if (destination.Length < obfuscatedData.Length)
 		{
 			return false;
@@ -80,7 +90,7 @@ public class BitRotateObfuscationProvider : IObfuscationProvider
 			destination[i] = RotateRight(obfuscatedData[i], _bits);
 		}
 
-		destination[obfuscatedData.Length..].Clear();
+		bytesWritten = obfuscatedData.Length;
 		return true;
 	}
 

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2023-2026 ktsu-dev contributors
+// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.EncryptionProviders.Aes;
 
@@ -10,23 +10,20 @@ using System.Security.Cryptography;
 /// <summary>
 /// An encryption provider that uses AES for data encryption and decryption.
 /// </summary>
-public class AesEncryptionProvider : IEncryptionProvider, IDisposable
+/// <remarks>
+/// This type is stateless and safe to share across threads — every operation creates its own
+/// <see cref="System.Security.Cryptography.Aes"/> instance from the caller-supplied key and IV.
+/// It is therefore safe to register as a singleton.
+/// </remarks>
+public class AesEncryptionProvider : IEncryptionProvider
 {
 	private const int KeySize = 32; // 256 bits
 	private const int IVSize = 16; // 128 bits
-	private bool disposedValue;
+	private const int BlockSizeBytes = 16; // AES block size is always 128 bits
 
-	private readonly Lazy<System.Security.Cryptography.Aes> _aes;
-	private readonly Lazy<System.Security.Cryptography.Aes> _generator;
-
-	/// <summary>
-	/// Creates a new instance of the <see cref="AesEncryptionProvider"/> class.
-	/// </summary>
-	public AesEncryptionProvider()
-	{
-		_aes = new(System.Security.Cryptography.Aes.Create);
-		_generator = new(System.Security.Cryptography.Aes.Create);
-	}
+	/// <inheritdoc/>
+	/// <remarks>CBC with PKCS7 always pads to the next whole block, adding a full block when already aligned.</remarks>
+	public int GetMaxEncryptedLength(int sourceLength) => ((sourceLength / BlockSizeBytes) + 1) * BlockSizeBytes;
 
 	/// <summary>
 	/// Generates a new encryption key.
@@ -34,8 +31,10 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 	/// <returns>A new encryption key.</returns>
 	public byte[] GenerateKey()
 	{
-		_generator.Value.GenerateKey();
-		return _generator.Value.Key;
+		byte[] key = new byte[KeySize];
+		using RandomNumberGenerator rng = RandomNumberGenerator.Create();
+		rng.GetBytes(key);
+		return key;
 	}
 
 	/// <summary>
@@ -44,8 +43,10 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 	/// <returns>A new initialization vector.</returns>
 	public byte[] GenerateIV()
 	{
-		_generator.Value.GenerateIV();
-		return _generator.Value.IV;
+		byte[] iv = new byte[IVSize];
+		using RandomNumberGenerator rng = RandomNumberGenerator.Create();
+		rng.GetBytes(iv);
+		return iv;
 	}
 
 	/// <summary>
@@ -55,9 +56,12 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 	/// <param name="key">The key to use for encryption.</param>
 	/// <param name="iv">The initialization vector to use for encryption.</param>
 	/// <param name="destination">The destination to write the encrypted data to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the encryption was successful, false otherwise.</returns>
-	public bool TryEncrypt(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, Span<byte> destination)
+	public bool TryEncrypt(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		if (key.Length != KeySize || iv.Length != IVSize)
 		{
 			return false;
@@ -65,10 +69,8 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 
 		try
 		{
-			_aes.Value.Key = key.ToArray();
-			_aes.Value.IV = iv.ToArray();
-
-			using ICryptoTransform encryptor = _aes.Value.CreateEncryptor();
+			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
+			using ICryptoTransform encryptor = aes.CreateEncryptor(key.ToArray(), iv.ToArray());
 			byte[] encryptedData = encryptor.TransformFinalBlock(data.ToArray(), 0, data.Length);
 
 			if (encryptedData.Length > destination.Length)
@@ -77,8 +79,7 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 			}
 
 			encryptedData.CopyTo(destination);
-			// Clear the rest of the destination buffer to ensure only encrypted data is present
-			destination[encryptedData.Length..].Clear();
+			bytesWritten = encryptedData.Length;
 			return true;
 		}
 		catch (ArgumentException)
@@ -112,10 +113,8 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 
 		try
 		{
-			_aes.Value.Key = key.ToArray();
-			_aes.Value.IV = iv.ToArray();
-
-			using ICryptoTransform encryptor = _aes.Value.CreateEncryptor();
+			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
+			using ICryptoTransform encryptor = aes.CreateEncryptor(key.ToArray(), iv.ToArray());
 			using CryptoStream cryptoStream = new(destination, encryptor, CryptoStreamMode.Write, leaveOpen: true);
 			data.CopyTo(cryptoStream);
 			return true;
@@ -145,38 +144,25 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 	/// <param name="key">The key to use for decryption.</param>
 	/// <param name="iv">The initialization vector to use for decryption.</param>
 	/// <param name="destination">The destination to write the decrypted data to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the decryption was successful, false otherwise.</returns>
-	public bool TryDecrypt(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, Span<byte> destination)
+	public bool TryDecrypt(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, Span<byte> destination, out int bytesWritten)
 	{
-		if (key.Length != KeySize || iv.Length != IVSize)
+		bytesWritten = 0;
+
+		if (key.Length != KeySize || iv.Length != IVSize || data.IsEmpty)
 		{
 			return false;
 		}
 
 		try
 		{
-			_aes.Value.Key = key.ToArray();
-			_aes.Value.IV = iv.ToArray();
-
-			// Find the actual length of encrypted data (excluding trailing zeros)
-			ReadOnlySpan<byte> actualData = data;
-			int lastNonZero = data.Length - 1;
-			while (lastNonZero >= 0 && data[lastNonZero] == 0)
-			{
-				lastNonZero--;
-			}
-
-			if (lastNonZero >= 0)
-			{
-				actualData = data[..(lastNonZero + 1)];
-			}
-			else
-			{
-				return false; // All zeros is not valid encrypted data
-			}
-
-			using ICryptoTransform decryptor = _aes.Value.CreateDecryptor();
-			byte[] decryptedData = decryptor.TransformFinalBlock(actualData.ToArray(), 0, actualData.Length);
+			// The ciphertext is exactly the span the caller passed. Earlier versions had to guess its
+			// length by trimming trailing zeros, because the API could not report how many bytes the
+			// matching encrypt call wrote; that corrupted any ciphertext ending in a zero byte.
+			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
+			using ICryptoTransform decryptor = aes.CreateDecryptor(key.ToArray(), iv.ToArray());
+			byte[] decryptedData = decryptor.TransformFinalBlock(data.ToArray(), 0, data.Length);
 
 			if (decryptedData.Length > destination.Length)
 			{
@@ -184,8 +170,7 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 			}
 
 			decryptedData.CopyTo(destination);
-			// Clear the rest of the destination buffer
-			destination[decryptedData.Length..].Clear();
+			bytesWritten = decryptedData.Length;
 			return true;
 		}
 		catch (ArgumentException)
@@ -219,10 +204,8 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 
 		try
 		{
-			_aes.Value.Key = key.ToArray();
-			_aes.Value.IV = iv.ToArray();
-
-			using ICryptoTransform decryptor = _aes.Value.CreateDecryptor();
+			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
+			using ICryptoTransform decryptor = aes.CreateDecryptor(key.ToArray(), iv.ToArray());
 			using CryptoStream cryptoStream = new(data, decryptor, CryptoStreamMode.Read, leaveOpen: true);
 			cryptoStream.CopyTo(destination);
 			return true;
@@ -243,39 +226,5 @@ public class AesEncryptionProvider : IEncryptionProvider, IDisposable
 		{
 			return false;
 		}
-	}
-
-	/// <summary>
-	/// Disposes the resources used by the Aes instance.
-	/// </summary>
-	protected virtual void Dispose(bool disposing)
-	{
-		if (!disposedValue)
-		{
-			if (disposing)
-			{
-				if (_aes.IsValueCreated)
-				{
-					_aes.Value.Dispose();
-				}
-
-				if (_generator.IsValueCreated)
-				{
-					_generator.Value.Dispose();
-				}
-			}
-
-			disposedValue = true;
-		}
-	}
-
-	/// <summary>
-	/// Disposes the Aes instance and releases all resources.
-	/// </summary>
-	public void Dispose()
-	{
-		// Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-		Dispose(disposing: true);
-		GC.SuppressFinalize(this);
 	}
 }

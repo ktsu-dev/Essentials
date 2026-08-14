@@ -31,8 +31,16 @@ public class XorObfuscationProvider : IObfuscationProvider
 	}
 
 	/// <inheritdoc/>
-	public bool TryObfuscate(ReadOnlySpan<byte> data, Span<byte> destination)
+	public int GetMaxObfuscatedLength(int sourceLength) => sourceLength;
+
+	/// <inheritdoc/>
+	public int GetMaxDeobfuscatedLength(int obfuscatedLength) => obfuscatedLength;
+
+	/// <inheritdoc/>
+	public bool TryObfuscate(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		if (destination.Length < data.Length)
 		{
 			return false;
@@ -43,7 +51,7 @@ public class XorObfuscationProvider : IObfuscationProvider
 			destination[i] = (byte)(data[i] ^ _key[i % _key.Length]);
 		}
 
-		destination[data.Length..].Clear();
+		bytesWritten = data.Length;
 		return true;
 	}
 
@@ -67,8 +75,8 @@ public class XorObfuscationProvider : IObfuscationProvider
 	}
 
 	/// <inheritdoc/>
-	public bool TryDeobfuscate(ReadOnlySpan<byte> obfuscatedData, Span<byte> destination)
-		=> TryObfuscate(obfuscatedData, destination);
+	public bool TryDeobfuscate(ReadOnlySpan<byte> obfuscatedData, Span<byte> destination, out int bytesWritten)
+		=> TryObfuscate(obfuscatedData, destination, out bytesWritten);
 
 	/// <inheritdoc/>
 	public bool TryDeobfuscate(Stream obfuscatedData, Stream destination)

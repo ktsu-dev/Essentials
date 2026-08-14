@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.SerializationProviders.Yaml;
 
@@ -15,6 +15,11 @@ using YamlDotNet.Serialization.NamingConventions;
 /// </summary>
 public class YamlSerializationProvider : ISerializationProvider
 {
+	/// <summary>
+	/// Gets the conventional file extension for YAML, including the leading dot.
+	/// </summary>
+	public string FileExtension => ".yaml";
+
 	private readonly IDeserializer deserializer = new DeserializerBuilder()
 		.WithNamingConvention(CamelCaseNamingConvention.Instance)
 		.Build();

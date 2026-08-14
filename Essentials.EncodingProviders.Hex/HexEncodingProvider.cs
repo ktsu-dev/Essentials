@@ -1,55 +1,49 @@
-﻿// Copyright (c) 2023-2026 ktsu-dev contributors
+// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.EncodingProviders.Hex;
 
 using ktsu.Essentials;
 using System;
 using System.IO;
-using System.Text;
 
 /// <summary>
 /// An encoding provider that uses hexadecimal encoding for data encoding and decoding.
 /// </summary>
+/// <remarks>
+/// The span paths convert byte by byte, so they neither allocate an intermediate string nor copy
+/// through a temporary array. Encoding emits uppercase; decoding accepts either case.
+/// </remarks>
 public class HexEncodingProvider : IEncodingProvider
 {
-	/// <summary>
-	/// Tries to encode the data from the span and write the result to the destination.
-	/// </summary>
-	/// <param name="data">The data to encode.</param>
-	/// <param name="destination">The destination to write the encoded data to.</param>
-	/// <returns>True if the encoding was successful, false otherwise.</returns>
-	public bool TryEncode(ReadOnlySpan<byte> data, Span<byte> destination)
+	private const string HexDigits = "0123456789ABCDEF";
+
+	/// <inheritdoc/>
+	public int GetMaxEncodedLength(int sourceLength) => sourceLength * 2;
+
+	/// <inheritdoc/>
+	public int GetMaxDecodedLength(int encodedLength) => encodedLength / 2;
+
+	/// <inheritdoc/>
+	public bool TryEncode(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten)
 	{
-		try
-		{
-			string hexString = Convert.ToHexString(data);
-			byte[] encodedData = Encoding.UTF8.GetBytes(hexString);
+		bytesWritten = 0;
 
-			if (encodedData.Length > destination.Length)
-			{
-				return false;
-			}
-
-			encodedData.CopyTo(destination);
-			destination[encodedData.Length..].Clear();
-			return true;
-		}
-		catch (ArgumentException)
+		if (destination.Length < data.Length * 2)
 		{
 			return false;
 		}
-		catch (FormatException)
+
+		for (int i = 0; i < data.Length; i++)
 		{
-			return false;
+			destination[i * 2] = (byte)HexDigits[data[i] >> 4];
+			destination[(i * 2) + 1] = (byte)HexDigits[data[i] & 0x0F];
 		}
+
+		bytesWritten = data.Length * 2;
+		return true;
 	}
 
-	/// <summary>
-	/// Tries to encode the data from the stream and write the result to the destination stream.
-	/// </summary>
-	/// <param name="data">The stream containing data to encode.</param>
-	/// <param name="destination">The destination stream to write the encoded data to.</param>
-	/// <returns>True if the encoding was successful, false otherwise.</returns>
+	/// <inheritdoc/>
 	public bool TryEncode(Stream data, Stream destination)
 	{
 		if (data is null || destination is null)
@@ -59,25 +53,16 @@ public class HexEncodingProvider : IEncodingProvider
 
 		try
 		{
-			using MemoryStream inputBuffer = new();
-			data.CopyTo(inputBuffer);
-			byte[] inputData = inputBuffer.ToArray();
+			int b;
+			while ((b = data.ReadByte()) >= 0)
+			{
+				destination.WriteByte((byte)HexDigits[b >> 4]);
+				destination.WriteByte((byte)HexDigits[b & 0x0F]);
+			}
 
-			string hexString = Convert.ToHexString(inputData);
-			byte[] encodedData = Encoding.UTF8.GetBytes(hexString);
-
-			destination.Write(encodedData, 0, encodedData.Length);
 			return true;
 		}
-		catch (ArgumentException)
-		{
-			return false;
-		}
 		catch (IOException)
-		{
-			return false;
-		}
-		catch (FormatException)
 		{
 			return false;
 		}
@@ -87,61 +72,32 @@ public class HexEncodingProvider : IEncodingProvider
 		}
 	}
 
-	/// <summary>
-	/// Tries to decode the data from the span and write the result to the destination.
-	/// </summary>
-	/// <param name="encodedData">The encoded data to decode.</param>
-	/// <param name="destination">The destination to write the decoded data to.</param>
-	/// <returns>True if the decoding was successful, false otherwise.</returns>
-	public bool TryDecode(ReadOnlySpan<byte> encodedData, Span<byte> destination)
+	/// <inheritdoc/>
+	public bool TryDecode(ReadOnlySpan<byte> encodedData, Span<byte> destination, out int bytesWritten)
 	{
-		try
-		{
-			// Find the actual length of encoded data (excluding trailing zeros)
-			ReadOnlySpan<byte> actualData = encodedData;
-			int lastNonZero = encodedData.Length - 1;
-			while (lastNonZero >= 0 && encodedData[lastNonZero] == 0)
-			{
-				lastNonZero--;
-			}
+		bytesWritten = 0;
 
-			if (lastNonZero >= 0)
-			{
-				actualData = encodedData[..(lastNonZero + 1)];
-			}
-			else
-			{
-				return false;
-			}
-
-			string hexString = Encoding.UTF8.GetString(actualData);
-			byte[] decodedData = Convert.FromHexString(hexString);
-
-			if (decodedData.Length > destination.Length)
-			{
-				return false;
-			}
-
-			decodedData.CopyTo(destination);
-			destination[decodedData.Length..].Clear();
-			return true;
-		}
-		catch (ArgumentException)
+		if (encodedData.Length % 2 != 0 || destination.Length < encodedData.Length / 2)
 		{
 			return false;
 		}
-		catch (FormatException)
+
+		for (int i = 0; i < encodedData.Length; i += 2)
 		{
-			return false;
+			if (!TryParseNibble(encodedData[i], out int high) || !TryParseNibble(encodedData[i + 1], out int low))
+			{
+				bytesWritten = 0;
+				return false;
+			}
+
+			destination[i / 2] = (byte)((high << 4) | low);
 		}
+
+		bytesWritten = encodedData.Length / 2;
+		return true;
 	}
 
-	/// <summary>
-	/// Tries to decode the data from the stream and write the result to the destination stream.
-	/// </summary>
-	/// <param name="encodedData">The stream containing encoded data to decode.</param>
-	/// <param name="destination">The destination stream to write the decoded data to.</param>
-	/// <returns>True if the decoding was successful, false otherwise.</returns>
+	/// <inheritdoc/>
 	public bool TryDecode(Stream encodedData, Stream destination)
 	{
 		if (encodedData is null || destination is null)
@@ -151,23 +107,26 @@ public class HexEncodingProvider : IEncodingProvider
 
 		try
 		{
-			using MemoryStream inputBuffer = new();
-			encodedData.CopyTo(inputBuffer);
-			string hexString = Encoding.UTF8.GetString(inputBuffer.ToArray());
+			while (true)
+			{
+				int first = encodedData.ReadByte();
+				if (first < 0)
+				{
+					return true;
+				}
 
-			byte[] decodedData = Convert.FromHexString(hexString);
-			destination.Write(decodedData, 0, decodedData.Length);
-			return true;
-		}
-		catch (ArgumentException)
-		{
-			return false;
+				int second = encodedData.ReadByte();
+				if (second < 0
+					|| !TryParseNibble((byte)first, out int high)
+					|| !TryParseNibble((byte)second, out int low))
+				{
+					return false;
+				}
+
+				destination.WriteByte((byte)((high << 4) | low));
+			}
 		}
 		catch (IOException)
-		{
-			return false;
-		}
-		catch (FormatException)
 		{
 			return false;
 		}
@@ -175,5 +134,18 @@ public class HexEncodingProvider : IEncodingProvider
 		{
 			return false;
 		}
+	}
+
+	private static bool TryParseNibble(byte character, out int value)
+	{
+		value = character switch
+		{
+			>= (byte)'0' and <= (byte)'9' => character - '0',
+			>= (byte)'A' and <= (byte)'F' => character - 'A' + 10,
+			>= (byte)'a' and <= (byte)'f' => character - 'a' + 10,
+			_ => -1,
+		};
+
+		return value >= 0;
 	}
 }

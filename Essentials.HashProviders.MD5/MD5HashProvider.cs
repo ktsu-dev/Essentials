@@ -5,33 +5,30 @@ namespace ktsu.Essentials.HashProviders.MD5;
 using ktsu.Essentials;
 using System;
 using System.IO;
+using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography;
 
 /// <summary>
 /// A hash provider that uses MD5 for hashing data.
 /// </summary>
-public class MD5HashProvider : IHashProvider, IDisposable
+/// <remarks>
+/// This type is stateless and safe to share across threads. Earlier versions held a single
+/// <see cref="HashAlgorithm"/> in a field and reused it for every call; because the provider is
+/// registered as a singleton, concurrent callers corrupted each other's in-progress hash state.
+/// </remarks>
+[SuppressMessage("Security", "CA5351:Do Not Use Broken Cryptographic Algorithms", Justification = "This provider exists specifically to implement MD5, which callers select deliberately for compatibility")]
+public class MD5HashProvider : IHashProvider
 {
-	private bool disposedValue;
-	private readonly Lazy<System.Security.Cryptography.MD5> _md5;
-
 	/// <summary>
 	/// The length of the MD5 hash in bytes (16 bytes / 128 bits).
 	/// </summary>
 	public int HashLengthBytes => 16;
 
-	/// <summary>
-	/// Initializes a new instance of the <see cref="MD5HashProvider"/> class.
-	/// </summary>
-	public MD5HashProvider() => _md5 = new(System.Security.Cryptography.MD5.Create);
-
-	/// <summary>
-	/// Tries to hash the specified data into the provided hash buffer using MD5.
-	/// </summary>
-	/// <param name="data">The data to hash.</param>
-	/// <param name="destination">The hash buffer to write the result to.</param>
-	/// <returns>True if the hash operation was successful, false otherwise.</returns>
-	public bool TryHash(ReadOnlySpan<byte> data, Span<byte> destination)
+	/// <inheritdoc/>
+	public bool TryHash(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		if (destination.Length < HashLengthBytes)
 		{
 			return false;
@@ -39,96 +36,67 @@ public class MD5HashProvider : IHashProvider, IDisposable
 
 		try
 		{
-			return _md5.Value.TryComputeHash(data, destination, out int bytesWritten) && bytesWritten == HashLengthBytes;
+#if NET6_0_OR_GREATER
+			return System.Security.Cryptography.MD5.TryHashData(data, destination, out bytesWritten);
+#else
+			using System.Security.Cryptography.MD5 algorithm = System.Security.Cryptography.MD5.Create();
+			return algorithm.TryComputeHash(data, destination, out bytesWritten);
+#endif
 		}
 		catch (ArgumentException)
 		{
+			bytesWritten = 0;
 			return false;
 		}
-		catch (ObjectDisposedException)
+		catch (CryptographicException)
 		{
-			return false;
-		}
-		catch (NotSupportedException)
-		{
+			bytesWritten = 0;
 			return false;
 		}
 	}
 
-	/// <summary>
-	/// Tries to hash the specified data from a stream into the provided hash buffer using MD5.
-	/// </summary>
-	/// <param name="data">The stream containing data to hash.</param>
-	/// <param name="destination">The hash buffer to write the result to.</param>
-	/// <returns>True if the hash operation was successful, false otherwise.</returns>
-	public bool TryHash(Stream data, Span<byte> destination)
+	/// <inheritdoc/>
+	public bool TryHash(Stream data, Span<byte> destination, out int bytesWritten)
 	{
-		if (destination.Length < HashLengthBytes)
-		{
-			return false;
-		}
+		bytesWritten = 0;
 
-		if (data is null)
+		if (data is null || destination.Length < HashLengthBytes)
 		{
 			return false;
 		}
 
 		try
 		{
-			byte[] hash = _md5.Value.ComputeHash(data);
-
+#if NET6_0_OR_GREATER
+			bytesWritten = System.Security.Cryptography.MD5.HashData(data, destination);
+			return bytesWritten == HashLengthBytes;
+#else
+			using System.Security.Cryptography.MD5 algorithm = System.Security.Cryptography.MD5.Create();
+			byte[] hash = algorithm.ComputeHash(data);
 			if (hash.Length != HashLengthBytes)
 			{
 				return false;
 			}
 
 			hash.CopyTo(destination);
+			bytesWritten = hash.Length;
 			return true;
+#endif
 		}
 		catch (ArgumentException)
 		{
+			bytesWritten = 0;
 			return false;
 		}
-		catch (ObjectDisposedException)
+		catch (CryptographicException)
 		{
-			return false;
-		}
-		catch (NotSupportedException)
-		{
+			bytesWritten = 0;
 			return false;
 		}
 		catch (IOException)
 		{
+			bytesWritten = 0;
 			return false;
 		}
-	}
-
-	/// <summary>
-	/// Disposes the MD5 instance and releases any resources it holds.
-	/// </summary>
-	protected virtual void Dispose(bool disposing)
-	{
-		if (!disposedValue)
-		{
-			if (disposing)
-			{
-				if (_md5.IsValueCreated)
-				{
-					_md5.Value.Dispose();
-				}
-			}
-
-			disposedValue = true;
-		}
-	}
-
-	/// <summary>
-	/// Disposes the MD5 instance and releases any resources it holds.
-	/// </summary>
-	public void Dispose()
-	{
-		// Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-		Dispose(disposing: true);
-		GC.SuppressFinalize(this);
 	}
 }

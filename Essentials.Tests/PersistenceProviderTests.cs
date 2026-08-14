@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.Tests;
 
@@ -6,10 +6,12 @@ using System;
 using System.IO;
 using ktsu.Essentials;
 using ktsu.Essentials.FileSystemProviders.Native;
-using ktsu.Essentials.PersistenceProviders.AppData;
+using ktsu.Essentials.PersistenceProviders.ConfigHome;
+using ktsu.Essentials.PersistenceProviders.DataHome;
 using ktsu.Essentials.PersistenceProviders.FileSystem;
 using ktsu.Essentials.PersistenceProviders.Temp;
 using ktsu.Essentials.SerializationProviders.Json;
+using ktsu.Essentials.All;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -225,39 +227,38 @@ public class PersistenceProviderTests
 		Assert.IsTrue(persistence.IsPersistent);
 	}
 
-	// --- AppData Provider Tests ---
+	// --- DataHome Provider Tests ---
 
 	[TestMethod]
-	public async Task AppData_Store_And_Retrieve()
+	public async Task DataHome_Store_And_Retrieve()
 	{
-		string appName = "PersistenceTests_AD_" + Guid.NewGuid().ToString("N")[..8];
+		string appName = "PersistenceTests_DH_" + Guid.NewGuid().ToString("N")[..8];
 		NativeFileSystemProvider fs = new();
 		JsonSerializationProvider serializer = new();
-		AppDataPersistenceProvider<string> persistence = new(fs, serializer, appName);
+		DataHomePersistenceProvider<string> persistence = new(fs, serializer, appName);
 
 		try
 		{
-			await persistence.StoreAsync("key1", new TestData { Name = "appdata_test" }, TestContext.CancellationToken).ConfigureAwait(false);
+			await persistence.StoreAsync("key1", new TestData { Name = "datahome_test" }, TestContext.CancellationToken).ConfigureAwait(false);
 			TestData? result = await persistence.RetrieveAsync<TestData>("key1", TestContext.CancellationToken).ConfigureAwait(false);
 
 			Assert.IsNotNull(result);
-			Assert.AreEqual("appdata_test", result.Name);
+			Assert.AreEqual("datahome_test", result.Name);
 		}
 		finally
 		{
 			await persistence.ClearAsync(TestContext.CancellationToken).ConfigureAwait(false);
-			string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), appName);
-			CleanupDirectory(appDataPath);
+			CleanupDirectory(persistence.BaseDirectory);
 		}
 	}
 
 	[TestMethod]
-	public async Task AppData_Exists_And_Remove()
+	public async Task DataHome_Exists_And_Remove()
 	{
-		string appName = "PersistenceTests_AD_" + Guid.NewGuid().ToString("N")[..8];
+		string appName = "PersistenceTests_DH_" + Guid.NewGuid().ToString("N")[..8];
 		NativeFileSystemProvider fs = new();
 		JsonSerializationProvider serializer = new();
-		AppDataPersistenceProvider<string> persistence = new(fs, serializer, appName);
+		DataHomePersistenceProvider<string> persistence = new(fs, serializer, appName);
 
 		try
 		{
@@ -270,21 +271,161 @@ public class PersistenceProviderTests
 		}
 		finally
 		{
-			string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), appName);
-			CleanupDirectory(appDataPath);
+			CleanupDirectory(persistence.BaseDirectory);
 		}
 	}
 
 	[TestMethod]
-	public void AppData_Properties()
+	public void DataHome_Properties()
 	{
-		string appName = "PersistenceTests_AD_" + Guid.NewGuid().ToString("N")[..8];
+		string appName = "PersistenceTests_DH_" + Guid.NewGuid().ToString("N")[..8];
 		NativeFileSystemProvider fs = new();
 		JsonSerializationProvider serializer = new();
-		AppDataPersistenceProvider<string> persistence = new(fs, serializer, appName);
+		DataHomePersistenceProvider<string> persistence = new(fs, serializer, appName);
 
-		Assert.AreEqual("AppData", persistence.ProviderName);
+		Assert.AreEqual("DataHome", persistence.ProviderName);
 		Assert.IsTrue(persistence.IsPersistent);
+	}
+
+	[TestMethod]
+	public void DataHome_Resolves_Under_LocalShare()
+	{
+		string appName = "PersistenceTests_DH_" + Guid.NewGuid().ToString("N")[..8];
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+		DataHomePersistenceProvider<string> persistence = new(fs, serializer, appName);
+
+		string expected = Path.Combine(UserDirectories.GetHomeDirectory(), ".local", "share", appName);
+		Assert.AreEqual(expected, persistence.BaseDirectory);
+	}
+
+	[TestMethod]
+	public void DataHome_Honours_Subdirectory()
+	{
+		string appName = "PersistenceTests_DH_" + Guid.NewGuid().ToString("N")[..8];
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+		DataHomePersistenceProvider<string> persistence = new(fs, serializer, appName, "profiles");
+
+		string expected = Path.Combine(UserDirectories.GetHomeDirectory(), ".local", "share", appName, "profiles");
+		Assert.AreEqual(expected, persistence.BaseDirectory);
+	}
+
+	// --- ConfigHome Provider Tests ---
+
+	[TestMethod]
+	public async Task ConfigHome_Store_And_Retrieve()
+	{
+		string appName = "PersistenceTests_CH_" + Guid.NewGuid().ToString("N")[..8];
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+		ConfigHomePersistenceProvider<string> persistence = new(fs, serializer, appName);
+
+		try
+		{
+			await persistence.StoreAsync("key1", new TestData { Name = "confighome_test" }, TestContext.CancellationToken).ConfigureAwait(false);
+			TestData? result = await persistence.RetrieveAsync<TestData>("key1", TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsNotNull(result);
+			Assert.AreEqual("confighome_test", result.Name);
+		}
+		finally
+		{
+			await persistence.ClearAsync(TestContext.CancellationToken).ConfigureAwait(false);
+			CleanupDirectory(persistence.BaseDirectory);
+		}
+	}
+
+	[TestMethod]
+	public async Task ConfigHome_Exists_And_Remove()
+	{
+		string appName = "PersistenceTests_CH_" + Guid.NewGuid().ToString("N")[..8];
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+		ConfigHomePersistenceProvider<string> persistence = new(fs, serializer, appName);
+
+		try
+		{
+			await persistence.StoreAsync("key1", "value1", TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.IsTrue(await persistence.ExistsAsync("key1", TestContext.CancellationToken).ConfigureAwait(false));
+
+			bool removed = await persistence.RemoveAsync("key1", TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.IsTrue(removed);
+			Assert.IsFalse(await persistence.ExistsAsync("key1", TestContext.CancellationToken).ConfigureAwait(false));
+		}
+		finally
+		{
+			CleanupDirectory(persistence.BaseDirectory);
+		}
+	}
+
+	[TestMethod]
+	public void ConfigHome_Properties()
+	{
+		string appName = "PersistenceTests_CH_" + Guid.NewGuid().ToString("N")[..8];
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+		ConfigHomePersistenceProvider<string> persistence = new(fs, serializer, appName);
+
+		Assert.AreEqual("ConfigHome", persistence.ProviderName);
+		Assert.IsTrue(persistence.IsPersistent);
+	}
+
+	[TestMethod]
+	public void ConfigHome_Resolves_Under_DotConfig()
+	{
+		string appName = "PersistenceTests_CH_" + Guid.NewGuid().ToString("N")[..8];
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+		ConfigHomePersistenceProvider<string> persistence = new(fs, serializer, appName);
+
+		string expected = Path.Combine(UserDirectories.GetHomeDirectory(), ".config", appName);
+		Assert.AreEqual(expected, persistence.BaseDirectory);
+	}
+
+	[TestMethod]
+	public void DataHome_And_ConfigHome_Are_Separate_Locations()
+	{
+		string appName = "PersistenceTests_Sep_" + Guid.NewGuid().ToString("N")[..8];
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+		DataHomePersistenceProvider<string> data = new(fs, serializer, appName);
+		ConfigHomePersistenceProvider<string> config = new(fs, serializer, appName);
+
+		Assert.AreNotEqual(data.BaseDirectory, config.BaseDirectory);
+	}
+
+	[TestMethod]
+	public void UserDirectories_Ignores_Relative_Xdg_Override()
+	{
+		string? original = Environment.GetEnvironmentVariable(UserDirectories.DataHomeVariable);
+		try
+		{
+			// The XDG specification says a non-absolute value must be ignored.
+			Environment.SetEnvironmentVariable(UserDirectories.DataHomeVariable, "relative/path");
+			string expected = Path.Combine(UserDirectories.GetHomeDirectory(), ".local", "share");
+			Assert.AreEqual(expected, UserDirectories.GetDataHome());
+		}
+		finally
+		{
+			Environment.SetEnvironmentVariable(UserDirectories.DataHomeVariable, original);
+		}
+	}
+
+	[TestMethod]
+	public void UserDirectories_Honours_Absolute_Xdg_Override()
+	{
+		string? original = Environment.GetEnvironmentVariable(UserDirectories.ConfigHomeVariable);
+		try
+		{
+			string overridden = Path.Combine(Path.GetTempPath(), "xdg_cfg_" + Guid.NewGuid().ToString("N")[..8]);
+			Environment.SetEnvironmentVariable(UserDirectories.ConfigHomeVariable, overridden);
+			Assert.AreEqual(overridden, UserDirectories.GetConfigHome());
+		}
+		finally
+		{
+			Environment.SetEnvironmentVariable(UserDirectories.ConfigHomeVariable, original);
+		}
 	}
 
 	// --- Temp Provider Tests ---

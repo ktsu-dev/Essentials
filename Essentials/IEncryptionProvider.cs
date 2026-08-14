@@ -12,6 +12,15 @@ using System.Threading.Tasks;
 public interface IEncryptionProvider
 {
 	/// <summary>
+	/// Gets the largest number of bytes
+	/// <see cref="TryEncrypt(ReadOnlySpan{byte}, ReadOnlySpan{byte}, ReadOnlySpan{byte}, Span{byte}, out int)"/>
+	/// can produce for an input of the given length.
+	/// </summary>
+	/// <param name="sourceLength">The length of the data to encrypt.</param>
+	/// <returns>The buffer size required to guarantee the encryption succeeds.</returns>
+	public int GetMaxEncryptedLength(int sourceLength);
+
+	/// <summary>
 	/// Generates a new encryption key.
 	/// </summary>
 	/// <returns>A new encryption key.</returns>
@@ -30,8 +39,9 @@ public interface IEncryptionProvider
 	/// <param name="key">The key to use for encryption.</param>
 	/// <param name="iv">The initialization vector to use for encryption.</param>
 	/// <param name="destination">The destination to write the encrypted data to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the encryption was successful, false otherwise.</returns>
-	public bool TryEncrypt(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, Span<byte> destination);
+	public bool TryEncrypt(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, Span<byte> destination, out int bytesWritten);
 
 	/// <summary>
 	/// Tries to encrypt the data from the stream and write the result to the destination.
@@ -56,18 +66,6 @@ public interface IEncryptionProvider
 		using MemoryStream inputStream = new(data.ToArray());
 		return TryEncrypt(inputStream, key, iv, destination);
 	}
-
-	/// <summary>
-	/// Tries to encrypt the data from the span and write the result to the destination asynchronously.
-	/// </summary>
-	/// <param name="data">The data to encrypt.</param>
-	/// <param name="key">The key to use for encryption.</param>
-	/// <param name="iv">The initialization vector to use for encryption.</param>
-	/// <param name="destination">The destination to write the encrypted data to.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>True if the encryption was successful, false otherwise.</returns>
-	public Task<bool> TryEncryptAsync(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Memory<byte> destination, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => TryEncrypt(data.Span, key.Span, iv.Span, destination.Span), cancellationToken);
 
 	/// <summary>
 	/// Tries to encrypt the data from the stream and write the result to the destination asynchronously.
@@ -128,15 +126,21 @@ public interface IEncryptionProvider
 	}
 
 	/// <summary>
-	/// Encrypts the data from the string and returns the result.
+	/// Encrypts a string and returns the ciphertext as Base64 text.
 	/// </summary>
+	/// <remarks>
+	/// The input is encoded as UTF8, encrypted, and the ciphertext is Base64-encoded so the result is
+	/// safe to store or transmit as text. Use <see cref="Decrypt(string, ReadOnlySpan{byte}, ReadOnlySpan{byte})"/>
+	/// to reverse it.
+	/// </remarks>
 	/// <param name="data">The data to encrypt.</param>
 	/// <param name="key">The key to use for encryption.</param>
 	/// <param name="iv">The initialization vector to use for encryption.</param>
+	/// <returns>The ciphertext as a Base64 string.</returns>
 	public string Encrypt(string data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
 	{
 		byte[] bytes = Encoding.UTF8.GetBytes(data);
-		return Encoding.UTF8.GetString(Encrypt(bytes, key, iv));
+		return Convert.ToBase64String(Encrypt(bytes, key, iv));
 	}
 
 	/// <summary>
@@ -179,7 +183,9 @@ public interface IEncryptionProvider
 	/// <param name="key">The key to use for decryption.</param>
 	/// <param name="iv">The initialization vector to use for decryption.</param>
 	/// <param name="destination">The destination to write the decrypted data to.</param>
-	public bool TryDecrypt(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, Span<byte> destination);
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
+	/// <returns>True if the decryption was successful, false otherwise.</returns>
+	public bool TryDecrypt(ReadOnlySpan<byte> data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, Span<byte> destination, out int bytesWritten);
 
 	/// <summary>
 	/// Tries to decrypt the data from the stream and write the result to the destination.
@@ -202,18 +208,6 @@ public interface IEncryptionProvider
 		using MemoryStream inputStream = new(data.ToArray());
 		return TryDecrypt(inputStream, key, iv, destination);
 	}
-
-	/// <summary>
-	/// Tries to decrypt the data from the span and write the result to the destination asynchronously.
-	/// </summary>
-	/// <param name="data">The data to decrypt.</param>
-	/// <param name="key">The key to use for decryption.</param>
-	/// <param name="iv">The initialization vector to use for decryption.</param>
-	/// <param name="destination">The destination to write the decrypted data to.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>True if the decryption was successful, false otherwise.</returns>
-	public Task<bool> TryDecryptAsync(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Memory<byte> destination, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => TryDecrypt(data.Span, key.Span, iv.Span, destination.Span), cancellationToken);
 
 	/// <summary>
 	/// Tries to decrypt the data from the stream and write the result to the destination asynchronously.
@@ -274,14 +268,17 @@ public interface IEncryptionProvider
 	}
 
 	/// <summary>
-	/// Decrypts the data from the string and returns the result.
+	/// Decrypts Base64 ciphertext produced by <see cref="Encrypt(string, ReadOnlySpan{byte}, ReadOnlySpan{byte})"/>
+	/// and returns the original string.
 	/// </summary>
-	/// <param name="data">The data to decrypt.</param>
+	/// <param name="data">The Base64-encoded ciphertext.</param>
 	/// <param name="key">The key to use for decryption.</param>
 	/// <param name="iv">The initialization vector to use for decryption.</param>
+	/// <returns>The plaintext as a UTF8 string.</returns>
+	/// <exception cref="FormatException"><paramref name="data"/> is not valid Base64.</exception>
 	public string Decrypt(string data, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv)
 	{
-		byte[] bytes = Encoding.UTF8.GetBytes(data);
+		byte[] bytes = Convert.FromBase64String(data);
 		return Encoding.UTF8.GetString(Decrypt(bytes, key, iv));
 	}
 

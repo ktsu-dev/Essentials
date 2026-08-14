@@ -24,9 +24,12 @@ public class FNV1_32HashProvider : IHashProvider
 	/// </summary>
 	/// <param name="data">The data to hash.</param>
 	/// <param name="destination">The hash buffer to write the result to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the hash operation was successful, false otherwise.</returns>
-	public bool TryHash(ReadOnlySpan<byte> data, Span<byte> destination)
+	public bool TryHash(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		if (destination.Length < HashLengthBytes)
 		{
 			return false;
@@ -48,6 +51,7 @@ public class FNV1_32HashProvider : IHashProvider
 			destination[2] = (byte)((hash >> 16) & 0xFF);
 			destination[3] = (byte)((hash >> 24) & 0xFF);
 
+			bytesWritten = HashLengthBytes;
 			return true;
 		}
 		catch (ArgumentException)
@@ -61,9 +65,12 @@ public class FNV1_32HashProvider : IHashProvider
 	/// </summary>
 	/// <param name="data">The stream containing data to hash.</param>
 	/// <param name="destination">The hash buffer to write the result to.</param>
+	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the hash operation was successful, false otherwise.</returns>
-	public bool TryHash(Stream data, Span<byte> destination)
+	public bool TryHash(Stream data, Span<byte> destination, out int bytesWritten)
 	{
+		bytesWritten = 0;
+
 		if (destination.Length < HashLengthBytes)
 		{
 			return false;
@@ -91,6 +98,7 @@ public class FNV1_32HashProvider : IHashProvider
 			destination[2] = (byte)((hash >> 16) & 0xFF);
 			destination[3] = (byte)((hash >> 24) & 0xFF);
 
+			bytesWritten = HashLengthBytes;
 			return true;
 		}
 		catch (ArgumentException)
