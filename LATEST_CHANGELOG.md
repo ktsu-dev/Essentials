@@ -1,4 +1,6 @@
-## v2.0.0
+## v2.0.1 (patch)
 
-No significant changes detected since v2.0.0.
+Changes since v2.0.0:
+
+- [patch] Raise the CI build timeout to 40 minutes ([@matt-edmondson](https://github.com/matt-edmondson))
 
