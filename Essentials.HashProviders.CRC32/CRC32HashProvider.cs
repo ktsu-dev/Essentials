@@ -89,4 +89,7 @@ public class CRC32HashProvider : IHashProvider
 			return false;
 		}
 	}
+
+	/// <inheritdoc/>
+	public IIncrementalHash CreateIncremental() => new NonCryptoIncrementalHash(new Crc32(), HashLengthBytes);
 }

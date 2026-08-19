@@ -17,4 +17,8 @@
     <InternalsVisibleTo Include="ktsu.Essentials.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Shared\NonCryptoIncrementalHash.cs" Link="NonCryptoIncrementalHash.cs" />
+  </ItemGroup>
+
 </Project>
