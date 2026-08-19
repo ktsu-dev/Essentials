@@ -1,6 +1,9 @@
-## v2.0.1
+## v2.0.2 (patch)
 
-No significant changes detected since v2.0.1.
+Changes since v2.0.1:
+
+- chore: store icon.png in LFS as .gitattributes declares ([@matt-edmondson](https://github.com/matt-edmondson))
+- docs: scope build badge to the default branch ([@matt-edmondson](https://github.com/matt-edmondson))
 
 ## v2.0.1 (patch)
 
