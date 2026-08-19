@@ -36,6 +36,18 @@ public interface IHashProvider
 	public bool TryHash(Stream data, Span<byte> destination, out int bytesWritten);
 
 	/// <summary>
+	/// Creates an incremental hash that accepts data in successive chunks.
+	/// </summary>
+	/// <remarks>
+	/// The default implementation accumulates every appended byte in memory and hashes it in one pass
+	/// when the digest is requested. That is correct but it buffers the entire input, so implementers
+	/// should override this with a genuinely incremental implementation. Doing so also makes the
+	/// asynchronous stream overload stream properly, because that method is built on this one.
+	/// </remarks>
+	/// <returns>A new incremental hash. The caller owns it and should dispose it.</returns>
+	public IIncrementalHash CreateIncremental() => new BufferingIncrementalHash(this);
+
+	/// <summary>
 	/// Asynchronously hashes the specified data.
 	/// </summary>
 	/// <param name="data">The data to hash.</param>
