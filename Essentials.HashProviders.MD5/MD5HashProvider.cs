@@ -99,4 +99,11 @@ public class MD5HashProvider : IHashProvider
 			return false;
 		}
 	}
+
+	/// <inheritdoc/>
+	[SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Ownership of the IncrementalHash transfers to the returned IncrementalHashAdapter, which disposes it.")]
+	public IIncrementalHash CreateIncremental()
+		=> new IncrementalHashAdapter(
+			IncrementalHash.CreateHash(HashAlgorithmName.MD5),
+			HashLengthBytes);
 }

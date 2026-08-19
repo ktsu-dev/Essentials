@@ -89,4 +89,7 @@ public class XxHash64HashProvider : IHashProvider
 			return false;
 		}
 	}
+
+	/// <inheritdoc/>
+	public IIncrementalHash CreateIncremental() => new NonCryptoIncrementalHash(new SysXxHash64(), HashLengthBytes);
 }

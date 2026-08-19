@@ -32,6 +32,10 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 - `Essentials/IObfuscationProvider.cs` - Reversible obfuscation interface (NOT encryption); implementations compose encoding transforms and simple byte operations
 - `Essentials/IEncryptionProvider.cs` - Encryption/decryption interface with key/IV management
 - `Essentials/IHashProvider.cs` - Hashing interface with configurable output length
+- `Essentials/IIncrementalHash.cs` - Chunk-by-chunk hashing contract; `IHashProvider.CreateIncremental()` returns one
+- `Essentials/IncrementalHashAdapter.cs` - Public adapter over `System.Security.Cryptography.IncrementalHash`, shared by the cryptographic hash providers
+- `Essentials/BufferingIncrementalHash.cs` - Internal buffering fallback behind the `CreateIncremental()` default body
+- `Shared/NonCryptoIncrementalHash.cs` - Adapter over `NonCryptographicHashAlgorithm`, linked into the six `System.IO.Hashing` providers rather than placed in the interfaces-only package
 - `Essentials/ISerializationProvider.cs` - Object serialization/deserialization interface
 - `Essentials/ISerializationOptions.cs` - Configurable serialization options (naming, inclusion, boxing policies)
 - `Essentials/ICacheProvider.cs` - Generic cache interface with expiration and get-or-add
@@ -80,7 +84,7 @@ All provider interfaces follow a consistent three-tier pattern:
 
 1. **Core Try\* methods**: Buffer-based methods over `Span<byte>` or `Stream`. Span overloads are `bool TryX(source, destination, out int bytesWritten)`, paired with a `GetMax…Length` bound per category so callers can size buffers. These are the only methods implementers must provide.
 2. **Convenience methods**: Self-allocating methods that call Try\* methods and manage buffers automatically. Provided via default interface implementations.
-3. **Async variants**: Task-based async versions with `CancellationToken` support, provided via `ProviderHelpers.RunAsync()`. Note these are `Task.Run` wrappers over synchronous work, not genuine async I/O. Span-destination async overloads do not exist — an `out` parameter cannot cross an async boundary.
+3. **Async variants**: Task-based async versions with `CancellationToken` support, mostly provided via `ProviderHelpers.RunAsync()`. Note these are `Task.Run` wrappers over synchronous work, not genuine async I/O — the exception is `IHashProvider.TryHashAsync(Stream, ...)`, which is a real `ReadAsync` loop. See issue #8. Span-destination async overloads do not exist — an `out` parameter cannot cross an async boundary.
 
 Common patterns are centralized in `ProviderHelpers.cs`:
 
@@ -98,6 +102,7 @@ The codebase uses `[SuppressMessage]` attributes for APIs not available in netst
 Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.Tests/`) references all provider implementations and tests them through the interface contracts. Key test files:
 
 - `HashProviderTests.cs` - Tests all 15 hash provider implementations
+- `IncrementalHashTests.cs` - Tests `CreateIncremental()` and async stream hashing across all 15 hash providers, asserting incremental output equals one-shot output
 - `CacheProviderTests.cs` - Tests cache operations including expiration
 - `CommandExecutorTests.cs` - Tests command execution
 - `EncodingProviderTests.cs` - Tests Base64 and Hex encoding
