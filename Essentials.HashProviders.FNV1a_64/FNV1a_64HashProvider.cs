@@ -126,4 +126,55 @@ public class FNV1a_64HashProvider : IHashProvider
 			return false;
 		}
 	}
+
+	/// <inheritdoc/>
+	public IIncrementalHash CreateIncremental() => new Incremental();
+
+	/// <summary>
+	/// The running FNV-1a 64-bit state. Naturally incremental: the accumulator is the entire state.
+	/// </summary>
+	private sealed class Incremental : IIncrementalHash
+	{
+		private ulong hash = FnvOffsetBasis64;
+
+		public int HashLengthBytes => 8;
+
+		public void Append(ReadOnlySpan<byte> data)
+		{
+			foreach (byte b in data)
+			{
+				hash ^= b;
+				hash *= FnvPrime64;
+			}
+		}
+
+		public bool TryGetHashAndReset(Span<byte> destination, out int bytesWritten)
+		{
+			bytesWritten = 0;
+
+			if (destination.Length < HashLengthBytes)
+			{
+				return false;
+			}
+
+			// Little-endian, matching the one-shot implementation above.
+			destination[0] = (byte)(hash & 0xFF);
+			destination[1] = (byte)((hash >> 8) & 0xFF);
+			destination[2] = (byte)((hash >> 16) & 0xFF);
+			destination[3] = (byte)((hash >> 24) & 0xFF);
+			destination[4] = (byte)((hash >> 32) & 0xFF);
+			destination[5] = (byte)((hash >> 40) & 0xFF);
+			destination[6] = (byte)((hash >> 48) & 0xFF);
+			destination[7] = (byte)((hash >> 56) & 0xFF);
+
+			bytesWritten = HashLengthBytes;
+			hash = FnvOffsetBasis64;
+			return true;
+		}
+
+		public void Dispose()
+		{
+			// No unmanaged state.
+		}
+	}
 }
