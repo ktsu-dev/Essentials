@@ -29,6 +29,10 @@ public interface IIncrementalHash : IDisposable
 	/// Tries to write the hash of everything appended so far into <paramref name="destination"/>,
 	/// then resets so the instance can be reused.
 	/// </summary>
+	/// <remarks>
+	/// When the destination is too small the call fails without consuming the appended data: the
+	/// running state is left intact so the caller can retry with a correctly sized buffer.
+	/// </remarks>
 	/// <param name="destination">The buffer to write the hash to.</param>
 	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>.</param>
 	/// <returns>True if the hash was written, false if <paramref name="destination"/> was too small.</returns>
