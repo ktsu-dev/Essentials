@@ -32,7 +32,7 @@
 - **Filesystem**: `IFileSystemProvider` extending Testably.Abstractions for testable filesystem access
 - **Explicit Buffer Contract**: every span operation is `bool TryX(source, destination, out int bytesWritten)` and each category exposes a `GetMax…Length` bound, so callers can size a buffer up front and know exactly how much was written. Encoding, hashing and obfuscation run allocation-free on the span path; compression and encryption still buffer internally, because the underlying BCL APIs for those are stream-only
 - **Minimal Implementation Burden**: Default interface implementations reduce boilerplate — implement only the core `Try*` methods
-- **Comprehensive Async Support**: Every operation has async variants with proper `CancellationToken` support
+- **Async Support**: Operations expose async variants with `CancellationToken` support. Stream hashing is genuinely asynchronous — it reads with `ReadAsync` and holds no thread. Most other async variants are convenience wrappers that run synchronous work on the thread pool; span-destination operations have no async form, because an `out` parameter cannot cross an await boundary
 - **Batteries-Included or Cherry-Pick**: Each provider ships as its own `ktsu.Essentials.<Category>.<Impl>` package; install the `ktsu.Essentials.All` meta-package to get every provider at once, or reference only the ones you need
 
 ## Installation
@@ -96,6 +96,20 @@ if (hashProvider.TryHash("Hello, World!"u8, buffer, out int written))
 
 // Async method
 byte[] asyncHash = await hashProvider.HashAsync("Hello, World!");
+
+// Async stream hashing — one pass, no thread held, nothing buffered
+using FileStream file = File.OpenRead("large-object.bin");
+byte[] streamHash = await hashProvider.HashAsync(file);
+
+// Incremental — digest bytes you are already moving for another reason
+using IIncrementalHash incremental = hashProvider.CreateIncremental();
+await foreach (ReadOnlyMemory<byte> chunk in source)
+{
+    incremental.Append(chunk.Span);
+    await destination.WriteAsync(chunk);
+}
+
+byte[] digest = incremental.GetHashAndReset();
 ```
 
 ### Compression
@@ -194,6 +208,10 @@ public sealed class MyHashProvider : IHashProvider
     }
 
     // Hash(), HashAsync(), string overloads — all inherited
+
+    // Override this. The inherited default buffers the whole input in memory,
+    // and TryHashAsync(Stream, ...) is built on it.
+    public IIncrementalHash CreateIncremental() => new MyIncrementalHash();
 }
 ```
 
@@ -253,6 +271,20 @@ Hash data with configurable output length. Exposes `HashLengthBytes` property fo
 | `TryHash(Stream, Span<byte>, out int)` | `bool` | Stream-based hashing |
 | `Hash(ReadOnlySpan<byte>)` | `byte[]` | Self-allocating hashing |
 | `Hash(string)` | `byte[]` | Hash a UTF8 string |
+| `CreateIncremental()` | `IIncrementalHash` | Create an incremental hash for chunk-by-chunk digesting |
+| `TryHashAsync(Stream, Memory<byte>, CancellationToken)` | `Task<bool>` | Genuinely async stream hashing into a caller-owned buffer |
+| `HashAsync(Stream, CancellationToken)` | `Task<byte[]>` | Genuinely async self-allocating stream hashing |
+
+### `IIncrementalHash`
+
+A hash computation that accepts data in successive chunks. Obtained from `IHashProvider.CreateIncremental()`. Stateful, not thread-safe, and disposable.
+
+| Name | Return Type | Description |
+| ---- | ----------- | ----------- |
+| `HashLengthBytes` | `int` | Length of the hash in bytes |
+| `Append(ReadOnlySpan<byte>)` | `void` | Append data to the running hash |
+| `TryGetHashAndReset(Span<byte>, out int)` | `bool` | Write the hash and reset, reporting bytes written |
+| `GetHashAndReset()` | `byte[]` | Self-allocating variant of the above |
 
 ### `ISerializationProvider`
 
