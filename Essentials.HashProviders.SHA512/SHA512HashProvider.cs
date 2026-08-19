@@ -4,6 +4,7 @@ namespace ktsu.Essentials.HashProviders.SHA512;
 
 using ktsu.Essentials;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Security.Cryptography;
 
@@ -97,4 +98,11 @@ public class SHA512HashProvider : IHashProvider
 			return false;
 		}
 	}
+
+	/// <inheritdoc/>
+	[SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Ownership of the IncrementalHash transfers to the returned IncrementalHashAdapter, which disposes it.")]
+	public IIncrementalHash CreateIncremental()
+		=> new IncrementalHashAdapter(
+			IncrementalHash.CreateHash(HashAlgorithmName.SHA512),
+			HashLengthBytes);
 }
