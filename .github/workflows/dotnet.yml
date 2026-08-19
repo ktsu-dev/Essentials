@@ -38,7 +38,11 @@ jobs:
   build:
     name: Build, Test & Release
     runs-on: windows-latest
-    timeout-minutes: 20
+    # This solution is 55 projects across 6 target frameworks, so a cold build alone is around
+    # 16 minutes and a full build, test and release run has measured 19m58s. Twenty minutes left
+    # no margin at all; forty is headroom for that work without letting a genuinely hung job sit
+    # for the six hour default.
+    timeout-minutes: 40
     permissions:
       contents: write # For creating releases and committing metadata
       packages: write # For publishing packages
