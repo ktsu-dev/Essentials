@@ -12,7 +12,7 @@
 
 ## Introduction
 
-`ktsu.Essentials` defines a consistent, high-performance API for common cross-cutting concerns in .NET applications. Each provider interface follows a three-tier pattern: core `Try*` methods over `Span<byte>` and `Stream` that report how many bytes they wrote, convenient self-allocating methods, and async variants with `CancellationToken` support. Implementers only need to provide the core `Try*` methods — all convenience and async methods are provided via default interface implementations. The `ktsu.Essentials` package is interfaces only; implementations ship as separate `ktsu.Essentials.<Category>.<Impl>` packages, with `ktsu.Essentials.All` bundling every one of them. Higher-level concerns are expressed by composition rather than duplication — configuration is simply an `IPersistenceProvider<TKey>` over a serializer, and obfuscation composes encoding transforms.
+`ktsu.Essentials` defines a consistent, high-performance API for common cross-cutting concerns in .NET applications. Each provider interface follows a three-tier pattern: core `Try*` methods over `Span<byte>` and `Stream` that report how many bytes they wrote, convenient self-allocating methods, and async variants with `CancellationToken` support. Implementers only need to provide the core `Try*` methods — all convenience and async methods are provided via default interface implementations, though some, like `IHashProvider.CreateIncremental()`, are worth overriding for efficiency. The `ktsu.Essentials` package is interfaces only; implementations ship as separate `ktsu.Essentials.<Category>.<Impl>` packages, with `ktsu.Essentials.All` bundling every one of them. Higher-level concerns are expressed by composition rather than duplication — configuration is simply an `IPersistenceProvider<TKey>` over a serializer, and obfuscation composes encoding transforms.
 
 ## Features
 
@@ -211,7 +211,7 @@ public sealed class MyHashProvider : IHashProvider
 
     // Override this. The inherited default buffers the whole input in memory,
     // and TryHashAsync(Stream, ...) is built on it.
-    public IIncrementalHash CreateIncremental() => new MyIncrementalHash();
+    public IIncrementalHash CreateIncremental() => new MyIncrementalHash(); // ...implementing IIncrementalHash over your algorithm's running state
 }
 ```
 

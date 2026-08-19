@@ -15,12 +15,32 @@ using System.Security.Cryptography;
 /// <see cref="IncrementalHash"/>, whose <c>HashLengthInBytes</c> property does not exist on
 /// netstandard2.1.
 /// </remarks>
-/// <param name="inner">The underlying incremental hash. This instance takes ownership and disposes it.</param>
-/// <param name="hashLengthBytes">The length of the hash in bytes.</param>
-public sealed class IncrementalHashAdapter(IncrementalHash inner, int hashLengthBytes) : IIncrementalHash
+public sealed class IncrementalHashAdapter : IIncrementalHash
 {
+	private readonly IncrementalHash inner;
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="IncrementalHashAdapter"/> class.
+	/// </summary>
+	/// <param name="inner">The underlying incremental hash. This instance takes ownership and disposes it.</param>
+	/// <param name="hashLengthBytes">The length of the hash in bytes.</param>
+	/// <exception cref="ArgumentNullException"><paramref name="inner"/> is null.</exception>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="hashLengthBytes"/> is not positive.</exception>
+	public IncrementalHashAdapter(IncrementalHash inner, int hashLengthBytes)
+	{
+		Ensure.NotNull(inner);
+
+		if (hashLengthBytes <= 0)
+		{
+			throw new ArgumentOutOfRangeException(nameof(hashLengthBytes), hashLengthBytes, "Hash length must be positive.");
+		}
+
+		this.inner = inner;
+		HashLengthBytes = hashLengthBytes;
+	}
+
 	/// <inheritdoc/>
-	public int HashLengthBytes => hashLengthBytes;
+	public int HashLengthBytes { get; }
 
 	/// <inheritdoc/>
 	public void Append(ReadOnlySpan<byte> data) => inner.AppendData(data);
@@ -30,7 +50,7 @@ public sealed class IncrementalHashAdapter(IncrementalHash inner, int hashLength
 	{
 		bytesWritten = 0;
 
-		return destination.Length >= hashLengthBytes
+		return destination.Length >= HashLengthBytes
 			&& inner.TryGetHashAndReset(destination, out bytesWritten);
 	}
 

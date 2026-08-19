@@ -76,6 +76,7 @@ public interface IHashProvider
 			int read;
 			while ((read = await data.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false)) > 0)
 			{
+				cancellationToken.ThrowIfCancellationRequested();
 				hash.Append(buffer.AsSpan(0, read));
 			}
 

@@ -13,6 +13,10 @@ using System.IO.Hashing;
 /// ktsu.Essentials, because that package is interfaces-only and must not take a dependency on
 /// System.IO.Hashing. Every algorithm it serves — Crc32, Crc64, XxHash32, XxHash64, XxHash3 and
 /// XxHash128 — derives from NonCryptographicHashAlgorithm, so one adapter covers all six.
+/// Because each of the six provider projects declares its own <c>InternalsVisibleTo</c> for
+/// ktsu.Essentials.Tests, the test assembly sees six distinct internal types all named
+/// <c>ktsu.Essentials.NonCryptoIncrementalHash</c>. That is harmless until a test references the
+/// type by name, at which point the compiler's type-ambiguity error will look unrelated to this file.
 /// </remarks>
 /// <param name="inner">The underlying algorithm instance.</param>
 /// <param name="hashLengthBytes">The length of the hash in bytes.</param>
