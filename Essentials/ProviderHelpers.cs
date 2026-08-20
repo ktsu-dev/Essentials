@@ -75,6 +75,12 @@ internal static class ProviderHelpers
 	/// scratch buffer is rented rather than allocated, so the only lasting allocation is the returned
 	/// array. Providers whose output size cannot be predicted — decompression, for one — still use the
 	/// stream path in <see cref="ExecuteToByteArray"/>.
+	/// <para>
+	/// The buffer is scrubbed on its way back to the pool. <see cref="ArrayPool{T}"/>.Shared is
+	/// process-wide, so anything left behind is readable by whatever rents next, and this path carries
+	/// the output of every encoding, compression and obfuscation provider. The resulting
+	/// <c>Array.Clear</c> per call is a deliberate cost, not an oversight.
+	/// </para>
 	/// </remarks>
 	/// <param name="maxLength">The largest output the operation can produce for this input.</param>
 	/// <param name="source">The input data.</param>
@@ -97,7 +103,7 @@ internal static class ProviderHelpers
 		}
 		finally
 		{
-			ArrayPool<byte>.Shared.Return(buffer);
+			ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
 		}
 	}
 
