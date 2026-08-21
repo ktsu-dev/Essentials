@@ -140,6 +140,23 @@ public class AsyncStreamIoTests
 	}
 
 	[TestMethod]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Cancelling before any awaited work starts; the token must be cancelled synchronously up front.")]
+	public async Task GzipTryCompressAsync_NullSourceWithAnAlreadyCancelledTokenReturnsFalseAsync()
+	{
+		// Pins the current guard ordering: the null check runs before the cancellation check, so a null
+		// argument combined with an already-cancelled token returns false rather than throwing. Either
+		// ordering would be defensible; this test documents which one is actually in effect.
+		ICompressionProvider provider = new GzipCompressionProvider();
+		using AsyncOnlyStream destination = new();
+		using CancellationTokenSource cancelled = new();
+		cancelled.Cancel();
+
+		bool compressed = await provider.TryCompressAsync((Stream)null!, destination, cancelled.Token).ConfigureAwait(false);
+
+		Assert.IsFalse(compressed, "A null source combined with an already-cancelled token is expected to return false, not throw.");
+	}
+
+	[TestMethod]
 	public async Task GzipCompressAsyncFromStream_UsesOnlyTheAsynchronousStreamMembersAsync()
 	{
 		ICompressionProvider provider = new GzipCompressionProvider();
@@ -164,6 +181,39 @@ public class AsyncStreamIoTests
 
 		Assert.IsTrue(compressed, "Expected the asynchronous compression to succeed.");
 		Assert.AreNotEqual(0, destination.ToArray().Length, "Expected compressed bytes to be written.");
+	}
+
+	[TestMethod]
+	public async Task GzipTryDecompressAsyncFromMemory_UsesOnlyTheAsynchronousStreamMembersAsync()
+	{
+		ICompressionProvider provider = new GzipCompressionProvider();
+		byte[] payload = [9, 8, 7, 6, 5, 4, 3, 2, 1];
+		byte[] compressed = provider.Compress(payload);
+
+		using AsyncOnlyStream destination = new();
+
+		bool decompressed = await provider
+			.TryDecompressAsync(compressed.AsMemory(), destination, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false);
+
+		Assert.IsTrue(decompressed, "Expected the asynchronous decompression to succeed.");
+		CollectionAssert.AreEqual(payload, destination.ToArray());
+	}
+
+	[TestMethod]
+	public async Task GzipDecompressAsyncFromStream_UsesOnlyTheAsynchronousStreamMembersAsync()
+	{
+		ICompressionProvider provider = new GzipCompressionProvider();
+		byte[] payload = [1, 2, 3, 4, 5, 6, 7, 8];
+		byte[] compressed = provider.Compress(payload);
+
+		using AsyncOnlyStream source = new(compressed);
+
+		byte[] decompressed = await provider
+			.DecompressAsync(source, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false);
+
+		CollectionAssert.AreEqual(payload, decompressed);
 	}
 
 	public static IEnumerable<object[]> StreamingCompressionProviders =>
@@ -248,6 +298,85 @@ public class AsyncStreamIoTests
 			.ConfigureAwait(false));
 
 		CollectionAssert.AreEqual(payload, restored.ToArray());
+	}
+
+	[TestMethod]
+	public async Task AesTryEncryptAsyncFromMemory_UsesOnlyTheAsynchronousStreamMembersAsync()
+	{
+		AesEncryptionProvider aes = new();
+		IEncryptionProvider provider = aes;
+		byte[] key = aes.GenerateKey();
+		byte[] iv = aes.GenerateIV();
+		byte[] payload = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+
+		using AsyncOnlyStream destination = new();
+
+		bool encrypted = await provider
+			.TryEncryptAsync(payload.AsMemory(), key, iv, destination, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false);
+
+		Assert.IsTrue(encrypted, "Expected the asynchronous encryption to succeed.");
+
+		byte[] decrypted = provider.Decrypt(destination.ToArray(), key, iv);
+		CollectionAssert.AreEqual(payload, decrypted);
+	}
+
+	[TestMethod]
+	public async Task AesEncryptAsyncFromStream_UsesOnlyTheAsynchronousStreamMembersAsync()
+	{
+		AesEncryptionProvider aes = new();
+		IEncryptionProvider provider = aes;
+		byte[] key = aes.GenerateKey();
+		byte[] iv = aes.GenerateIV();
+		byte[] payload = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+
+		using AsyncOnlyStream source = new(payload);
+
+		byte[] encrypted = await provider
+			.EncryptAsync(source, key, iv, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false);
+
+		byte[] decrypted = provider.Decrypt(encrypted, key, iv);
+		CollectionAssert.AreEqual(payload, decrypted);
+	}
+
+	[TestMethod]
+	public async Task AesTryDecryptAsyncFromMemory_UsesOnlyTheAsynchronousStreamMembersAsync()
+	{
+		AesEncryptionProvider aes = new();
+		IEncryptionProvider provider = aes;
+		byte[] key = aes.GenerateKey();
+		byte[] iv = aes.GenerateIV();
+		byte[] payload = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+		byte[] encrypted = provider.Encrypt(payload, key, iv);
+
+		using AsyncOnlyStream destination = new();
+
+		bool decrypted = await provider
+			.TryDecryptAsync(encrypted.AsMemory(), key, iv, destination, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false);
+
+		Assert.IsTrue(decrypted, "Expected the asynchronous decryption to succeed.");
+		CollectionAssert.AreEqual(payload, destination.ToArray());
+	}
+
+	[TestMethod]
+	public async Task AesDecryptAsyncFromStream_UsesOnlyTheAsynchronousStreamMembersAsync()
+	{
+		AesEncryptionProvider aes = new();
+		IEncryptionProvider provider = aes;
+		byte[] key = aes.GenerateKey();
+		byte[] iv = aes.GenerateIV();
+		byte[] payload = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+		byte[] encrypted = provider.Encrypt(payload, key, iv);
+
+		using AsyncOnlyStream source = new(encrypted);
+
+		byte[] decrypted = await provider
+			.DecryptAsync(source, key, iv, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false);
+
+		CollectionAssert.AreEqual(payload, decrypted);
 	}
 
 	[TestMethod]

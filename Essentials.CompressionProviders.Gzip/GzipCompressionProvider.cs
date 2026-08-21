@@ -114,6 +114,9 @@ public class GzipCompressionProvider : ICompressionProvider
 	/// Genuinely asynchronous: no thread is held for the duration. The compression stream is disposed
 	/// with <c>await using</c> rather than <c>using</c> because disposal writes the trailer, and a
 	/// synchronous dispose would make that final write synchronous.
+	/// If this throws or returns false, the destination may hold a partial result. Cancellation still
+	/// flushes the trailer, so that partial result is structurally valid and cannot be distinguished
+	/// from a complete one. Treat the destination as invalid unless the method returns true.
 	/// </remarks>
 	/// <param name="data">The data to compress.</param>
 	/// <param name="destination">The destination to write the compressed data to.</param>
@@ -243,7 +246,12 @@ public class GzipCompressionProvider : ICompressionProvider
 	/// <summary>
 	/// Tries to decompress the data from the stream and write the result to the destination, asynchronously.
 	/// </summary>
-	/// <remarks>Genuinely asynchronous: no thread is held for the duration.</remarks>
+	/// <remarks>
+	/// Genuinely asynchronous: no thread is held for the duration.
+	/// If this throws or returns false, the destination may hold a partial result. Cancellation still
+	/// flushes the trailer, so a truncated destination cannot be distinguished from a complete
+	/// decompression. Treat the destination as invalid unless the method returns true.
+	/// </remarks>
 	/// <param name="compressedData">The compressed data to decompress.</param>
 	/// <param name="destination">The destination to write the decompressed data to.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>

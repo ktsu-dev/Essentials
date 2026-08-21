@@ -156,7 +156,7 @@ is deterministic and machine-independent. Each converted provider gets:
 3. A cancellation test asserting an already-cancelled token is honoured before work begins.
 
 `Stream.Read(byte[], int, int)` is the abstract member the base class routes its other synchronous
-overloads through, so throwing there catches every synchronous entry point.
+overloads through, so throwing there catches every synchronous data-moving entry point.
 
 ## Release 2 — 3.0.0 `[major]`, breaking
 
