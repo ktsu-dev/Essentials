@@ -1,4 +1,6 @@
-## v2.1.0
+## v2.1.1 (patch)
 
-No significant changes detected since v2.1.0.
+Changes since v2.1.0:
+
+- fix: scrub pooled buffers before returning them [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
 
