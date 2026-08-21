@@ -12,6 +12,7 @@ using ktsu.Essentials.CompressionProviders.Brotli;
 using ktsu.Essentials.CompressionProviders.Deflate;
 using ktsu.Essentials.CompressionProviders.Gzip;
 using ktsu.Essentials.CompressionProviders.ZLib;
+using ktsu.Essentials.EncryptionProviders.Aes;
 using ktsu.Essentials.Tests.Infrastructure;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -211,6 +212,62 @@ public class AsyncStreamIoTests
 		try
 		{
 			_ = await provider.TryCompressAsync(source, destination, cancelled.Token).ConfigureAwait(false);
+		}
+		catch (OperationCanceledException)
+		{
+			honoured = true;
+		}
+
+		Assert.IsTrue(honoured, "An already-cancelled token must be honoured before any work begins.");
+		Assert.AreEqual(0, destination.ToArray().Length, "Nothing should have been written.");
+	}
+
+	[TestMethod]
+	public async Task AesEncryptionRoundTripsThroughAsyncOnlyStreamsAsync()
+	{
+		// GenerateKey and GenerateIV are declared on the concrete provider, not the interface, while the
+		// async members are default interface implementations and so need an interface-typed reference
+		// until Task 5 gives the provider its own. Hence the two references to one instance.
+		AesEncryptionProvider aes = new();
+		IEncryptionProvider provider = aes;
+		byte[] key = aes.GenerateKey();
+		byte[] iv = aes.GenerateIV();
+
+		byte[] payload = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+
+		using AsyncOnlyStream source = new(payload);
+		using AsyncOnlyStream encrypted = new();
+		Assert.IsTrue(await provider
+			.TryEncryptAsync(source, key, iv, encrypted, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false));
+
+		using AsyncOnlyStream encryptedSource = new(encrypted.ToArray());
+		using AsyncOnlyStream restored = new();
+		Assert.IsTrue(await provider
+			.TryDecryptAsync(encryptedSource, key, iv, restored, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false));
+
+		CollectionAssert.AreEqual(payload, restored.ToArray());
+	}
+
+	[TestMethod]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Cancelling before any awaited work starts; the token must be cancelled synchronously up front.")]
+	public async Task AesTryEncryptAsync_HonoursAnAlreadyCancelledTokenAsync()
+	{
+		AesEncryptionProvider aes = new();
+		IEncryptionProvider provider = aes;
+		byte[] key = aes.GenerateKey();
+		byte[] iv = aes.GenerateIV();
+
+		using AsyncOnlyStream source = new([1, 2, 3]);
+		using AsyncOnlyStream destination = new();
+		using CancellationTokenSource cancelled = new();
+		cancelled.Cancel();
+
+		bool honoured = false;
+		try
+		{
+			_ = await provider.TryEncryptAsync(source, key, iv, destination, cancelled.Token).ConfigureAwait(false);
 		}
 		catch (OperationCanceledException)
 		{
