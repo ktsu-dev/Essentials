@@ -6,6 +6,8 @@ using ktsu.Essentials;
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Threading;
+using System.Threading.Tasks;
 
 /// <summary>
 /// A compression provider that uses Deflate for data compression and decompression.
@@ -106,6 +108,54 @@ public class DeflateCompressionProvider : ICompressionProvider
 	}
 
 	/// <summary>
+	/// Tries to compress the data from the stream and write the result to the destination, asynchronously.
+	/// </summary>
+	/// <remarks>
+	/// Genuinely asynchronous: no thread is held for the duration. Disposal writes the trailer, so the
+	/// compression stream is disposed with <c>await using</c> to keep that final write asynchronous too.
+	/// </remarks>
+	/// <param name="data">The data to compress.</param>
+	/// <param name="destination">The destination to write the compressed data to.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>True if the compression was successful, false otherwise.</returns>
+	public async Task<bool> TryCompressAsync(Stream data, Stream destination, CancellationToken cancellationToken = default)
+	{
+		if (data is null || destination is null)
+		{
+			return false;
+		}
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		try
+		{
+			DeflateStream deflateStream = new(destination, CompressionLevel.Optimal, leaveOpen: true);
+			await using (deflateStream.ConfigureAwait(false))
+			{
+				await data.CopyToAsync(deflateStream, 81920, cancellationToken).ConfigureAwait(false);
+			}
+
+			return true;
+		}
+		catch (ArgumentException)
+		{
+			return false;
+		}
+		catch (IOException)
+		{
+			return false;
+		}
+		catch (InvalidDataException)
+		{
+			return false;
+		}
+		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+	}
+
+	/// <summary>
 	/// Tries to decompress the data from the span and write the result to the destination.
 	/// </summary>
 	/// <param name="compressedData">The compressed data to decompress.</param>
@@ -169,6 +219,51 @@ public class DeflateCompressionProvider : ICompressionProvider
 		{
 			using DeflateStream deflateStream = new(compressedData, CompressionMode.Decompress, leaveOpen: true);
 			deflateStream.CopyTo(destination);
+			return true;
+		}
+		catch (ArgumentException)
+		{
+			return false;
+		}
+		catch (IOException)
+		{
+			return false;
+		}
+		catch (InvalidDataException)
+		{
+			return false;
+		}
+		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Tries to decompress the data from the stream and write the result to the destination, asynchronously.
+	/// </summary>
+	/// <remarks>Genuinely asynchronous: no thread is held for the duration.</remarks>
+	/// <param name="compressedData">The compressed data to decompress.</param>
+	/// <param name="destination">The destination to write the decompressed data to.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>True if the decompression was successful, false otherwise.</returns>
+	public async Task<bool> TryDecompressAsync(Stream compressedData, Stream destination, CancellationToken cancellationToken = default)
+	{
+		if (compressedData is null || destination is null)
+		{
+			return false;
+		}
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		try
+		{
+			DeflateStream deflateStream = new(compressedData, CompressionMode.Decompress, leaveOpen: true);
+			await using (deflateStream.ConfigureAwait(false))
+			{
+				await deflateStream.CopyToAsync(destination, 81920, cancellationToken).ConfigureAwait(false);
+			}
+
 			return true;
 		}
 		catch (ArgumentException)

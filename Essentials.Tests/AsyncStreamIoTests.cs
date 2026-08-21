@@ -3,11 +3,15 @@
 namespace ktsu.Essentials.Tests;
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using ktsu.Essentials;
+using ktsu.Essentials.CompressionProviders.Brotli;
+using ktsu.Essentials.CompressionProviders.Deflate;
 using ktsu.Essentials.CompressionProviders.Gzip;
+using ktsu.Essentials.CompressionProviders.ZLib;
 using ktsu.Essentials.Tests.Infrastructure;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -159,6 +163,62 @@ public class AsyncStreamIoTests
 
 		Assert.IsTrue(compressed, "Expected the asynchronous compression to succeed.");
 		Assert.AreNotEqual(0, destination.ToArray().Length, "Expected compressed bytes to be written.");
+	}
+
+	public static IEnumerable<object[]> StreamingCompressionProviders =>
+	[
+		[new DeflateCompressionProvider()],
+		[new ZLibCompressionProvider()],
+		[new BrotliCompressionProvider()],
+	];
+
+	[TestMethod]
+	[DynamicData(nameof(StreamingCompressionProviders))]
+	public async Task CompressionProvider_RoundTripsThroughAsyncOnlyStreamsAsync(ICompressionProvider provider)
+	{
+		byte[] payload = new byte[2048];
+		for (int i = 0; i < payload.Length; i++)
+		{
+			payload[i] = (byte)(i % 97);
+		}
+
+		using AsyncOnlyStream source = new(payload);
+		using AsyncOnlyStream compressed = new();
+		Assert.IsTrue(await provider
+			.TryCompressAsync(source, compressed, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false));
+
+		using AsyncOnlyStream compressedSource = new(compressed.ToArray());
+		using AsyncOnlyStream restored = new();
+		Assert.IsTrue(await provider
+			.TryDecompressAsync(compressedSource, restored, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false));
+
+		CollectionAssert.AreEqual(payload, restored.ToArray());
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(StreamingCompressionProviders))]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Cancelling before any awaited work starts; the token must be cancelled synchronously up front.")]
+	public async Task CompressionProvider_HonoursAnAlreadyCancelledTokenAsync(ICompressionProvider provider)
+	{
+		using AsyncOnlyStream source = new([1, 2, 3]);
+		using AsyncOnlyStream destination = new();
+		using CancellationTokenSource cancelled = new();
+		cancelled.Cancel();
+
+		bool honoured = false;
+		try
+		{
+			_ = await provider.TryCompressAsync(source, destination, cancelled.Token).ConfigureAwait(false);
+		}
+		catch (OperationCanceledException)
+		{
+			honoured = true;
+		}
+
+		Assert.IsTrue(honoured, "An already-cancelled token must be honoured before any work begins.");
+		Assert.AreEqual(0, destination.ToArray().Length, "Nothing should have been written.");
 	}
 
 	public TestContext TestContext { get; set; } = null!;
