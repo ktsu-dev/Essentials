@@ -134,5 +134,32 @@ public class AsyncStreamIoTests
 		Assert.AreEqual(0, destination.ToArray().Length, "Nothing should have been written.");
 	}
 
+	[TestMethod]
+	public async Task GzipCompressAsyncFromStream_UsesOnlyTheAsynchronousStreamMembersAsync()
+	{
+		ICompressionProvider provider = new GzipCompressionProvider();
+		using AsyncOnlyStream source = new([1, 2, 3, 4, 5, 6, 7, 8]);
+
+		byte[] compressed = await provider
+			.CompressAsync(source, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false);
+
+		Assert.AreNotEqual(0, compressed.Length, "Expected compressed bytes to be returned.");
+	}
+
+	[TestMethod]
+	public async Task GzipTryCompressAsyncFromMemory_UsesOnlyTheAsynchronousStreamMembersAsync()
+	{
+		ICompressionProvider provider = new GzipCompressionProvider();
+		using AsyncOnlyStream destination = new();
+
+		bool compressed = await provider
+			.TryCompressAsync(new byte[] { 1, 2, 3, 4 }.AsMemory(), destination, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false);
+
+		Assert.IsTrue(compressed, "Expected the asynchronous compression to succeed.");
+		Assert.AreNotEqual(0, destination.ToArray().Length, "Expected compressed bytes to be written.");
+	}
+
 	public TestContext TestContext { get; set; } = null!;
 }
