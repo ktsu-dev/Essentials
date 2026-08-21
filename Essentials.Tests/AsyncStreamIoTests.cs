@@ -225,9 +225,9 @@ public class AsyncStreamIoTests
 	[TestMethod]
 	public async Task AesEncryptionRoundTripsThroughAsyncOnlyStreamsAsync()
 	{
-		// GenerateKey and GenerateIV are declared on the concrete provider, not the interface, while the
-		// async members are default interface implementations and so need an interface-typed reference
-		// until Task 5 gives the provider its own. Hence the two references to one instance.
+		// GenerateKey and GenerateIV are declared on the concrete provider, not the interface. The
+		// interface reference is kept deliberately to prove that interface dispatch reaches the
+		// provider's own implementation. Hence the two references to one instance.
 		AesEncryptionProvider aes = new();
 		IEncryptionProvider provider = aes;
 		byte[] key = aes.GenerateKey();
