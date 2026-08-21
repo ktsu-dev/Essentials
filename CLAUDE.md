@@ -84,11 +84,11 @@ All provider interfaces follow a consistent three-tier pattern:
 
 1. **Core Try\* methods**: Buffer-based methods over `Span<byte>` or `Stream`. Span overloads are `bool TryX(source, destination, out int bytesWritten)`, paired with a `GetMax…Length` bound per category so callers can size buffers. These are the only methods implementers must provide.
 2. **Convenience methods**: Self-allocating methods that call Try\* methods and manage buffers automatically. Provided via default interface implementations.
-3. **Async variants**: Task-based async versions with `CancellationToken` support, mostly provided via `ProviderHelpers.RunAsync()`. Note these are `Task.Run` wrappers over synchronous work, not genuine async I/O — the exception is `IHashProvider.TryHashAsync(Stream, ...)`, which is a real `ReadAsync` loop. See issue #8. Span-destination async overloads do not exist — an `out` parameter cannot cross an async boundary.
+3. **Async variants**: Task-based async versions with `CancellationToken` support. The stream paths of the compression providers and of `AesEncryptionProvider`, along with `IHashProvider.TryHashAsync(Stream, ...)`, are genuinely asynchronous — real `ReadAsync`/`WriteAsync`, no thread held. The rest are still `Task.Run` wrappers over synchronous work via `ProviderHelpers.RunAsync()`; see issue #8. A provider makes its stream paths genuine by declaring the two `Try…Async(Stream, Stream, ...)` primitives itself, which replaces the default implementation; the four derived stream defaults compose over those primitives, so overriding two members converts all six. Span-destination async overloads do not exist — an `out` parameter cannot cross an async boundary.
 
 Common patterns are centralized in `ProviderHelpers.cs`:
 
-- `RunAsync()` - Wraps sync methods in `Task.Run` with cancellation
+- `RunAsync()` - Wraps sync methods in `Task.Run` with cancellation. Used by the in-memory async variants and by any stream path whose provider has not declared its own asynchronous primitives.
 - `ExecuteToByteArray()` - Calls a try-operation with a MemoryStream destination
 - `SpanToStreamBridge()` - Bridges Span input to Stream-based operations
 - `Utf8Transform()` - Applies byte operations to UTF8 strings
