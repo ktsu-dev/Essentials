@@ -6,6 +6,8 @@ using ktsu.Essentials;
 using System;
 using System.IO;
 using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 
 /// <summary>
 /// An encryption provider that uses AES for data encryption and decryption.
@@ -138,6 +140,62 @@ public class AesEncryptionProvider : IEncryptionProvider
 	}
 
 	/// <summary>
+	/// Tries to encrypt the data from the stream and write the result to the destination, asynchronously.
+	/// </summary>
+	/// <remarks>
+	/// Genuinely asynchronous: no thread is held for the duration. The crypto stream is disposed with
+	/// <c>await using</c> because disposal writes the final block, and a synchronous dispose would make
+	/// that write synchronous.
+	/// If this throws or returns false, the destination may hold a partial result. Cancellation still
+	/// flushes the final block, so that partial result is structurally valid ciphertext and cannot be
+	/// distinguished from a complete one. Treat the destination as invalid unless the method returns true.
+	/// </remarks>
+	/// <param name="data">The data to encrypt.</param>
+	/// <param name="key">The key to use for encryption.</param>
+	/// <param name="iv">The initialization vector to use for encryption.</param>
+	/// <param name="destination">The destination to write the encrypted data to.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>True if the encryption was successful, false otherwise.</returns>
+	public async Task<bool> TryEncryptAsync(Stream data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Stream destination, CancellationToken cancellationToken = default)
+	{
+		if (data is null || destination is null || key.Length != KeySize || iv.Length != IVSize)
+		{
+			return false;
+		}
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		try
+		{
+			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
+			using ICryptoTransform encryptor = aes.CreateEncryptor(key.ToArray(), iv.ToArray());
+			CryptoStream cryptoStream = new(destination, encryptor, CryptoStreamMode.Write, leaveOpen: true);
+			await using (cryptoStream.ConfigureAwait(false))
+			{
+				await data.CopyToAsync(cryptoStream, 81920, cancellationToken).ConfigureAwait(false);
+			}
+
+			return true;
+		}
+		catch (ArgumentException)
+		{
+			return false;
+		}
+		catch (CryptographicException)
+		{
+			return false;
+		}
+		catch (IOException)
+		{
+			return false;
+		}
+		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+	}
+
+	/// <summary>
 	/// Tries to decrypt the data from the span and write the result to the destination.
 	/// </summary>
 	/// <param name="data">The data to decrypt.</param>
@@ -208,6 +266,60 @@ public class AesEncryptionProvider : IEncryptionProvider
 			using ICryptoTransform decryptor = aes.CreateDecryptor(key.ToArray(), iv.ToArray());
 			using CryptoStream cryptoStream = new(data, decryptor, CryptoStreamMode.Read, leaveOpen: true);
 			cryptoStream.CopyTo(destination);
+			return true;
+		}
+		catch (ArgumentException)
+		{
+			return false;
+		}
+		catch (CryptographicException)
+		{
+			return false;
+		}
+		catch (IOException)
+		{
+			return false;
+		}
+		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Tries to decrypt the data from the stream and write the result to the destination, asynchronously.
+	/// </summary>
+	/// <remarks>
+	/// Genuinely asynchronous: no thread is held for the duration.
+	/// If this throws or returns false, the destination may hold a partial result. Cancellation still
+	/// flushes the final block, so a truncated destination cannot be distinguished from a complete
+	/// decryption. Treat the destination as invalid unless the method returns true.
+	/// </remarks>
+	/// <param name="data">The data to decrypt.</param>
+	/// <param name="key">The key to use for decryption.</param>
+	/// <param name="iv">The initialization vector to use for decryption.</param>
+	/// <param name="destination">The destination to write the decrypted data to.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>True if the decryption was successful, false otherwise.</returns>
+	public async Task<bool> TryDecryptAsync(Stream data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Stream destination, CancellationToken cancellationToken = default)
+	{
+		if (data is null || destination is null || key.Length != KeySize || iv.Length != IVSize)
+		{
+			return false;
+		}
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		try
+		{
+			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
+			using ICryptoTransform decryptor = aes.CreateDecryptor(key.ToArray(), iv.ToArray());
+			CryptoStream cryptoStream = new(data, decryptor, CryptoStreamMode.Read, leaveOpen: true);
+			await using (cryptoStream.ConfigureAwait(false))
+			{
+				await cryptoStream.CopyToAsync(destination, 81920, cancellationToken).ConfigureAwait(false);
+			}
+
 			return true;
 		}
 		catch (ArgumentException)

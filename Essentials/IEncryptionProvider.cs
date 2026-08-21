@@ -88,8 +88,13 @@ public interface IEncryptionProvider
 	/// <param name="destination">The destination to write the encrypted data to.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the encryption was successful, false otherwise.</returns>
-	public Task<bool> TryEncryptAsync(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Stream destination, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => TryEncrypt(data.Span, key.Span, iv.Span, destination), cancellationToken);
+	public async Task<bool> TryEncryptAsync(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Stream destination, CancellationToken cancellationToken = default)
+	{
+		using MemoryStream source = new();
+		await source.WriteAsync(data, cancellationToken).ConfigureAwait(false);
+		source.Position = 0;
+		return await TryEncryptAsync(source, key, iv, destination, cancellationToken).ConfigureAwait(false);
+	}
 
 	/// <summary>
 	/// Encrypts the data from the span and returns the result.
@@ -162,8 +167,13 @@ public interface IEncryptionProvider
 	/// <param name="iv">The initialization vector to use for encryption.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The encrypted data.</returns>
-	public Task<byte[]> EncryptAsync(Stream data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => Encrypt(data, key.Span, iv.Span), cancellationToken);
+	public async Task<byte[]> EncryptAsync(Stream data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, CancellationToken cancellationToken = default)
+	{
+		using MemoryStream destination = new();
+		return !await TryEncryptAsync(data, key, iv, destination, cancellationToken).ConfigureAwait(false)
+			? throw new InvalidOperationException("Encryption failed to produce output with the allocated buffer.")
+			: destination.ToArray();
+	}
 
 	/// <summary>
 	/// Encrypts the data from the string and returns the result asynchronously.
@@ -230,8 +240,13 @@ public interface IEncryptionProvider
 	/// <param name="destination">The destination to write the decrypted data to.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the decryption was successful, false otherwise.</returns>
-	public Task<bool> TryDecryptAsync(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Stream destination, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => TryDecrypt(data.Span, key.Span, iv.Span, destination), cancellationToken);
+	public async Task<bool> TryDecryptAsync(ReadOnlyMemory<byte> data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, Stream destination, CancellationToken cancellationToken = default)
+	{
+		using MemoryStream source = new();
+		await source.WriteAsync(data, cancellationToken).ConfigureAwait(false);
+		source.Position = 0;
+		return await TryDecryptAsync(source, key, iv, destination, cancellationToken).ConfigureAwait(false);
+	}
 
 	/// <summary>
 	/// Decrypts the data from the span and returns the result.
@@ -301,8 +316,13 @@ public interface IEncryptionProvider
 	/// <param name="iv">The initialization vector to use for decryption.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The decrypted data.</returns>
-	public Task<byte[]> DecryptAsync(Stream data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => Decrypt(data, key.Span, iv.Span), cancellationToken);
+	public async Task<byte[]> DecryptAsync(Stream data, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> iv, CancellationToken cancellationToken = default)
+	{
+		using MemoryStream destination = new();
+		return !await TryDecryptAsync(data, key, iv, destination, cancellationToken).ConfigureAwait(false)
+			? throw new InvalidOperationException("Decryption failed to produce output with the allocated buffer.")
+			: destination.ToArray();
+	}
 
 	/// <summary>
 	/// Decrypts the data from the string and returns the result asynchronously.

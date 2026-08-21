@@ -6,6 +6,8 @@ using ktsu.Essentials;
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Threading;
+using System.Threading.Tasks;
 
 /// <summary>
 /// A compression provider that uses ZLib for data compression and decompression.
@@ -106,6 +108,57 @@ public class ZLibCompressionProvider : ICompressionProvider
 	}
 
 	/// <summary>
+	/// Tries to compress the data from the stream and write the result to the destination, asynchronously.
+	/// </summary>
+	/// <remarks>
+	/// Genuinely asynchronous: no thread is held for the duration. Disposal writes the trailer, so the
+	/// compression stream is disposed with <c>await using</c> to keep that final write asynchronous too.
+	/// If this throws or returns false, the destination may hold a partial result. Cancellation still
+	/// flushes the trailer, so that partial result is structurally valid and cannot be distinguished
+	/// from a complete one. Treat the destination as invalid unless the method returns true.
+	/// </remarks>
+	/// <param name="data">The data to compress.</param>
+	/// <param name="destination">The destination to write the compressed data to.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>True if the compression was successful, false otherwise.</returns>
+	public async Task<bool> TryCompressAsync(Stream data, Stream destination, CancellationToken cancellationToken = default)
+	{
+		if (data is null || destination is null)
+		{
+			return false;
+		}
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		try
+		{
+			ZLibStream zlibStream = new(destination, CompressionLevel.Optimal, leaveOpen: true);
+			await using (zlibStream.ConfigureAwait(false))
+			{
+				await data.CopyToAsync(zlibStream, 81920, cancellationToken).ConfigureAwait(false);
+			}
+
+			return true;
+		}
+		catch (ArgumentException)
+		{
+			return false;
+		}
+		catch (IOException)
+		{
+			return false;
+		}
+		catch (InvalidDataException)
+		{
+			return false;
+		}
+		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+	}
+
+	/// <summary>
 	/// Tries to decompress the data from the span and write the result to the destination.
 	/// </summary>
 	/// <param name="compressedData">The compressed data to decompress.</param>
@@ -169,6 +222,56 @@ public class ZLibCompressionProvider : ICompressionProvider
 		{
 			using ZLibStream zlibStream = new(compressedData, CompressionMode.Decompress, leaveOpen: true);
 			zlibStream.CopyTo(destination);
+			return true;
+		}
+		catch (ArgumentException)
+		{
+			return false;
+		}
+		catch (IOException)
+		{
+			return false;
+		}
+		catch (InvalidDataException)
+		{
+			return false;
+		}
+		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Tries to decompress the data from the stream and write the result to the destination, asynchronously.
+	/// </summary>
+	/// <remarks>
+	/// Genuinely asynchronous: no thread is held for the duration.
+	/// If this throws or returns false, the destination may hold a partial result. Cancellation still
+	/// flushes the trailer, so a truncated destination cannot be distinguished from a complete
+	/// decompression. Treat the destination as invalid unless the method returns true.
+	/// </remarks>
+	/// <param name="compressedData">The compressed data to decompress.</param>
+	/// <param name="destination">The destination to write the decompressed data to.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>True if the decompression was successful, false otherwise.</returns>
+	public async Task<bool> TryDecompressAsync(Stream compressedData, Stream destination, CancellationToken cancellationToken = default)
+	{
+		if (compressedData is null || destination is null)
+		{
+			return false;
+		}
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		try
+		{
+			ZLibStream zlibStream = new(compressedData, CompressionMode.Decompress, leaveOpen: true);
+			await using (zlibStream.ConfigureAwait(false))
+			{
+				await zlibStream.CopyToAsync(destination, 81920, cancellationToken).ConfigureAwait(false);
+			}
+
 			return true;
 		}
 		catch (ArgumentException)

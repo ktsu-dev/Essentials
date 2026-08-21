@@ -83,8 +83,13 @@ public interface ICompressionProvider
 	/// <param name="destination">The destination stream to write the compressed data to.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the compression was successful, false otherwise.</returns>
-	public Task<bool> TryCompressAsync(ReadOnlyMemory<byte> data, Stream destination, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => TryCompress(data.Span, destination), cancellationToken);
+	public async Task<bool> TryCompressAsync(ReadOnlyMemory<byte> data, Stream destination, CancellationToken cancellationToken = default)
+	{
+		using MemoryStream source = new();
+		await source.WriteAsync(data, cancellationToken).ConfigureAwait(false);
+		source.Position = 0;
+		return await TryCompressAsync(source, destination, cancellationToken).ConfigureAwait(false);
+	}
 
 	/// <summary>
 	/// Tries to compress the data from the stream and write the result to the destination stream asynchronously.
@@ -111,8 +116,13 @@ public interface ICompressionProvider
 	/// <param name="data">The data to compress.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The compressed data.</returns>
-	public Task<byte[]> CompressAsync(Stream data, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => Compress(data), cancellationToken);
+	public async Task<byte[]> CompressAsync(Stream data, CancellationToken cancellationToken = default)
+	{
+		using MemoryStream destination = new();
+		return !await TryCompressAsync(data, destination, cancellationToken).ConfigureAwait(false)
+			? throw new InvalidOperationException("Compression failed to produce output with the allocated buffer.")
+			: destination.ToArray();
+	}
 
 	/// <summary>
 	/// Compresses the data from the string and returns the result asynchronously.
@@ -197,8 +207,13 @@ public interface ICompressionProvider
 	/// <param name="destination">The destination stream to write the decompressed data to.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the decompression was successful, false otherwise.</returns>
-	public Task<bool> TryDecompressAsync(ReadOnlyMemory<byte> compressedData, Stream destination, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => TryDecompress(compressedData.Span, destination), cancellationToken);
+	public async Task<bool> TryDecompressAsync(ReadOnlyMemory<byte> compressedData, Stream destination, CancellationToken cancellationToken = default)
+	{
+		using MemoryStream source = new();
+		await source.WriteAsync(compressedData, cancellationToken).ConfigureAwait(false);
+		source.Position = 0;
+		return await TryDecompressAsync(source, destination, cancellationToken).ConfigureAwait(false);
+	}
 
 	/// <summary>
 	/// Tries to decompress the data from the stream and write the result to the destination stream asynchronously.
@@ -225,8 +240,13 @@ public interface ICompressionProvider
 	/// <param name="compressedData">The compressed data to decompress.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The decompressed data.</returns>
-	public Task<byte[]> DecompressAsync(Stream compressedData, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => Decompress(compressedData), cancellationToken);
+	public async Task<byte[]> DecompressAsync(Stream compressedData, CancellationToken cancellationToken = default)
+	{
+		using MemoryStream destination = new();
+		return !await TryDecompressAsync(compressedData, destination, cancellationToken).ConfigureAwait(false)
+			? throw new InvalidOperationException("Decompression failed to produce output with the allocated buffer.")
+			: destination.ToArray();
+	}
 
 	/// <summary>
 	/// Decompresses text produced by <see cref="Compress(string)"/> asynchronously.
