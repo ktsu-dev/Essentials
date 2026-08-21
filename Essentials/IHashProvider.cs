@@ -57,6 +57,12 @@ public interface IHashProvider
 	/// and no thread is held for the duration. The result is not reported through an <c>out</c> parameter
 	/// because one cannot cross an await boundary; a return value of true guarantees exactly
 	/// <see cref="HashLengthBytes"/> bytes were written.
+	/// <para>
+	/// The read buffer is scrubbed on its way back to the pool. <see cref="ArrayPool{T}"/>.Shared is
+	/// process-wide, so without that the tail of whatever was just hashed stays readable to whatever
+	/// rents next. The clear is deliberate rather than incidental: against the stream I/O it
+	/// accompanies it does not register.
+	/// </para>
 	/// </remarks>
 	/// <param name="data">The stream to hash.</param>
 	/// <param name="destination">The buffer to write the hash to.</param>
@@ -85,7 +91,7 @@ public interface IHashProvider
 		}
 		finally
 		{
-			ArrayPool<byte>.Shared.Return(buffer);
+			ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
 		}
 	}
 
