@@ -17,6 +17,7 @@ using System.Security.Cryptography;
 /// registered as a singleton, concurrent callers corrupted each other's in-progress hash state.
 /// </remarks>
 [SuppressMessage("Security", "CA5351:Do Not Use Broken Cryptographic Algorithms", Justification = "This provider exists specifically to implement MD5, which callers select deliberately for compatibility")]
+[SuppressMessage("Security", "S4790:Using weak hashing algorithms is security-sensitive", Justification = "This provider exists specifically to implement MD5, which callers select deliberately for compatibility. The algorithm is fixed by the type's contract and cannot be substituted for a stronger one")]
 public class MD5HashProvider : IHashProvider
 {
 	/// <summary>
