@@ -290,10 +290,12 @@ public class AesEncryptionProvider : IEncryptionProvider
 	/// Tries to decrypt the data from the stream and write the result to the destination, asynchronously.
 	/// </summary>
 	/// <remarks>
-	/// Genuinely asynchronous: no thread is held for the duration.
-	/// If this throws or returns false, the destination may hold a partial result. Cancellation still
-	/// flushes the final block, so a truncated destination cannot be distinguished from a complete
-	/// decryption. Treat the destination as invalid unless the method returns true.
+	/// Genuinely asynchronous: no thread is held for the duration. The decrypting stream wraps the
+	/// source rather than the destination, so disposing it writes nothing to the destination.
+	/// If this throws or returns false, the destination may hold a partial result. Recovered plaintext
+	/// carries no structure of its own, so a truncated destination cannot be distinguished from a
+	/// complete decryption by inspecting it. Treat the destination as invalid unless the method
+	/// returns true.
 	/// </remarks>
 	/// <param name="data">The data to decrypt.</param>
 	/// <param name="key">The key to use for decryption.</param>
