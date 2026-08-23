@@ -246,10 +246,12 @@ public class ZLibCompressionProvider : ICompressionProvider
 	/// Tries to decompress the data from the stream and write the result to the destination, asynchronously.
 	/// </summary>
 	/// <remarks>
-	/// Genuinely asynchronous: no thread is held for the duration.
-	/// If this throws or returns false, the destination may hold a partial result. Cancellation still
-	/// flushes the trailer, so a truncated destination cannot be distinguished from a complete
-	/// decompression. Treat the destination as invalid unless the method returns true.
+	/// Genuinely asynchronous: no thread is held for the duration. The decompression stream wraps the
+	/// source rather than the destination, so disposing it writes nothing to the destination.
+	/// If this throws or returns false, the destination may hold a partial result. Decompressed bytes
+	/// carry no structure of their own, so a truncated destination cannot be distinguished from a
+	/// complete decompression by inspecting it. Treat the destination as invalid unless the method
+	/// returns true.
 	/// </remarks>
 	/// <param name="compressedData">The compressed data to decompress.</param>
 	/// <param name="destination">The destination to write the decompressed data to.</param>
