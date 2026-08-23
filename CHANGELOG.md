@@ -1,6 +1,8 @@
-## v2.2.0
+## v2.2.1 (patch)
 
-No significant changes detected since v2.2.0.
+Changes since v2.2.0:
+
+- docs: correct the decompress and decrypt cancellation remarks [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
 
 ## v2.2.0 (minor)
 
