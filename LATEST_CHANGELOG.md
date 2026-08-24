@@ -1,6 +1,4 @@
-## v2.2.2 (patch)
+## v2.2.2
 
-Changes since v2.2.1:
-
-- fix: suppress S4790 on the MD5 and SHA-1 hash providers [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+No significant changes detected since v2.2.2.
 
