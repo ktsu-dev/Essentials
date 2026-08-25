@@ -8,9 +8,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using ktsu.Essentials;
+using ktsu.Essentials.All;
 using ktsu.Essentials.KeyedHashProviders.HmacSha256;
 using ktsu.Essentials.KeyedHashProviders.HmacSha384;
 using ktsu.Essentials.KeyedHashProviders.HmacSha512;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 [TestClass]
@@ -449,6 +451,47 @@ public class KeyedHashProviderTests
 	{
 		Assert.AreEqual(48, new HmacSha384KeyedHashProvider().HashLengthBytes);
 		Assert.AreEqual(64, new HmacSha512KeyedHashProvider().HashLengthBytes);
+	}
+
+	#endregion
+
+	#region Dependency injection
+
+	[TestMethod]
+	public void AddKeyedHashProviders_Registers_All_Three()
+	{
+		ServiceCollection services = new();
+		services.AddKeyedHashProviders();
+		using ServiceProvider provider = services.BuildServiceProvider();
+
+		IKeyedHashProvider[] providers = [.. provider.GetServices<IKeyedHashProvider>()];
+
+		Assert.AreEqual(3, providers.Length);
+		Assert.AreEqual(1, providers.Count(p => p.HashLengthBytes == 32));
+		Assert.AreEqual(1, providers.Count(p => p.HashLengthBytes == 48));
+		Assert.AreEqual(1, providers.Count(p => p.HashLengthBytes == 64));
+	}
+
+	[TestMethod]
+	public void AddKeyedHashProviders_Resolves_Concrete_Types()
+	{
+		ServiceCollection services = new();
+		services.AddKeyedHashProviders();
+		using ServiceProvider provider = services.BuildServiceProvider();
+
+		Assert.IsNotNull(provider.GetService<HmacSha256KeyedHashProvider>());
+		Assert.IsNotNull(provider.GetService<HmacSha384KeyedHashProvider>());
+		Assert.IsNotNull(provider.GetService<HmacSha512KeyedHashProvider>());
+	}
+
+	[TestMethod]
+	public void AddEssentials_Includes_Keyed_Hash_Providers()
+	{
+		ServiceCollection services = new();
+		services.AddEssentials();
+		using ServiceProvider provider = services.BuildServiceProvider();
+
+		Assert.AreEqual(3, provider.GetServices<IKeyedHashProvider>().Count());
 	}
 
 	#endregion
