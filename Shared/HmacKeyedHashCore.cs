@@ -47,8 +47,13 @@ internal static class HmacKeyedHashCore
 		{
 			using IncrementalHash hash = IncrementalHash.CreateHMAC(algorithm, keyCopy);
 			hash.AppendData(data);
-			return hash.TryGetHashAndReset(destination, out bytesWritten)
-				&& bytesWritten == hashLengthBytes;
+			if (!hash.TryGetHashAndReset(destination, out bytesWritten) || bytesWritten != hashLengthBytes)
+			{
+				bytesWritten = 0;
+				return false;
+			}
+
+			return true;
 		}
 		catch (ArgumentException)
 		{
@@ -96,8 +101,13 @@ internal static class HmacKeyedHashCore
 				hash.AppendData(buffer.AsSpan(0, read));
 			}
 
-			return hash.TryGetHashAndReset(destination, out bytesWritten)
-				&& bytesWritten == hashLengthBytes;
+			if (!hash.TryGetHashAndReset(destination, out bytesWritten) || bytesWritten != hashLengthBytes)
+			{
+				bytesWritten = 0;
+				return false;
+			}
+
+			return true;
 		}
 		catch (ArgumentException)
 		{

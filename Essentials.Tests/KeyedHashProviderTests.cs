@@ -343,10 +343,9 @@ public class KeyedHashProviderTests
 	}
 
 	[TestMethod]
-	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "The interface-typed local is kept for consistency with the other tests in this file, which rely on it to reach default interface members.")]
 	public void HmacSha256_Reports_Exact_Length_And_Leaves_Tail_Untouched()
 	{
-		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
+		HmacSha256KeyedHashProvider provider = new();
 		byte[] key = Encoding.UTF8.GetBytes("contract key");
 		byte[] data = Encoding.UTF8.GetBytes("contract payload");
 		byte[] buffer = new byte[provider.HashLengthBytes + 16];
