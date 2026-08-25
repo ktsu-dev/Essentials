@@ -15,7 +15,8 @@
 - **Target frameworks:** `net10.0;net9.0;net8.0;net7.0;net6.0;netstandard2.1` on every new project.
 - **No conditional compilation.** Every API used is available on netstandard2.1. If you reach for `#if`, stop and reconsider.
 - **Warnings are errors.** A build with any warning fails.
-- **Tabs for indentation.** CRLF line endings. File-scoped namespaces. Using directives inside the namespace.
+- **Tabs for indentation.** File-scoped namespaces. Using directives inside the namespace.
+- **Line endings are LF, and you do not manage them.** `.gitattributes` line 11 is `* text=auto eol=lf`, which explicitly overrides each machine's `core.autocrlf` and checks files out as LF on every platform. The global CLAUDE.md says CRLF; for this repository that is stale and `.gitattributes` wins. Never convert line endings, and never treat an LF file here as a defect.
 - **No `this.` qualifiers.** Name constructor parameters so they differ from fields.
 - **Always brace control flow.** Always specify accessibility modifiers.
 - **No global suppressions.** Use targeted `[SuppressMessage]` with a real justification.
@@ -24,6 +25,9 @@
 - **Commit tags:** `[minor]` on the commit that completes the feature, `[patch]` on the rest. Tag goes at the end of a lowercase conventional-commit subject. No `Co-Authored-By` lines.
 - **Never stage `.gitignore`.** It shows as modified in `git status` but is not modified. Stage files explicitly by path, never `git add -A`.
 - **All tests go in the existing `Essentials.Tests` project.** A second test project silently loses coverage, because KtsuBuild runs one solution-level `dotnet test --coverage` and every test project writes the same output file.
+- **Default interface members are only callable through the interface type.** C# does not surface a default implementation on the implementing class, so `HmacSha256KeyedHashProvider p = new(); p.Hash(key, data);` does not compile — `Hash` is a default member. Type the local as `IKeyedHashProvider` instead. This applies to every member of `IKeyedHashProvider` except `HashLengthBytes`, the two `TryHash` primitives, and `CreateIncremental`, which the providers declare themselves. The existing `HashProviderTests` avoids this by receiving providers as `IHashProvider` from `[DynamicData]`.
+- **`CA2007` is a build error, so every `await` in a test needs `.ConfigureAwait(false)`.** Precedent is in `AsyncStreamIoTests.cs` and `IncrementalHashTests.cs`.
+- **Add `using System.Linq;` where the test code uses `Enumerable.Repeat` or `Count(...)`, and only there.** An unused using is a warning, and warnings are errors.
 - **Check which overload a test actually binds to** before assuming it covers the method you changed. A `byte[]` argument converts to `ReadOnlySpan<byte>`, `ReadOnlyMemory<byte>`, and `Span<byte>` alike, so an intended test of the span path can silently bind elsewhere. This is how six rewritten public bodies nearly shipped untested during the async stream work. Where it matters, assert against a value only the intended overload can produce, or step through once to confirm.
 
 ## File Structure
@@ -266,7 +270,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, inside the class, after the
 	[TestMethod]
 	public void Defaults_Hash_Span_Matches_TryHash()
 	{
-		FakeKeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new FakeKeyedHashProvider();
 		byte[] expected = new byte[provider.HashLengthBytes];
 		Assert.IsTrue(provider.TryHash(FakeKey, FakePayload, expected, out int written));
 		Assert.AreEqual(provider.HashLengthBytes, written);
@@ -279,7 +283,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, inside the class, after the
 	[TestMethod]
 	public void Defaults_Hash_Stream_Matches_Hash_Span()
 	{
-		FakeKeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new FakeKeyedHashProvider();
 		using MemoryStream stream = new(FakePayload);
 
 		byte[] fromStream = provider.Hash(FakeKey, stream);
@@ -290,7 +294,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, inside the class, after the
 	[TestMethod]
 	public void Defaults_Hash_String_Matches_Utf8_Bytes()
 	{
-		FakeKeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new FakeKeyedHashProvider();
 
 		byte[] fromString = provider.Hash(FakeKey, "the quick brown fox");
 
@@ -300,7 +304,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, inside the class, after the
 	[TestMethod]
 	public void Defaults_CreateIncremental_Matches_One_Shot()
 	{
-		FakeKeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new FakeKeyedHashProvider();
 		using IIncrementalHash incremental = provider.CreateIncremental(FakeKey);
 		incremental.Append(FakePayload.AsSpan(0, 5));
 		incremental.Append(FakePayload.AsSpan(5));
@@ -313,11 +317,11 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, inside the class, after the
 	[TestMethod]
 	public async Task Defaults_TryHashAsync_Matches_One_Shot()
 	{
-		FakeKeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new FakeKeyedHashProvider();
 		using MemoryStream stream = new(FakePayload);
 		byte[] actual = new byte[provider.HashLengthBytes];
 
-		bool ok = await provider.TryHashAsync(FakeKey, stream, actual);
+		bool ok = await provider.TryHashAsync(FakeKey, stream, actual).ConfigureAwait(false);
 
 		Assert.IsTrue(ok);
 		CollectionAssert.AreEqual(provider.Hash(FakeKey, FakePayload), actual);
@@ -326,9 +330,9 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, inside the class, after the
 	[TestMethod]
 	public async Task Defaults_HashAsync_Memory_Matches_One_Shot()
 	{
-		FakeKeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new FakeKeyedHashProvider();
 
-		byte[] actual = await provider.HashAsync(FakeKey, FakePayload);
+		byte[] actual = await provider.HashAsync(FakeKey, FakePayload).ConfigureAwait(false);
 
 		CollectionAssert.AreEqual(provider.Hash(FakeKey, FakePayload), actual);
 	}
@@ -336,10 +340,10 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, inside the class, after the
 	[TestMethod]
 	public async Task Defaults_HashAsync_Stream_Matches_One_Shot()
 	{
-		FakeKeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new FakeKeyedHashProvider();
 		using MemoryStream stream = new(FakePayload);
 
-		byte[] actual = await provider.HashAsync(FakeKey, stream);
+		byte[] actual = await provider.HashAsync(FakeKey, stream).ConfigureAwait(false);
 
 		CollectionAssert.AreEqual(provider.Hash(FakeKey, FakePayload), actual);
 	}
@@ -347,7 +351,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, inside the class, after the
 	[TestMethod]
 	public void Defaults_TryHash_Rejects_Undersized_Destination()
 	{
-		FakeKeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new FakeKeyedHashProvider();
 		byte[] tooSmall = new byte[provider.HashLengthBytes - 1];
 
 		Assert.IsFalse(provider.TryHash(FakeKey, FakePayload, tooSmall, out int written));
@@ -357,7 +361,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, inside the class, after the
 	[TestMethod]
 	public void Defaults_Verify_Accepts_Correct_Tag()
 	{
-		FakeKeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new FakeKeyedHashProvider();
 		byte[] tag = provider.Hash(FakeKey, FakePayload);
 
 		Assert.IsTrue(provider.Verify(FakeKey, FakePayload, tag));
@@ -366,7 +370,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, inside the class, after the
 	[TestMethod]
 	public void Defaults_Verify_Rejects_Flipped_Tag_Bit()
 	{
-		FakeKeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new FakeKeyedHashProvider();
 		byte[] tag = provider.Hash(FakeKey, FakePayload);
 		tag[0] ^= 0x01;
 
@@ -376,7 +380,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, inside the class, after the
 	[TestMethod]
 	public void Defaults_Verify_Rejects_Wrong_Key()
 	{
-		FakeKeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new FakeKeyedHashProvider();
 		byte[] tag = provider.Hash(FakeKey, FakePayload);
 		byte[] wrongKey = Encoding.UTF8.GetBytes("other-key");
 
@@ -386,7 +390,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, inside the class, after the
 	[TestMethod]
 	public void Defaults_Verify_Rejects_Truncated_Tag()
 	{
-		FakeKeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new FakeKeyedHashProvider();
 		byte[] tag = provider.Hash(FakeKey, FakePayload);
 
 		Assert.IsFalse(provider.Verify(FakeKey, FakePayload, tag.AsSpan(0, tag.Length - 1)));
@@ -760,7 +764,7 @@ If one of these tests fails, suspect the vector before the implementation: check
 	[TestMethod]
 	public void HmacSha256_Rfc4231_Case1()
 	{
-		HmacSha256KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
 		byte[] key = Enumerable.Repeat((byte)0x0b, 20).ToArray();
 		byte[] data = Encoding.UTF8.GetBytes("Hi There");
 
@@ -774,7 +778,7 @@ If one of these tests fails, suspect the vector before the implementation: check
 	[TestMethod]
 	public void HmacSha256_Rfc4231_Case2()
 	{
-		HmacSha256KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
 		byte[] key = Encoding.UTF8.GetBytes("Jefe");
 		byte[] data = Encoding.UTF8.GetBytes("what do ya want for nothing?");
 
@@ -788,7 +792,7 @@ If one of these tests fails, suspect the vector before the implementation: check
 	[TestMethod]
 	public void HmacSha256_Rfc4231_Case6_Oversized_Key()
 	{
-		HmacSha256KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
 		byte[] key = Enumerable.Repeat((byte)0xaa, 131).ToArray();
 		byte[] data = Encoding.UTF8.GetBytes("Test Using Larger Than Block-Size Key - Hash Key First");
 
@@ -802,7 +806,7 @@ If one of these tests fails, suspect the vector before the implementation: check
 	[TestMethod]
 	public void HmacSha256_Agrees_With_Bcl()
 	{
-		HmacSha256KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
 		byte[] key = Encoding.UTF8.GetBytes("a key of some length");
 		byte[] data = Encoding.UTF8.GetBytes("a payload to authenticate");
 
@@ -815,7 +819,7 @@ If one of these tests fails, suspect the vector before the implementation: check
 	[TestMethod]
 	public void HmacSha256_All_Four_Paths_Agree()
 	{
-		HmacSha256KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
 		byte[] key = Encoding.UTF8.GetBytes("agreement key");
 		byte[] data = Encoding.UTF8.GetBytes("a payload long enough to span several appends");
 		byte[] oneShot = provider.Hash(key, data);
@@ -836,12 +840,12 @@ If one of these tests fails, suspect the vector before the implementation: check
 	[TestMethod]
 	public async Task HmacSha256_Async_Agrees_With_One_Shot()
 	{
-		HmacSha256KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
 		byte[] key = Encoding.UTF8.GetBytes("async key");
 		byte[] data = Encoding.UTF8.GetBytes("a payload to authenticate asynchronously");
 		using MemoryStream stream = new(data);
 
-		byte[] fromAsync = await provider.HashAsync(key, stream);
+		byte[] fromAsync = await provider.HashAsync(key, stream).ConfigureAwait(false);
 
 		CollectionAssert.AreEqual(provider.Hash(key, data), fromAsync);
 	}
@@ -849,7 +853,7 @@ If one of these tests fails, suspect the vector before the implementation: check
 	[TestMethod]
 	public void HmacSha256_Reports_Exact_Length_And_Leaves_Tail_Untouched()
 	{
-		HmacSha256KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
 		byte[] key = Encoding.UTF8.GetBytes("contract key");
 		byte[] data = Encoding.UTF8.GetBytes("contract payload");
 		byte[] buffer = new byte[provider.HashLengthBytes + 16];
@@ -929,8 +933,13 @@ internal static class HmacKeyedHashCore
 		{
 			using IncrementalHash hash = IncrementalHash.CreateHMAC(algorithm, keyCopy);
 			hash.AppendData(data);
-			return hash.TryGetHashAndReset(destination, out bytesWritten)
-				&& bytesWritten == hashLengthBytes;
+			if (!hash.TryGetHashAndReset(destination, out bytesWritten) || bytesWritten != hashLengthBytes)
+			{
+				bytesWritten = 0;
+				return false;
+			}
+
+			return true;
 		}
 		catch (ArgumentException)
 		{
@@ -978,8 +987,13 @@ internal static class HmacKeyedHashCore
 				hash.AppendData(buffer.AsSpan(0, read));
 			}
 
-			return hash.TryGetHashAndReset(destination, out bytesWritten)
-				&& bytesWritten == hashLengthBytes;
+			if (!hash.TryGetHashAndReset(destination, out bytesWritten) || bytesWritten != hashLengthBytes)
+			{
+				bytesWritten = 0;
+				return false;
+			}
+
+			return true;
 		}
 		catch (ArgumentException)
 		{
@@ -1197,7 +1211,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, with usings for both new na
 	[TestMethod]
 	public void HmacSha384_Rfc4231_Case1()
 	{
-		HmacSha384KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha384KeyedHashProvider();
 		byte[] key = Enumerable.Repeat((byte)0x0b, 20).ToArray();
 
 		byte[] actual = provider.Hash(key, Encoding.UTF8.GetBytes("Hi There"));
@@ -1210,7 +1224,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, with usings for both new na
 	[TestMethod]
 	public void HmacSha384_Rfc4231_Case2()
 	{
-		HmacSha384KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha384KeyedHashProvider();
 		byte[] key = Encoding.UTF8.GetBytes("Jefe");
 
 		byte[] actual = provider.Hash(key, Encoding.UTF8.GetBytes("what do ya want for nothing?"));
@@ -1223,7 +1237,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, with usings for both new na
 	[TestMethod]
 	public void HmacSha384_Rfc4231_Case6_Oversized_Key()
 	{
-		HmacSha384KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha384KeyedHashProvider();
 		byte[] key = Enumerable.Repeat((byte)0xaa, 131).ToArray();
 
 		byte[] actual = provider.Hash(key, Encoding.UTF8.GetBytes("Test Using Larger Than Block-Size Key - Hash Key First"));
@@ -1236,7 +1250,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, with usings for both new na
 	[TestMethod]
 	public void HmacSha512_Rfc4231_Case1()
 	{
-		HmacSha512KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha512KeyedHashProvider();
 		byte[] key = Enumerable.Repeat((byte)0x0b, 20).ToArray();
 
 		byte[] actual = provider.Hash(key, Encoding.UTF8.GetBytes("Hi There"));
@@ -1249,7 +1263,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, with usings for both new na
 	[TestMethod]
 	public void HmacSha512_Rfc4231_Case2()
 	{
-		HmacSha512KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha512KeyedHashProvider();
 		byte[] key = Encoding.UTF8.GetBytes("Jefe");
 
 		byte[] actual = provider.Hash(key, Encoding.UTF8.GetBytes("what do ya want for nothing?"));
@@ -1262,7 +1276,7 @@ Add to `Essentials.Tests/KeyedHashProviderTests.cs`, with usings for both new na
 	[TestMethod]
 	public void HmacSha512_Rfc4231_Case6_Oversized_Key()
 	{
-		HmacSha512KeyedHashProvider provider = new();
+		IKeyedHashProvider provider = new HmacSha512KeyedHashProvider();
 		byte[] key = Enumerable.Repeat((byte)0xaa, 131).ToArray();
 
 		byte[] actual = provider.Hash(key, Encoding.UTF8.GetBytes("Test Using Larger Than Block-Size Key - Hash Key First"));
@@ -1413,7 +1427,7 @@ public class HmacSha512KeyedHashProvider : IKeyedHashProvider
 
 Create `Essentials.KeyedHashProviders.HmacSha512/ServiceCollectionExtensions.cs` as the HmacSha384 one above, replacing `384` with `512` throughout, in the namespace, the class names, the method name `AddHmacSha512KeyedHashProvider`, and the prose `HMAC-SHA-512`.
 
-Create both `.csproj` files as the HmacSha256 one in Task 3 step 4, changing only the two occurrences of the project name in the file path comment and keeping the same `<Compile Include="..\Shared\HmacKeyedHashCore.cs" Link="HmacKeyedHashCore.cs" />` item. The csproj content is otherwise byte-identical, since it names no algorithm.
+Create both `.csproj` files as byte-identical copies of `Essentials.KeyedHashProviders.HmacSha256/Essentials.KeyedHashProviders.HmacSha256.csproj`. That file names no algorithm and no project anywhere in its contents, so nothing inside it changes. Only the file name and directory differ. Keep the `<Compile Include="..\Shared\HmacKeyedHashCore.cs" Link="HmacKeyedHashCore.cs" />` item in both, since that link is what gives each package its own copy of the shared core.
 
 - [ ] **Step 5: Add both projects to the solution and the test project**
 
@@ -1525,7 +1539,7 @@ In `Essentials.All/ServiceCollectionExtensions.cs`, add the three namespaces to 
 
 ```csharp
 	/// <summary>
-	/// Registers every keyed hashing provider.
+	/// Registers every bundled keyed hash provider.
 	/// </summary>
 	/// <param name="services">The service collection to add the providers to.</param>
 	/// <returns>The same service collection, to allow chaining.</returns>
@@ -1584,7 +1598,10 @@ In `Essentials/IEncryptionProvider.cs`, replace the existing `<summary>` block a
 /// depending only on whether the result happens to be well-formed.
 /// <para>
 /// A caller who needs to detect tampering must authenticate the ciphertext separately, computing a
-/// tag over it with an <see cref="IKeyedHashProvider"/> and verifying that tag before decrypting.
+/// tag over the initialization vector and the ciphertext together with an
+/// <see cref="IKeyedHashProvider"/>, then verifying that tag before decrypting. Covering only the
+/// ciphertext is not enough. The initialization vector travels with it and feeds the first decrypted
+/// block, so an attacker free to rewrite an unauthenticated one can change that block undetected.
 /// Use a key for authentication that is separate from the encryption key.
 /// </para>
 /// </remarks>
@@ -1604,8 +1621,11 @@ In `Essentials.EncryptionProviders.Aes/AesEncryptionProvider.cs`, extend the exi
 /// decrypts attacker-supplied input and reveals whether it parsed becomes a padding oracle.
 /// </para>
 /// <para>
-/// Authenticate the ciphertext before decrypting it if it crossed a boundary you do not control. See
-/// the remarks on <see cref="IEncryptionProvider"/>.
+/// Authenticate the initialization vector and the ciphertext together before decrypting them, if they
+/// crossed a boundary you do not control. CBC recovers the first plaintext block as the initialization
+/// vector XORed with the decryption of the first ciphertext block, so a tag covering only the
+/// ciphertext still leaves that block rewritable. See the remarks on
+/// <see cref="IEncryptionProvider"/>.
 /// </para>
 ```
 
