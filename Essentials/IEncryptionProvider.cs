@@ -9,6 +9,17 @@ using System.Threading.Tasks;
 /// <summary>
 /// Interface for encryption providers that can encrypt and decrypt data.
 /// </summary>
+/// <remarks>
+/// Encryption providers give confidentiality only. Ciphertext produced through this interface is not
+/// tamper-evident: nothing in the surface carries an authentication tag, so a modified ciphertext is
+/// indistinguishable from an unmodified one and decryption of altered input succeeds or fails
+/// depending only on whether the result happens to be well-formed.
+/// <para>
+/// A caller who needs to detect tampering must authenticate the ciphertext separately, computing a
+/// tag over it with an <see cref="IKeyedHashProvider"/> and verifying that tag before decrypting.
+/// Use a key for authentication that is separate from the encryption key.
+/// </para>
+/// </remarks>
 public interface IEncryptionProvider
 {
 	/// <summary>
