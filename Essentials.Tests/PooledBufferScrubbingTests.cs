@@ -8,12 +8,13 @@ using System.IO;
 using System.Threading.Tasks;
 using ktsu.Essentials.EncodingProviders.Hex;
 using ktsu.Essentials.HashProviders.SHA256;
+using ktsu.Essentials.KeyedHashProviders.HmacSha256;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 /// <summary>
 /// Buffers rented from <see cref="ArrayPool{T}"/>.Shared are process-wide: whatever a provider leaves
 /// in one stays there until some later renter overwrites it, and the next renter is arbitrary other
-/// code in the same process. These tests pin that the two pooled call sites hand their buffers back
+/// code in the same process. These tests pin that the four pooled call sites hand their buffers back
 /// scrubbed rather than carrying hashed or transformed data out with them.
 /// </summary>
 /// <remarks>
@@ -33,7 +34,9 @@ public class PooledBufferScrubbingTests
 	private const byte Sentinel = 0xCC;
 
 	/// <summary>
-	/// The buffer size <see cref="IHashProvider.TryHashAsync"/> rents for its read loop.
+	/// The buffer size each of the four pooled read loops rents: <see cref="IHashProvider.TryHashAsync"/>,
+	/// <see cref="IKeyedHashProvider.TryHashAsync"/>, and the sync and stream HMAC paths in
+	/// <c>HmacKeyedHashCore</c>.
 	/// </summary>
 	private const int HashReadBufferLength = 81920;
 
@@ -89,6 +92,36 @@ public class PooledBufferScrubbingTests
 		byte[] scratch = SeedPoolWithSentinelBuffer(provider.GetMaxEncodedLength(payload.Length));
 
 		_ = provider.Encode(payload);
+
+		AssertScrubbed(scratch);
+	}
+
+	[TestMethod]
+	[DoNotParallelize]
+	public async Task KeyedHashTryHashAsyncReturnsItsReadBufferScrubbedAsync()
+	{
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
+		byte[] scratch = SeedPoolWithSentinelBuffer(HashReadBufferLength);
+		byte[] key = BuildPayload(32);
+		using MemoryStream data = new(BuildPayload(4096));
+		byte[] destination = new byte[provider.HashLengthBytes];
+
+		_ = await provider.TryHashAsync(key, data, destination).ConfigureAwait(false);
+
+		AssertScrubbed(scratch);
+	}
+
+	[TestMethod]
+	[DoNotParallelize]
+	public void KeyedHashStreamTryHashReturnsItsReadBufferScrubbed()
+	{
+		HmacSha256KeyedHashProvider provider = new();
+		byte[] scratch = SeedPoolWithSentinelBuffer(HashReadBufferLength);
+		byte[] key = BuildPayload(32);
+		using MemoryStream data = new(BuildPayload(4096));
+		byte[] destination = new byte[provider.HashLengthBytes];
+
+		_ = provider.TryHash(key, data, destination, out _);
 
 		AssertScrubbed(scratch);
 	}

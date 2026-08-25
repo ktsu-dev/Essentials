@@ -36,6 +36,9 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 - `Essentials/IncrementalHashAdapter.cs` - Public adapter over `System.Security.Cryptography.IncrementalHash`, shared by the cryptographic hash providers
 - `Essentials/BufferingIncrementalHash.cs` - Internal buffering fallback behind the `CreateIncremental()` default body
 - `Shared/NonCryptoIncrementalHash.cs` - Adapter over `NonCryptographicHashAlgorithm`, linked into the six `System.IO.Hashing` providers rather than placed in the interfaces-only package
+- `Essentials/IKeyedHashProvider.cs` - Keyed hashing (HMAC) interface for authenticating data with a secret key
+- `Essentials/FixedTimeComparison.cs` - Static fixed-time byte comparison for tags obtained outside `IKeyedHashProvider.Verify`
+- `Shared/HmacKeyedHashCore.cs` - HMAC implementation shared across algorithms, linked into the three keyed hash provider projects rather than placed in the interfaces package
 - `Essentials/ISerializationProvider.cs` - Object serialization/deserialization interface
 - `Essentials/ISerializationOptions.cs` - Configurable serialization options (naming, inclusion, boxing policies)
 - `Essentials/ICacheProvider.cs` - Generic cache interface with expiration and get-or-add
@@ -58,6 +61,7 @@ Each provider implementation ships as its own project/package named `Essentials.
 - **ObfuscationProviders**: Xor, Caesar, Reverse, BitRotate, Base64, Hex, Composite
 - **EncryptionProviders**: Aes
 - **HashProviders**: MD5, SHA1, SHA256, SHA384, SHA512, FNV1_32, FNV1a_32, FNV1_64, FNV1a_64, CRC32, CRC64, XxHash32, XxHash64, XxHash3, XxHash128
+- **KeyedHashProviders**: HmacSha256, HmacSha384, HmacSha512
 - **SerializationProviders**: Json (System.Text.Json), NewtonsoftJson, Yaml, Toml
 - **FileSystemProviders**: Native
 - **CommandExecutors**: Native
@@ -84,7 +88,7 @@ All provider interfaces follow a consistent three-tier pattern:
 
 1. **Core Try\* methods**: Buffer-based methods over `Span<byte>` or `Stream`. Span overloads are `bool TryX(source, destination, out int bytesWritten)`, paired with a `GetMax…Length` bound per category so callers can size buffers. These are the only methods implementers must provide.
 2. **Convenience methods**: Self-allocating methods that call Try\* methods and manage buffers automatically. Provided via default interface implementations.
-3. **Async variants**: Task-based async versions with `CancellationToken` support. The stream paths of the compression providers and of `AesEncryptionProvider`, along with `IHashProvider.TryHashAsync(Stream, ...)`, are genuinely asynchronous — real `ReadAsync`/`WriteAsync`, no thread held. The rest are still `Task.Run` wrappers over synchronous work via `ProviderHelpers.RunAsync()`; see issue #8. A provider makes its stream paths genuine by declaring the two `Try…Async(Stream, Stream, ...)` primitives itself, which replaces the default implementation; the four derived stream defaults compose over those primitives, so overriding two members converts all six. Span-destination async overloads do not exist — an `out` parameter cannot cross an async boundary.
+3. **Async variants**: Task-based async versions with `CancellationToken` support. The stream paths of the compression providers and of `AesEncryptionProvider`, along with `IHashProvider.TryHashAsync(Stream, ...)` and `IKeyedHashProvider.TryHashAsync(ReadOnlyMemory<byte>, Stream, ...)`, are genuinely asynchronous — real `ReadAsync`/`WriteAsync`, no thread held. The rest are still `Task.Run` wrappers over synchronous work via `ProviderHelpers.RunAsync()`; see issue #8. A provider makes its stream paths genuine by declaring the two `Try…Async(Stream, Stream, ...)` primitives itself, which replaces the default implementation; the four derived stream defaults compose over those primitives, so overriding two members converts all six. Span-destination async overloads do not exist — an `out` parameter cannot cross an async boundary.
 
 Common patterns are centralized in `ProviderHelpers.cs`:
 
@@ -103,6 +107,7 @@ Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.T
 
 - `HashProviderTests.cs` - Tests all 15 hash provider implementations
 - `IncrementalHashTests.cs` - Tests `CreateIncremental()` and async stream hashing across all 15 hash providers, asserting incremental output equals one-shot output
+- `KeyedHashProviderTests.cs` - Tests all 3 HMAC keyed hash providers, `Verify`, and `FixedTimeComparison`
 - `CacheProviderTests.cs` - Tests cache operations including expiration
 - `CommandExecutorTests.cs` - Tests command execution
 - `EncodingProviderTests.cs` - Tests Base64 and Hex encoding

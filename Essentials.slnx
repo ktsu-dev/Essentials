@@ -53,6 +53,11 @@
     <Project Path="Essentials.HashProviders.XxHash32/Essentials.HashProviders.XxHash32.csproj" />
     <Project Path="Essentials.HashProviders.XxHash64/Essentials.HashProviders.XxHash64.csproj" />
   </Folder>
+  <Folder Name="/KeyedHashProviders/">
+    <Project Path="Essentials.KeyedHashProviders.HmacSha256/Essentials.KeyedHashProviders.HmacSha256.csproj" />
+    <Project Path="Essentials.KeyedHashProviders.HmacSha384/Essentials.KeyedHashProviders.HmacSha384.csproj" />
+    <Project Path="Essentials.KeyedHashProviders.HmacSha512/Essentials.KeyedHashProviders.HmacSha512.csproj" />
+  </Folder>
   <Folder Name="/LoggingProviders/">
     <Project Path="Essentials.LoggingProviders.Console/Essentials.LoggingProviders.Console.csproj" />
   </Folder>

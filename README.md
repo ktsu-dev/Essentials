@@ -20,8 +20,9 @@
 - **Encoding**: `IEncodingProvider` with Base64 and Hex implementations for format/transport encoding
 - **Obfuscation**: `IObfuscationProvider` with XOR, Caesar, bit-rotation, byte-reversal, Base64, and Hex implementations, plus a `Composite` provider that pipelines several together. Obfuscation is reversible but is **not** encryption — it provides no confidentiality
 - **Dependency Injection**: every provider package ships an `Add<Impl><Category>Provider()` extension; `ktsu.Essentials.All` adds per-category helpers and a single `AddEssentials()`. Registrations are idempotent and expose each provider by both concrete type and interface
-- **Encryption**: `IEncryptionProvider` with AES implementation including key and IV generation
+- **Encryption**: `IEncryptionProvider` with AES implementation including key and IV generation. Provides confidentiality only, not tamper detection
 - **Hashing**: `IHashProvider` with 15 implementations (MD5, SHA1/256/384/512, FNV1/FNV1a 32/64-bit, CRC32/64, XxHash32/64/3/128)
+- **Keyed Hashing**: `IKeyedHashProvider` with HMAC-SHA256/384/512 implementations for authenticating data, plus `Verify` for fixed-time tag checking
 - **Serialization**: `ISerializationProvider` with System.Text.Json, Newtonsoft.Json, YAML, and TOML implementations plus configurable `ISerializationOptions`
 - **Caching**: `ICacheProvider<TKey, TValue>` with in-memory implementation supporting expiration and get-or-add semantics
 - **Persistence**: `IPersistenceProvider<TKey>` with DataHome, ConfigHome, FileSystem, InMemory, and Temp implementations. `DataHome` and `ConfigHome` follow the XDG Base Directory layout on every platform — `$XDG_DATA_HOME` or `~/.local/share/<app>` for application state, `$XDG_CONFIG_HOME` or `~/.config/<app>` for user settings — with `~` resolving to `%USERPROFILE%` on Windows
@@ -32,7 +33,7 @@
 - **Filesystem**: `IFileSystemProvider` extending Testably.Abstractions for testable filesystem access
 - **Explicit Buffer Contract**: every span operation is `bool TryX(source, destination, out int bytesWritten)` and each category exposes a `GetMax…Length` bound, so callers can size a buffer up front and know exactly how much was written. Encoding, hashing and obfuscation run allocation-free on the span path; compression and encryption still buffer internally, because the underlying BCL APIs for those are stream-only
 - **Minimal Implementation Burden**: Default interface implementations reduce boilerplate — implement only the core `Try*` methods
-- **Async Support**: Operations expose async variants with `CancellationToken` support. Stream hashing, and the stream paths of the compression and AES encryption providers, are genuinely asynchronous — they read and write with `ReadAsync`/`WriteAsync` and hold no thread. The encoding, obfuscation, serialization and in-memory variants are convenience wrappers that run synchronous work on the thread pool; span-destination operations have no async form, because an `out` parameter cannot cross an await boundary
+- **Async Support**: Operations expose async variants with `CancellationToken` support. Stream hashing, keyed hash stream hashing, and the stream paths of the compression and AES encryption providers, are genuinely asynchronous — they read and write with `ReadAsync`/`WriteAsync` and hold no thread. The encoding, obfuscation, serialization and in-memory variants are convenience wrappers that run synchronous work on the thread pool; span-destination operations have no async form, because an `out` parameter cannot cross an await boundary
 - **Batteries-Included or Cherry-Pick**: Each provider ships as its own `ktsu.Essentials.<Category>.<Impl>` package; install the `ktsu.Essentials.All` meta-package to get every provider at once, or reference only the ones you need
 
 ## Installation
@@ -178,6 +179,43 @@ string dataDir = UserDirectories.GetApplicationDataDirectory("MyApp");
 string configDir = UserDirectories.GetApplicationConfigDirectory("MyApp");
 ```
 
+### Keyed Hashing
+
+Pair `IKeyedHashProvider` with `IEncryptionProvider` to detect tampering, because encryption alone gives confidentiality but not integrity:
+
+```csharp
+IEncryptionProvider encryption = provider.GetRequiredService<IEncryptionProvider>();
+IKeyedHashProvider keyedHash = provider.GetRequiredService<IKeyedHashProvider>();
+
+byte[] encryptionKey = encryption.GenerateKey();
+byte[] iv = encryption.GenerateIV();
+byte[] authenticationKey = System.Security.Cryptography.RandomNumberGenerator.GetBytes(keyedHash.HashLengthBytes);
+
+byte[] ciphertext = encryption.Encrypt("Hello, World!"u8, encryptionKey, iv);
+
+// Authenticate the IV together with the ciphertext. A tag over the ciphertext alone
+// leaves the IV rewritable, and CBC recovers the first plaintext block from it.
+byte[] authenticated = new byte[iv.Length + ciphertext.Length];
+iv.CopyTo(authenticated, 0);
+ciphertext.CopyTo(authenticated, iv.Length);
+
+byte[] tag = keyedHash.Hash(authenticationKey, authenticated);
+
+// ...iv, ciphertext and tag travel together to the other side...
+byte[] receivedTag = tag;
+
+// On the way back in, verify before decrypting.
+if (!keyedHash.Verify(authenticationKey, authenticated, receivedTag))
+{
+    throw new System.Security.Cryptography.CryptographicException("Ciphertext failed authentication.");
+}
+
+byte[] plaintext = encryption.Decrypt(ciphertext, encryptionKey, iv);
+```
+
+For a large payload, authenticate incrementally with `CreateIncremental` and compare the result with
+`FixedTimeComparison.FixedTimeEquals` instead of allocating a concatenated copy the way the example above does.
+
 ### Implementing a Custom Provider
 
 Implementers only need to provide the core `Try*` methods — all other methods are inherited:
@@ -249,7 +287,7 @@ Format/transport encoding (Base64, Hex) — not text character encodings.
 
 ### `IEncryptionProvider`
 
-Encrypt and decrypt data with key and IV management.
+Encrypt and decrypt data with key and IV management. Provides confidentiality only, not tamper detection. Pair with `IKeyedHashProvider` to authenticate the initialization vector and the ciphertext together before decrypting.
 
 | Name | Return Type | Description |
 | ---- | ----------- | ----------- |
@@ -277,7 +315,7 @@ Hash data with configurable output length. Exposes `HashLengthBytes` property fo
 
 ### `IIncrementalHash`
 
-A hash computation that accepts data in successive chunks. Obtained from `IHashProvider.CreateIncremental()`. Stateful, not thread-safe, and disposable.
+A hash computation that accepts data in successive chunks. Obtained from `IHashProvider.CreateIncremental()` or `IKeyedHashProvider.CreateIncremental(key)`. Stateful, not thread-safe, and disposable.
 
 | Name | Return Type | Description |
 | ---- | ----------- | ----------- |
@@ -285,6 +323,31 @@ A hash computation that accepts data in successive chunks. Obtained from `IHashP
 | `Append(ReadOnlySpan<byte>)` | `void` | Append data to the running hash |
 | `TryGetHashAndReset(Span<byte>, out int)` | `bool` | Write the hash and reset, reporting bytes written |
 | `GetHashAndReset()` | `byte[]` | Self-allocating variant of the above |
+
+### `IKeyedHashProvider`
+
+Compute and verify authentication tags (MACs) over data using a secret key. Exposes `HashLengthBytes` property for the tag size in bytes. See [Keyed Hashing](#keyed-hashing) above for a usage example that pairs this with `IEncryptionProvider`.
+
+| Name | Return Type | Description |
+| ---- | ----------- | ----------- |
+| `TryHash(ReadOnlySpan<byte>, ReadOnlySpan<byte>, Span<byte>, out int)` | `bool` | Compute a tag, reporting bytes written |
+| `TryHash(ReadOnlySpan<byte>, Stream, Span<byte>, out int)` | `bool` | Stream-based tag computation |
+| `CreateIncremental(ReadOnlySpan<byte>)` | `IIncrementalHash` | Create a keyed incremental hash for chunk-by-chunk authentication |
+| `TryHashAsync(ReadOnlyMemory<byte>, Stream, Memory<byte>, CancellationToken)` | `Task<bool>` | Genuinely async stream tag computation into a caller-owned buffer |
+| `HashAsync(ReadOnlyMemory<byte>, Stream, CancellationToken)` | `Task<byte[]>` | Genuinely async self-allocating stream tag computation |
+| `HashAsync(ReadOnlyMemory<byte>, ReadOnlyMemory<byte>, CancellationToken)` | `Task<byte[]>` | Async self-allocating tag computation |
+| `Hash(ReadOnlySpan<byte>, ReadOnlySpan<byte>)` | `byte[]` | Self-allocating tag computation |
+| `Hash(ReadOnlySpan<byte>, string)` | `byte[]` | Tag over a UTF8 string |
+| `Hash(ReadOnlySpan<byte>, Stream)` | `byte[]` | Self-allocating stream-based tag computation |
+| `Verify(ReadOnlySpan<byte>, ReadOnlySpan<byte>, ReadOnlySpan<byte>)` | `bool` | Fixed-time check of a tag against data |
+
+### `FixedTimeComparison`
+
+A static fixed-time byte comparison for a tag obtained outside `IKeyedHashProvider.Verify`, such as one computed incrementally with `CreateIncremental`.
+
+| Name | Return Type | Description |
+| ---- | ----------- | ----------- |
+| `FixedTimeEquals(ReadOnlySpan<byte>, ReadOnlySpan<byte>)` | `bool` | Compare two byte sequences in a time that does not depend on their contents |
 
 ### `ISerializationProvider`
 

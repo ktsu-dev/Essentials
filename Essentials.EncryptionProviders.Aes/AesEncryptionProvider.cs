@@ -16,6 +16,18 @@ using System.Threading.Tasks;
 /// This type is stateless and safe to share across threads — every operation creates its own
 /// <see cref="System.Security.Cryptography.Aes"/> instance from the caller-supplied key and IV.
 /// It is therefore safe to register as a singleton.
+/// <para>
+/// This provider is AES in CBC mode with PKCS7 padding, which is what <c>Aes.Create()</c> defaults to.
+/// CBC ciphertext is malleable: an attacker who can modify it can make predictable changes to the
+/// decrypted plaintext without knowing the key. Decryption reports padding failures, so a caller who
+/// decrypts attacker-supplied input and reveals whether it parsed becomes a padding oracle.
+/// </para>
+/// <para>
+/// Authenticate the initialization vector and the ciphertext together before decrypting them. CBC
+/// recovers the first plaintext block as the initialization vector XORed with the decryption of the
+/// first ciphertext block, so a tag covering only the ciphertext still leaves that block rewritable.
+/// See the remarks on <see cref="IEncryptionProvider"/>.
+/// </para>
 /// </remarks>
 public class AesEncryptionProvider : IEncryptionProvider
 {

@@ -26,6 +26,9 @@ using ktsu.Essentials.HashProviders.XxHash128;
 using ktsu.Essentials.HashProviders.XxHash3;
 using ktsu.Essentials.HashProviders.XxHash32;
 using ktsu.Essentials.HashProviders.XxHash64;
+using ktsu.Essentials.KeyedHashProviders.HmacSha256;
+using ktsu.Essentials.KeyedHashProviders.HmacSha384;
+using ktsu.Essentials.KeyedHashProviders.HmacSha512;
 using ktsu.Essentials.LoggingProviders.Console;
 using ktsu.Essentials.NavigationProviders.InMemory;
 using ktsu.Essentials.ObfuscationProviders.Base64;
@@ -73,6 +76,7 @@ public static class ServiceCollectionExtensions
 			.AddEncryptionProviders()
 			.AddFileSystemProviders()
 			.AddHashProviders()
+			.AddKeyedHashProviders()
 			.AddLoggingProviders()
 			.AddNavigationProviders()
 			.AddObfuscationProviders()
@@ -153,6 +157,21 @@ public static class ServiceCollectionExtensions
 			.AddXxHash64HashProvider()
 			.AddXxHash3HashProvider()
 			.AddXxHash128HashProvider();
+	}
+
+	/// <summary>
+	/// Registers every bundled keyed hash provider.
+	/// </summary>
+	/// <param name="services">The service collection to add the providers to.</param>
+	/// <returns>The same service collection, to allow chaining.</returns>
+	public static IServiceCollection AddKeyedHashProviders(this IServiceCollection services)
+	{
+		Ensure.NotNull(services);
+
+		return services
+			.AddHmacSha256KeyedHashProvider()
+			.AddHmacSha384KeyedHashProvider()
+			.AddHmacSha512KeyedHashProvider();
 	}
 
 	/// <summary>

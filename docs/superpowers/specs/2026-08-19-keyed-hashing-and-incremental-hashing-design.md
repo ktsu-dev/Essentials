@@ -3,6 +3,13 @@
 Design for GitHub issues [#6](https://github.com/ktsu-dev/Essentials/issues/6) and
 [#5](https://github.com/ktsu-dev/Essentials/issues/5).
 
+> **Status, as of 2026-08-25.** Part 1 shipped as PR #9 and closed issue #6. The interface designs
+> below remain the design of record and are unchanged. The **Delivery** section is superseded:
+> issue #5 no longer ships alongside authenticated encryption, which moves to its own issue and pull
+> request. See
+> [`2026-08-25-keyed-hash-delivery-design.md`](2026-08-25-keyed-hash-delivery-design.md) for the
+> split, and for how the three HMAC providers share an implementation.
+
 ## Problem
 
 Both issues come from [ktsu-dev/GitLfsCache](https://github.com/ktsu-dev/GitLfsCache), which had to
