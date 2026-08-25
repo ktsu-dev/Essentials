@@ -9,8 +9,9 @@ using System;
 /// already moving for another reason instead of handing over a stream to be read.
 /// </summary>
 /// <remarks>
-/// Obtained from <see cref="IHashProvider.CreateIncremental"/>. Instances are stateful and are not
-/// safe to share across threads. Dispose when finished.
+/// Obtained from <see cref="IHashProvider.CreateIncremental"/> or
+/// <see cref="IKeyedHashProvider.CreateIncremental(ReadOnlySpan{byte})"/>. Instances are stateful and
+/// are not safe to share across threads. Dispose when finished.
 /// </remarks>
 public interface IIncrementalHash : IDisposable
 {
