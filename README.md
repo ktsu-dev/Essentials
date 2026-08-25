@@ -193,14 +193,19 @@ byte[] authenticationKey = System.Security.Cryptography.RandomNumberGenerator.Ge
 
 byte[] ciphertext = encryption.Encrypt("Hello, World!"u8, encryptionKey, iv);
 
-// Authenticate ciphertext that crossed a boundary you do not control.
-byte[] tag = keyedHash.Hash(authenticationKey, ciphertext);
+// Authenticate the IV together with the ciphertext. A tag over the ciphertext alone
+// leaves the IV rewritable, and CBC recovers the first plaintext block from it.
+byte[] authenticated = new byte[iv.Length + ciphertext.Length];
+iv.CopyTo(authenticated, 0);
+ciphertext.CopyTo(authenticated, iv.Length);
 
-// ...ciphertext and tag travel together to the other side...
+byte[] tag = keyedHash.Hash(authenticationKey, authenticated);
+
+// ...iv, ciphertext and tag travel together to the other side...
 byte[] receivedTag = tag;
 
 // On the way back in, verify before decrypting.
-if (!keyedHash.Verify(authenticationKey, ciphertext, receivedTag))
+if (!keyedHash.Verify(authenticationKey, authenticated, receivedTag))
 {
     throw new System.Security.Cryptography.CryptographicException("Ciphertext failed authentication.");
 }
@@ -279,7 +284,7 @@ Format/transport encoding (Base64, Hex) — not text character encodings.
 
 ### `IEncryptionProvider`
 
-Encrypt and decrypt data with key and IV management. Provides confidentiality only, not tamper detection. Pair with `IKeyedHashProvider` to authenticate the ciphertext before decrypting it.
+Encrypt and decrypt data with key and IV management. Provides confidentiality only, not tamper detection. Pair with `IKeyedHashProvider` to authenticate the initialization vector and the ciphertext together before decrypting.
 
 | Name | Return Type | Description |
 | ---- | ----------- | ----------- |
