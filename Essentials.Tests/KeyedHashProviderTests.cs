@@ -3,9 +3,12 @@
 namespace ktsu.Essentials.Tests;
 
 using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using ktsu.Essentials;
+using ktsu.Essentials.KeyedHashProviders.HmacSha256;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 [TestClass]
@@ -233,6 +236,129 @@ public class KeyedHashProviderTests
 		byte[] tag = provider.Hash(FakeKey, FakePayload);
 
 		Assert.IsFalse(provider.Verify(FakeKey, FakePayload, tag.AsSpan(0, tag.Length - 1)));
+	}
+
+	#endregion
+
+	#region HMAC-SHA256 known answer vectors
+
+	private static byte[] FromHex(string hex)
+	{
+		byte[] bytes = new byte[hex.Length / 2];
+		for (int i = 0; i < bytes.Length; i++)
+		{
+			bytes[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
+		}
+
+		return bytes;
+	}
+
+	[TestMethod]
+	public void HmacSha256_Rfc4231_Case1()
+	{
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
+		byte[] key = [.. Enumerable.Repeat((byte)0x0b, 20)];
+		byte[] data = Encoding.UTF8.GetBytes("Hi There");
+
+		byte[] actual = provider.Hash(key, data);
+
+		CollectionAssert.AreEqual(
+			FromHex("b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"),
+			actual);
+	}
+
+	[TestMethod]
+	public void HmacSha256_Rfc4231_Case2()
+	{
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
+		byte[] key = Encoding.UTF8.GetBytes("Jefe");
+		byte[] data = Encoding.UTF8.GetBytes("what do ya want for nothing?");
+
+		byte[] actual = provider.Hash(key, data);
+
+		CollectionAssert.AreEqual(
+			FromHex("5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"),
+			actual);
+	}
+
+	[TestMethod]
+	public void HmacSha256_Rfc4231_Case6_Oversized_Key()
+	{
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
+		byte[] key = [.. Enumerable.Repeat((byte)0xaa, 131)];
+		byte[] data = Encoding.UTF8.GetBytes("Test Using Larger Than Block-Size Key - Hash Key First");
+
+		byte[] actual = provider.Hash(key, data);
+
+		CollectionAssert.AreEqual(
+			FromHex("60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54"),
+			actual);
+	}
+
+	[TestMethod]
+	public void HmacSha256_Agrees_With_Bcl()
+	{
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
+		byte[] key = Encoding.UTF8.GetBytes("a key of some length");
+		byte[] data = Encoding.UTF8.GetBytes("a payload to authenticate");
+
+		byte[] actual = provider.Hash(key, data);
+
+		using HMACSHA256 reference = new(key);
+		CollectionAssert.AreEqual(reference.ComputeHash(data), actual);
+	}
+
+	[TestMethod]
+	public void HmacSha256_All_Four_Paths_Agree()
+	{
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
+		byte[] key = Encoding.UTF8.GetBytes("agreement key");
+		byte[] data = Encoding.UTF8.GetBytes("a payload long enough to span several appends");
+		byte[] oneShot = provider.Hash(key, data);
+
+		using MemoryStream stream = new(data);
+		byte[] fromStream = provider.Hash(key, stream);
+
+		using IIncrementalHash incremental = provider.CreateIncremental(key);
+		incremental.Append(data.AsSpan(0, 7));
+		incremental.Append(data.AsSpan(7, 20));
+		incremental.Append(data.AsSpan(27));
+		byte[] fromIncremental = incremental.GetHashAndReset();
+
+		CollectionAssert.AreEqual(oneShot, fromStream);
+		CollectionAssert.AreEqual(oneShot, fromIncremental);
+	}
+
+	[TestMethod]
+	public async Task HmacSha256_Async_Agrees_With_One_Shot()
+	{
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
+		byte[] key = Encoding.UTF8.GetBytes("async key");
+		byte[] data = Encoding.UTF8.GetBytes("a payload to authenticate asynchronously");
+		using MemoryStream stream = new(data);
+
+		byte[] fromAsync = await provider.HashAsync(key, stream).ConfigureAwait(false);
+
+		CollectionAssert.AreEqual(provider.Hash(key, data), fromAsync);
+	}
+
+	[TestMethod]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "The interface-typed local is kept for consistency with the other tests in this file, which rely on it to reach default interface members.")]
+	public void HmacSha256_Reports_Exact_Length_And_Leaves_Tail_Untouched()
+	{
+		IKeyedHashProvider provider = new HmacSha256KeyedHashProvider();
+		byte[] key = Encoding.UTF8.GetBytes("contract key");
+		byte[] data = Encoding.UTF8.GetBytes("contract payload");
+		byte[] buffer = new byte[provider.HashLengthBytes + 16];
+		buffer.AsSpan().Fill(0xCD);
+
+		Assert.IsTrue(provider.TryHash(key, data, buffer, out int written));
+
+		Assert.AreEqual(provider.HashLengthBytes, written);
+		foreach (byte b in buffer.AsSpan(written).ToArray())
+		{
+			Assert.AreEqual(0xCD, b, "the tail of the caller's buffer must not be touched");
+		}
 	}
 
 	#endregion
