@@ -33,7 +33,7 @@
 - **Filesystem**: `IFileSystemProvider` extending Testably.Abstractions for testable filesystem access
 - **Explicit Buffer Contract**: every span operation is `bool TryX(source, destination, out int bytesWritten)` and each category exposes a `GetMax…Length` bound, so callers can size a buffer up front and know exactly how much was written. Encoding, hashing and obfuscation run allocation-free on the span path; compression and encryption still buffer internally, because the underlying BCL APIs for those are stream-only
 - **Minimal Implementation Burden**: Default interface implementations reduce boilerplate — implement only the core `Try*` methods
-- **Async Support**: Operations expose async variants with `CancellationToken` support. Stream hashing, and the stream paths of the compression and AES encryption providers, are genuinely asynchronous — they read and write with `ReadAsync`/`WriteAsync` and hold no thread. The encoding, obfuscation, serialization and in-memory variants are convenience wrappers that run synchronous work on the thread pool; span-destination operations have no async form, because an `out` parameter cannot cross an await boundary
+- **Async Support**: Operations expose async variants with `CancellationToken` support. Stream hashing, keyed hash stream hashing, and the stream paths of the compression and AES encryption providers, are genuinely asynchronous — they read and write with `ReadAsync`/`WriteAsync` and hold no thread. The encoding, obfuscation, serialization and in-memory variants are convenience wrappers that run synchronous work on the thread pool; span-destination operations have no async form, because an `out` parameter cannot cross an await boundary
 - **Batteries-Included or Cherry-Pick**: Each provider ships as its own `ktsu.Essentials.<Category>.<Impl>` package; install the `ktsu.Essentials.All` meta-package to get every provider at once, or reference only the ones you need
 
 ## Installation
@@ -213,6 +213,9 @@ if (!keyedHash.Verify(authenticationKey, authenticated, receivedTag))
 byte[] plaintext = encryption.Decrypt(ciphertext, encryptionKey, iv);
 ```
 
+For a large payload, authenticate incrementally with `CreateIncremental` and compare the result with
+`FixedTimeComparison.FixedTimeEquals` instead of allocating a concatenated copy the way the example above does.
+
 ### Implementing a Custom Provider
 
 Implementers only need to provide the core `Try*` methods — all other methods are inherited:
@@ -337,6 +340,14 @@ Compute and verify authentication tags (MACs) over data using a secret key. Expo
 | `Hash(ReadOnlySpan<byte>, string)` | `byte[]` | Tag over a UTF8 string |
 | `Hash(ReadOnlySpan<byte>, Stream)` | `byte[]` | Self-allocating stream-based tag computation |
 | `Verify(ReadOnlySpan<byte>, ReadOnlySpan<byte>, ReadOnlySpan<byte>)` | `bool` | Fixed-time check of a tag against data |
+
+### `FixedTimeComparison`
+
+A static fixed-time byte comparison for a tag obtained outside `IKeyedHashProvider.Verify`, such as one computed incrementally with `CreateIncremental`.
+
+| Name | Return Type | Description |
+| ---- | ----------- | ----------- |
+| `FixedTimeEquals(ReadOnlySpan<byte>, ReadOnlySpan<byte>)` | `bool` | Compare two byte sequences in a time that does not depend on their contents |
 
 ### `ISerializationProvider`
 

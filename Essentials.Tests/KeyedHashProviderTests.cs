@@ -18,39 +18,39 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 [TestClass]
 public class KeyedHashProviderTests
 {
-	#region FixedTimeComparison
+	#region FixedTimeEquals
 
 	[TestMethod]
-	public void FixedTimeComparison_Matches_Identical_Spans()
+	public void FixedTimeEquals_Matches_Identical_Spans()
 	{
 		byte[] left = [1, 2, 3, 4];
 		byte[] right = [1, 2, 3, 4];
 
-		Assert.IsTrue(FixedTimeComparison.Equals(left, right));
+		Assert.IsTrue(FixedTimeComparison.FixedTimeEquals(left, right));
 	}
 
 	[TestMethod]
-	public void FixedTimeComparison_Rejects_Single_Bit_Difference()
+	public void FixedTimeEquals_Rejects_Single_Bit_Difference()
 	{
 		byte[] left = [1, 2, 3, 4];
 		byte[] right = [1, 2, 3, 5];
 
-		Assert.IsFalse(FixedTimeComparison.Equals(left, right));
+		Assert.IsFalse(FixedTimeComparison.FixedTimeEquals(left, right));
 	}
 
 	[TestMethod]
-	public void FixedTimeComparison_Rejects_Different_Lengths()
+	public void FixedTimeEquals_Rejects_Different_Lengths()
 	{
 		byte[] left = [1, 2, 3, 4];
 		byte[] right = [1, 2, 3];
 
-		Assert.IsFalse(FixedTimeComparison.Equals(left, right));
+		Assert.IsFalse(FixedTimeComparison.FixedTimeEquals(left, right));
 	}
 
 	[TestMethod]
-	public void FixedTimeComparison_Matches_Empty_Spans()
+	public void FixedTimeEquals_Matches_Empty_Spans()
 	{
-		Assert.IsTrue(FixedTimeComparison.Equals([], []));
+		Assert.IsTrue(FixedTimeComparison.FixedTimeEquals([], []));
 	}
 
 	#endregion
@@ -451,6 +451,46 @@ public class KeyedHashProviderTests
 	{
 		Assert.AreEqual(48, new HmacSha384KeyedHashProvider().HashLengthBytes);
 		Assert.AreEqual(64, new HmacSha512KeyedHashProvider().HashLengthBytes);
+	}
+
+	[TestMethod]
+	public void HmacSha384_Stream_And_Incremental_Paths_Agree_With_Rfc4231()
+	{
+		IKeyedHashProvider provider = new HmacSha384KeyedHashProvider();
+		byte[] key = [.. Enumerable.Repeat((byte)0x0b, 20)];
+		byte[] data = Encoding.UTF8.GetBytes("Hi There");
+		byte[] expected = FromHex("afd03944d84895626b0825f4ab46907f15f9dadbe4101ec682aa034c7cebc59cfaea9ea9076ede7f4af152e8b2fa9cb6");
+
+		using MemoryStream stream = new(data);
+		byte[] fromStream = provider.Hash(key, stream);
+
+		using IIncrementalHash incremental = provider.CreateIncremental(key);
+		incremental.Append(data.AsSpan(0, 2));
+		incremental.Append(data.AsSpan(2));
+		byte[] fromIncremental = incremental.GetHashAndReset();
+
+		CollectionAssert.AreEqual(expected, fromStream);
+		CollectionAssert.AreEqual(expected, fromIncremental);
+	}
+
+	[TestMethod]
+	public void HmacSha512_Stream_And_Incremental_Paths_Agree_With_Rfc4231()
+	{
+		IKeyedHashProvider provider = new HmacSha512KeyedHashProvider();
+		byte[] key = [.. Enumerable.Repeat((byte)0x0b, 20)];
+		byte[] data = Encoding.UTF8.GetBytes("Hi There");
+		byte[] expected = FromHex("87aa7cdea5ef619d4ff0b4241a1d6cb02379f4e2ce4ec2787ad0b30545e17cdedaa833b7d6b8a702038b274eaea3f4e4be9d914eeb61f1702e696c203a126854");
+
+		using MemoryStream stream = new(data);
+		byte[] fromStream = provider.Hash(key, stream);
+
+		using IIncrementalHash incremental = provider.CreateIncremental(key);
+		incremental.Append(data.AsSpan(0, 2));
+		incremental.Append(data.AsSpan(2));
+		byte[] fromIncremental = incremental.GetHashAndReset();
+
+		CollectionAssert.AreEqual(expected, fromStream);
+		CollectionAssert.AreEqual(expected, fromIncremental);
 	}
 
 	#endregion

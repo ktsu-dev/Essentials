@@ -25,6 +25,12 @@ using System.Threading.Tasks;
 /// key or algorithm state in a field is the defect recorded in the remarks on the SHA-256 provider,
 /// where concurrent callers corrupted each other's in-progress hash.
 /// </para>
+/// <para>
+/// Generate the key with a cryptographically secure random number generator, such as
+/// <see cref="RandomNumberGenerator"/>, and make it at least <see cref="HashLengthBytes"/> long. An
+/// empty or predictable key still produces a valid-looking tag, so nothing about the output signals
+/// a weak key. Never reuse an <see cref="IEncryptionProvider"/> encryption key for authentication.
+/// </para>
 /// </remarks>
 public interface IKeyedHashProvider
 {
@@ -205,7 +211,7 @@ public interface IKeyedHashProvider
 		{
 			return TryHash(key, data, actual, out int bytesWritten)
 				&& bytesWritten == HashLengthBytes
-				&& FixedTimeComparison.Equals(actual, expected);
+				&& FixedTimeComparison.FixedTimeEquals(actual, expected);
 		}
 		finally
 		{

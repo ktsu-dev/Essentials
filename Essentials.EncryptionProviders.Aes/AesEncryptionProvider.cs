@@ -23,11 +23,10 @@ using System.Threading.Tasks;
 /// decrypts attacker-supplied input and reveals whether it parsed becomes a padding oracle.
 /// </para>
 /// <para>
-/// Authenticate the initialization vector and the ciphertext together before decrypting them, if they
-/// crossed a boundary you do not control. CBC recovers the first plaintext block as the initialization
-/// vector XORed with the decryption of the first ciphertext block, so a tag covering only the
-/// ciphertext still leaves that block rewritable. See the remarks on
-/// <see cref="IEncryptionProvider"/>.
+/// Authenticate the initialization vector and the ciphertext together before decrypting them. CBC
+/// recovers the first plaintext block as the initialization vector XORed with the decryption of the
+/// first ciphertext block, so a tag covering only the ciphertext still leaves that block rewritable.
+/// See the remarks on <see cref="IEncryptionProvider"/>.
 /// </para>
 /// </remarks>
 public class AesEncryptionProvider : IEncryptionProvider
