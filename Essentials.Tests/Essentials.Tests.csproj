@@ -44,6 +44,8 @@
     <ProjectReference Include="..\Essentials.HashProviders.XxHash3\Essentials.HashProviders.XxHash3.csproj" />
     <ProjectReference Include="..\Essentials.HashProviders.XxHash128\Essentials.HashProviders.XxHash128.csproj" />
     <ProjectReference Include="..\Essentials.KeyedHashProviders.HmacSha256\Essentials.KeyedHashProviders.HmacSha256.csproj" />
+    <ProjectReference Include="..\Essentials.KeyedHashProviders.HmacSha384\Essentials.KeyedHashProviders.HmacSha384.csproj" />
+    <ProjectReference Include="..\Essentials.KeyedHashProviders.HmacSha512\Essentials.KeyedHashProviders.HmacSha512.csproj" />
     <ProjectReference Include="..\Essentials.EncodingProviders.Base64\Essentials.EncodingProviders.Base64.csproj" />
     <ProjectReference Include="..\Essentials.EncodingProviders.Hex\Essentials.EncodingProviders.Hex.csproj" />
     <ProjectReference Include="..\Essentials.SerializationProviders.Json\Essentials.SerializationProviders.Json.csproj" />

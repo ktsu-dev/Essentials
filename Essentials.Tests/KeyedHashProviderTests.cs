@@ -9,6 +9,8 @@ using System.Text;
 using System.Threading.Tasks;
 using ktsu.Essentials;
 using ktsu.Essentials.KeyedHashProviders.HmacSha256;
+using ktsu.Essentials.KeyedHashProviders.HmacSha384;
+using ktsu.Essentials.KeyedHashProviders.HmacSha512;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 [TestClass]
@@ -358,6 +360,95 @@ public class KeyedHashProviderTests
 		{
 			Assert.AreEqual(0xCD, b, "the tail of the caller's buffer must not be touched");
 		}
+	}
+
+	#endregion
+
+	#region HMAC-SHA384 and HMAC-SHA512 known answer vectors
+
+	[TestMethod]
+	public void HmacSha384_Rfc4231_Case1()
+	{
+		IKeyedHashProvider provider = new HmacSha384KeyedHashProvider();
+		byte[] key = [.. Enumerable.Repeat((byte)0x0b, 20)];
+
+		byte[] actual = provider.Hash(key, Encoding.UTF8.GetBytes("Hi There"));
+
+		CollectionAssert.AreEqual(
+			FromHex("afd03944d84895626b0825f4ab46907f15f9dadbe4101ec682aa034c7cebc59cfaea9ea9076ede7f4af152e8b2fa9cb6"),
+			actual);
+	}
+
+	[TestMethod]
+	public void HmacSha384_Rfc4231_Case2()
+	{
+		IKeyedHashProvider provider = new HmacSha384KeyedHashProvider();
+		byte[] key = Encoding.UTF8.GetBytes("Jefe");
+
+		byte[] actual = provider.Hash(key, Encoding.UTF8.GetBytes("what do ya want for nothing?"));
+
+		CollectionAssert.AreEqual(
+			FromHex("af45d2e376484031617f78d2b58a6b1b9c7ef464f5a01b47e42ec3736322445e8e2240ca5e69e2c78b3239ecfab21649"),
+			actual);
+	}
+
+	[TestMethod]
+	public void HmacSha384_Rfc4231_Case6_Oversized_Key()
+	{
+		IKeyedHashProvider provider = new HmacSha384KeyedHashProvider();
+		byte[] key = [.. Enumerable.Repeat((byte)0xaa, 131)];
+
+		byte[] actual = provider.Hash(key, Encoding.UTF8.GetBytes("Test Using Larger Than Block-Size Key - Hash Key First"));
+
+		CollectionAssert.AreEqual(
+			FromHex("4ece084485813e9088d2c63a041bc5b44f9ef1012a2b588f3cd11f05033ac4c60c2ef6ab4030fe8296248df163f44952"),
+			actual);
+	}
+
+	[TestMethod]
+	public void HmacSha512_Rfc4231_Case1()
+	{
+		IKeyedHashProvider provider = new HmacSha512KeyedHashProvider();
+		byte[] key = [.. Enumerable.Repeat((byte)0x0b, 20)];
+
+		byte[] actual = provider.Hash(key, Encoding.UTF8.GetBytes("Hi There"));
+
+		CollectionAssert.AreEqual(
+			FromHex("87aa7cdea5ef619d4ff0b4241a1d6cb02379f4e2ce4ec2787ad0b30545e17cdedaa833b7d6b8a702038b274eaea3f4e4be9d914eeb61f1702e696c203a126854"),
+			actual);
+	}
+
+	[TestMethod]
+	public void HmacSha512_Rfc4231_Case2()
+	{
+		IKeyedHashProvider provider = new HmacSha512KeyedHashProvider();
+		byte[] key = Encoding.UTF8.GetBytes("Jefe");
+
+		byte[] actual = provider.Hash(key, Encoding.UTF8.GetBytes("what do ya want for nothing?"));
+
+		CollectionAssert.AreEqual(
+			FromHex("164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea2505549758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737"),
+			actual);
+	}
+
+	[TestMethod]
+	public void HmacSha512_Rfc4231_Case6_Oversized_Key()
+	{
+		IKeyedHashProvider provider = new HmacSha512KeyedHashProvider();
+		byte[] key = [.. Enumerable.Repeat((byte)0xaa, 131)];
+
+		byte[] actual = provider.Hash(key, Encoding.UTF8.GetBytes("Test Using Larger Than Block-Size Key - Hash Key First"));
+
+		CollectionAssert.AreEqual(
+			FromHex("80b24263c7c1a3ebb71493c1dd7be8b49b46d1f41b4aeec1121b013783f8f3526b56d037e05f2598bd0fd2215d6a1e5295e64f73f63f0aec8b915a985d786598"),
+			actual);
+	}
+
+	[TestMethod]
+	public void HmacSha384_And_512_Report_Their_Tag_Lengths()
+	{
+		Assert.AreEqual(48, new HmacSha384KeyedHashProvider().HashLengthBytes);
+		Assert.AreEqual(64, new HmacSha512KeyedHashProvider().HashLengthBytes);
 	}
 
 	#endregion
