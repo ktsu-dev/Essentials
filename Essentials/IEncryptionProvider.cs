@@ -16,7 +16,10 @@ using System.Threading.Tasks;
 /// depending only on whether the result happens to be well-formed.
 /// <para>
 /// A caller who needs to detect tampering must authenticate the ciphertext separately, computing a
-/// tag over it with an <see cref="IKeyedHashProvider"/> and verifying that tag before decrypting.
+/// tag over the initialization vector and the ciphertext together with an
+/// <see cref="IKeyedHashProvider"/>, then verifying that tag before decrypting. Covering only the
+/// ciphertext is not enough. The initialization vector travels with it and feeds the first decrypted
+/// block, so an attacker free to rewrite an unauthenticated one can change that block undetected.
 /// Use a key for authentication that is separate from the encryption key.
 /// </para>
 /// </remarks>
