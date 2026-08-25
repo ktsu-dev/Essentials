@@ -5,6 +5,7 @@ namespace ktsu.Essentials;
 using System;
 using System.Security.Cryptography;
 
+// IKeyedHashProvider.Verify does not yet exist; this cref forward reference will resolve once that type is defined.
 #pragma warning disable CS1574
 /// <summary>
 /// Compares byte sequences in an amount of time that does not depend on their contents.
