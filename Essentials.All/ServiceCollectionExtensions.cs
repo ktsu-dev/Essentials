@@ -160,7 +160,7 @@ public static class ServiceCollectionExtensions
 	}
 
 	/// <summary>
-	/// Registers every keyed hashing provider.
+	/// Registers every bundled keyed hash provider.
 	/// </summary>
 	/// <param name="services">The service collection to add the providers to.</param>
 	/// <returns>The same service collection, to allow chaining.</returns>
