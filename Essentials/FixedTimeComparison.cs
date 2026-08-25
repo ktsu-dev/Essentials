@@ -5,8 +5,6 @@ namespace ktsu.Essentials;
 using System;
 using System.Security.Cryptography;
 
-// IKeyedHashProvider.Verify does not yet exist; this cref forward reference will resolve once that type is defined.
-#pragma warning disable CS1574
 /// <summary>
 /// Compares byte sequences in an amount of time that does not depend on their contents.
 /// </summary>
@@ -17,7 +15,6 @@ using System.Security.Cryptography;
 /// <see cref="IKeyedHashProvider.Verify"/>, which computes and compares in one step; use this only
 /// when the tag to compare against was produced elsewhere.
 /// </remarks>
-#pragma warning restore CS1574
 public static class FixedTimeComparison
 {
 	/// <summary>
