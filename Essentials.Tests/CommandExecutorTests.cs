@@ -244,7 +244,7 @@ public class CommandExecutorTests
 	[DynamicData(nameof(CommandExecutors))]
 	public void CommandExecutor_Reports_Failure_For_Missing_Working_Directory(ICommandExecutor executor, string providerName)
 	{
-		string missing = Path.Combine(Path.GetTempPath(), $"ktsu-missing-{Guid.NewGuid():N}");
+		string missing = Path.Join(Path.GetTempPath(), $"ktsu-missing-{Guid.NewGuid():N}");
 
 		CommandResult asyncResult = executor.ExecuteAsync("echo never", missing, TestContext.CancellationToken).Result;
 		CommandResult syncResult = executor.Execute("echo never", missing);
