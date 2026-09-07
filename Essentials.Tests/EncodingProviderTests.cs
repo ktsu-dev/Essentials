@@ -199,6 +199,12 @@ public class EncodingProviderTests
 		using MemoryStream encoded = new(selfAllocated);
 		byte[] decoded = await encoder.DecodeAsync(encoded, TestContext.CancellationToken).ConfigureAwait(false);
 		CollectionAssert.AreEqual(original, decoded, $"{providerName} should decode what it encoded");
+
+		using MemoryStream fromMemoryDecoded = new();
+		Assert.IsTrue(
+			await encoder.TryDecodeAsync(selfAllocated.AsMemory(), fromMemoryDecoded, TestContext.CancellationToken).ConfigureAwait(false),
+			$"{providerName} async should decode from memory to a stream");
+		CollectionAssert.AreEqual(original, fromMemoryDecoded.ToArray(), $"{providerName} overloads should agree on decoding");
 	}
 
 	/// <summary>
@@ -243,5 +249,136 @@ public class EncodingProviderTests
 
 		public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
 			=> base.ReadAsync(buffer[..Math.Min(buffer.Length, 1)], cancellationToken);
+	}
+
+	/// <summary>
+	/// Tests that a null stream is reported rather than thrown, matching the synchronous paths.
+	/// </summary>
+	[TestMethod]
+	[DynamicData(nameof(EncodingProviders))]
+	public async Task Encoding_Async_RejectsNullStreams(IEncodingProvider encoder, string providerName)
+	{
+		using MemoryStream real = new([1, 2, 3]);
+
+		Assert.IsFalse(await encoder.TryEncodeAsync((Stream)null!, real, TestContext.CancellationToken).ConfigureAwait(false), providerName);
+		Assert.IsFalse(await encoder.TryEncodeAsync(real, null!, TestContext.CancellationToken).ConfigureAwait(false), providerName);
+		Assert.IsFalse(await encoder.TryDecodeAsync((Stream)null!, real, TestContext.CancellationToken).ConfigureAwait(false), providerName);
+		Assert.IsFalse(await encoder.TryDecodeAsync(real, null!, TestContext.CancellationToken).ConfigureAwait(false), providerName);
+	}
+
+	/// <summary>
+	/// Tests that input the provider cannot decode is reported rather than producing garbage.
+	/// </summary>
+	/// <remarks>
+	/// Both cases are malformed for both providers: a single character is neither an even number of
+	/// hex digits nor a whole Base64 quantum, and <c>z</c> is not a hex digit while <c>!</c> is not a
+	/// Base64 character.
+	/// </remarks>
+	[TestMethod]
+	[DynamicData(nameof(EncodingProviders))]
+	public async Task Encoding_Async_ReportsMalformedInput(IEncodingProvider encoder, string providerName)
+	{
+		foreach (string malformed in MalformedInputs)
+		{
+			using MemoryStream input = new(Encoding.UTF8.GetBytes(malformed));
+			using MemoryStream output = new();
+
+			Assert.IsFalse(
+				await encoder.TryDecodeAsync(input, output, TestContext.CancellationToken).ConfigureAwait(false),
+				$"{providerName} should refuse '{malformed}'");
+		}
+	}
+
+	/// <summary>
+	/// Input neither provider can decode: a lone character is neither an even number of hex digits
+	/// nor a whole Base64 quantum, and the four-character case holds a character neither alphabet
+	/// contains.
+	/// </summary>
+	private static readonly string[] MalformedInputs = ["z", "zzz!"];
+
+	/// <summary>
+	/// Tests that a stream failing mid-operation is reported rather than thrown out of the provider.
+	/// </summary>
+	/// <remarks>
+	/// A stream that faults part-way is ordinary — a dropped connection, a full disk — and these are
+	/// <c>Try</c> methods, so the failure belongs in the return value. Covers both the read side and
+	/// the write side, since they are separate <c>await</c>s with separate failure modes.
+	/// </remarks>
+	[TestMethod]
+	[DynamicData(nameof(EncodingProviders))]
+	public async Task Encoding_Async_ReportsAFailingStream(IEncodingProvider encoder, string providerName)
+	{
+		byte[] payload = Encoding.UTF8.GetBytes("something to encode");
+
+		using (FailingStream unreadable = new())
+		using (MemoryStream output = new())
+		{
+			Assert.IsFalse(
+				await encoder.TryEncodeAsync(unreadable, output, TestContext.CancellationToken).ConfigureAwait(false),
+				$"{providerName} should report a source that fails to read");
+		}
+
+		using (MemoryStream input = new(payload))
+		using (FailingStream unwritable = new())
+		{
+			Assert.IsFalse(
+				await encoder.TryEncodeAsync(input, unwritable, TestContext.CancellationToken).ConfigureAwait(false),
+				$"{providerName} should report a destination that fails to write");
+		}
+	}
+
+	/// <summary>
+	/// Tests that a stream disposed before use is reported rather than thrown.
+	/// </summary>
+	[TestMethod]
+	[DynamicData(nameof(EncodingProviders))]
+	public async Task Encoding_Async_ReportsADisposedStream(IEncodingProvider encoder, string providerName)
+	{
+		MemoryStream disposed = new([1, 2, 3, 4]);
+		await disposed.DisposeAsync().ConfigureAwait(false);
+
+		using MemoryStream output = new();
+
+		Assert.IsFalse(
+			await encoder.TryEncodeAsync(disposed, output, TestContext.CancellationToken).ConfigureAwait(false),
+			$"{providerName} should report a disposed source");
+	}
+
+	/// <summary>
+	/// A stream that fails whichever way it is used.
+	/// </summary>
+	private sealed class FailingStream : Stream
+	{
+		public override bool CanRead => true;
+
+		public override bool CanSeek => false;
+
+		public override bool CanWrite => true;
+
+		public override long Length => throw new NotSupportedException();
+
+		public override long Position
+		{
+			get => throw new NotSupportedException();
+			set => throw new NotSupportedException();
+		}
+
+		public override void Flush()
+		{
+		}
+
+		public override int Read(byte[] buffer, int offset, int count) => throw new IOException("read failed");
+
+		public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+			=> throw new IOException("read failed");
+
+		public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+		public override void SetLength(long value) => throw new NotSupportedException();
+
+		public override void Write(byte[] buffer, int offset, int count) => throw new IOException("write failed");
+
+		public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+			=> throw new IOException("write failed");
 	}
 }

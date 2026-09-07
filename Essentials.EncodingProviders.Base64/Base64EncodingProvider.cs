@@ -162,10 +162,6 @@ public class Base64EncodingProvider : IEncodingProvider
 			await destination.WriteAsync(encoded.AsMemory(0, bytesWritten), cancellationToken).ConfigureAwait(false);
 			return true;
 		}
-		catch (ArgumentException)
-		{
-			return false;
-		}
 		catch (IOException)
 		{
 			return false;
@@ -199,10 +195,6 @@ public class Base64EncodingProvider : IEncodingProvider
 
 			await destination.WriteAsync(decoded.AsMemory(0, bytesWritten), cancellationToken).ConfigureAwait(false);
 			return true;
-		}
-		catch (ArgumentException)
-		{
-			return false;
 		}
 		catch (IOException)
 		{
