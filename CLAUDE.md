@@ -118,7 +118,7 @@ Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.T
 - `IncrementalHashTests.cs` - Tests `CreateIncremental()` and async stream hashing across all 15 hash providers, asserting incremental output equals one-shot output
 - `KeyedHashProviderTests.cs` - Tests all 3 HMAC keyed hash providers, `Verify`, and `FixedTimeComparison`
 - `CacheProviderTests.cs` - Tests cache operations including expiration
-- `CommandExecutorTests.cs` - Tests command execution, including the synchronous path, its cancellation, and that `ExecuteAndGetOutput` throws unwrapped
+- `CommandExecutorTests.cs` - Tests command execution, including the synchronous path, cancellation before and during a run, a working directory that does not exist, and that `ExecuteAndGetOutput` throws unwrapped. `ICommandExecutor`'s own synchronous defaults are reached through a test double that declares only the asynchronous members, since `NativeCommandExecutor` replaces them
 - `EncodingProviderTests.cs` - Tests Base64 and Hex encoding
 - `ObfuscationProviderTests.cs` - Tests all obfuscation providers via round-trip (obfuscate → deobfuscate)
 - `FileSystemProviderTests.cs` - Tests filesystem operations

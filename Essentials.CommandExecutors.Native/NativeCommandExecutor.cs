@@ -145,10 +145,6 @@ public class NativeCommandExecutor : ICommandExecutor
 
 			return new CommandResult(process.ExitCode, stdout.ToString(), stderr.ToString());
 		}
-		catch (OperationCanceledException)
-		{
-			return Cancelled();
-		}
 		catch (InvalidOperationException ex)
 		{
 			return new CommandResult(-1, string.Empty, ex.Message);
@@ -216,13 +212,9 @@ public class NativeCommandExecutor : ICommandExecutor
 		{
 			process.Kill();
 		}
-		catch (InvalidOperationException)
+		catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
 		{
-			// The process exited between the wait timing out and this call.
-		}
-		catch (System.ComponentModel.Win32Exception)
-		{
-			// The process could not be terminated, or is already terminating.
+			// The process exited between the wait timing out and this call, or could not be terminated.
 		}
 	}
 
