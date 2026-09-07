@@ -334,20 +334,29 @@ public class EncodingProviderTests
 	[DynamicData(nameof(EncodingProviders))]
 	public async Task Encoding_Async_ReportsADisposedStream(IEncodingProvider encoder, string providerName)
 	{
-		// Disposed twice on purpose: the explicit call is the state under test, and the enclosing
-		// declaration guarantees disposal even if the assertion throws first. MemoryStream.Dispose is
-		// idempotent, so the second call is a no-op.
-		MemoryStream disposed = new([1, 2, 3, 4]);
-		await using (disposed.ConfigureAwait(false))
-		{
-			await disposed.DisposeAsync().ConfigureAwait(false);
+		MemoryStream disposed = await ClosedStreamAsync().ConfigureAwait(false);
+		using MemoryStream output = new();
 
-			using MemoryStream output = new();
+		Assert.IsFalse(
+			await encoder.TryEncodeAsync(disposed, output, TestContext.CancellationToken).ConfigureAwait(false),
+			$"{providerName} should report a disposed source");
+	}
 
-			Assert.IsFalse(
-				await encoder.TryEncodeAsync(disposed, output, TestContext.CancellationToken).ConfigureAwait(false),
-				$"{providerName} should report a disposed source");
-		}
+	/// <summary>
+	/// Builds a stream that has already been closed.
+	/// </summary>
+	/// <returns>A disposed stream.</returns>
+	/// <remarks>
+	/// The disposal happens here rather than in the test body so that nothing the test holds is an
+	/// undisposed resource: a caller receives an object whose lifetime is already over and owns
+	/// nothing. Expressing it inline is what turns awkward — a disposed local still looks like a leak
+	/// to disposal analysis, and the shapes that convince it collide with the rules about awaiting.
+	/// </remarks>
+	private static async Task<MemoryStream> ClosedStreamAsync()
+	{
+		MemoryStream stream = new([1, 2, 3, 4]);
+		await stream.DisposeAsync().ConfigureAwait(false);
+		return stream;
 	}
 
 	/// <summary>
