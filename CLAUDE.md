@@ -131,6 +131,44 @@ Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.T
 
 ## CI/CD
 
+### Running the ktsu analyzers locally
+
+`ktsu.Sdk.Analyzers` requires a newer Roslyn than some installed SDKs carry. When it does not match,
+every build fails with `CSC : error CS9057: Analyzer assembly ... references version '5.9.0.0' of the
+compiler, which is newer than the currently running version` — and the analyzers never run, so
+`KTSU****` findings are invisible until CI reports them. CI uses SDK 10.0.400, which carries Roslyn
+5.9.
+
+Rather than chase the SDK, override the compiler from NuGet. Put this in a file outside the
+repository and point MSBuild at it:
+
+```xml
+<Project>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Net.Compilers.Toolset" VersionOverride="5.9.0" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
+```
+
+```bash
+dotnet build Essentials.slnx -p:CustomAfterMicrosoftCommonProps=/path/to/roslyn59.props
+```
+
+Note **`After`**, not `Before`: projects here declare their SDK with `<Sdk Name="..." />` elements
+rather than the `<Project Sdk="...">` attribute, which `CustomBeforeMicrosoftCommonProps` does not
+reach. Keep the file out of the repository so normal builds, CI and packaging are unaffected.
+
+### Two analyzer rules that contradict each other
+
+`KTSU0001` requires a `System.Memory` reference from every project using `Span<T>`/`Memory<T>`;
+NuGet's `NU1510` then calls that reference redundant, because netstandard2.1 already carries those
+types. One has to be silenced. `Directory.Build.props` adds the reference for netstandard2.1 only,
+with `NoWarn="NU1510"` on that single item, following ktsu.Sdk's own requirement.
+
+`CA1859` (use concrete types) is likewise wrong for `Essentials.Tests` and is in its `NoWarn`: the
+providers are built on default interface implementations, which are only callable through the
+interface, so binding a test to the concrete type would change or break what it dispatches to.
+
 Uses `scripts/PSBuild.psm1` PowerShell module for CI pipeline. Version increments are controlled by commit message tags: `[major]`, `[minor]`, `[patch]`, `[pre]`.
 
 ## Code Quality

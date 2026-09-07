@@ -9,4 +9,19 @@
     <PolyPublic>false</PolyPublic>
   </PropertyGroup>
 
+  <!--
+    KTSU0001 requires every project that uses Span<T>/Memory<T> to reference System.Memory, and 41
+    projects here target netstandard2.1 and do. NuGet then raises NU1510 calling the reference
+    redundant, because netstandard2.1 already carries those types in its reference assemblies. The
+    two rules contradict each other and one has to be silenced; this follows ktsu.Sdk's own stated
+    requirement and keeps the suppression to the single item it applies to.
+
+    Declared centrally rather than in each csproj: it is one policy, and 41 copies of it would drift.
+    Scoped to netstandard2.1 because that is the only target KTSU0001 flags — the newer targets carry
+    these APIs in-box, and a reference there would be a redundant dependency on the published package.
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
+    <PackageReference Include="System.Memory" NoWarn="NU1510" />
+  </ItemGroup>
+
 </Project>

@@ -5,7 +5,14 @@
     <IsTestProject>true</IsTestProject>
     <TargetFramework>net10.0</TargetFramework>
     <TargetFrameworks></TargetFrameworks>
-    <NoWarn>$(NoWarn);CA1062;CA1707;</NoWarn>
+    <!--
+      CA1859 (use concrete types) is wrong for this assembly by design. These providers are built on
+      default interface implementations, which are only callable through the interface: binding a
+      test to the concrete type would either fail to compile or dispatch to a different member, so
+      the suite would stop exercising the contract it exists to cover. CLAUDE.md states the intent
+      outright - the tests drive the providers "through the interface contracts".
+    -->
+    <NoWarn>$(NoWarn);CA1062;CA1707;CA1859;</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
