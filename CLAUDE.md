@@ -160,10 +160,18 @@ reach. Keep the file out of the repository so normal builds, CI and packaging ar
 
 ### Two analyzer rules that contradict each other
 
-`KTSU0001` requires a `System.Memory` reference from every project using `Span<T>`/`Memory<T>`;
-NuGet's `NU1510` then calls that reference redundant, because netstandard2.1 already carries those
-types. One has to be silenced. `Directory.Build.props` adds the reference for netstandard2.1 only,
-with `NoWarn="NU1510"` on that single item, following ktsu.Sdk's own requirement.
+`KTSU0001` requires a `System.Memory` reference from every project using `Span<T>`/`Memory<T>`, and
+the 47 projects targeting netstandard2.1 do. That reference **cannot be added**: NuGet rejects it
+during solution restore with `NU1510` — *"This package is automatically available and does not need
+to be referenced explicitly. Remove the PackageReference item."* `NoWarn` metadata on the item does
+not reach that check, so the two rules cannot both be satisfied. NuGet is the one describing
+reality — the framework supplies the package — so `KTSU0001` is suppressed instead, in
+`Directory.Build.targets`, scoped to netstandard2.1.
+
+It has to be `Directory.Build.targets`, not `.props`: ktsu.Sdk assigns `NoWarn` outright, and props
+is imported before the SDK, so an addition there is silently overwritten. Check with
+`dotnet msbuild <proj> -p:TargetFramework=netstandard2.1 -getProperty:NoWarn` if it ever stops
+working.
 
 `CA1859` (use concrete types) is likewise wrong for `Essentials.Tests` and is in its `NoWarn`: the
 providers are built on default interface implementations, which are only callable through the

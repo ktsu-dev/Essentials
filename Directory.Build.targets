@@ -1,0 +1,21 @@
+<Project>
+
+  <!--
+    KTSU0001 wants every project using Span<T>/Memory<T> to reference System.Memory, and the 47
+    projects here that target netstandard2.1 do. That reference cannot be added: on the SDK CI
+    builds with, NuGet rejects it outright during solution restore — "This package is automatically
+    available and does not need to be referenced explicitly. Remove the PackageReference item."
+    (NU1510, where NoWarn metadata on the item does not reach it).
+
+    The two rules cannot both be satisfied, and NuGet is the one describing reality: the framework
+    supplies the package, so KTSU0001's premise no longer holds on this SDK. Scoped to
+    netstandard2.1, the only target it fires on.
+
+    This lives in Directory.Build.targets rather than Directory.Build.props because ktsu.Sdk assigns
+    NoWarn outright, and props is imported before the SDK - an addition there is overwritten.
+  -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
+    <NoWarn>$(NoWarn);KTSU0001</NoWarn>
+  </PropertyGroup>
+
+</Project>
