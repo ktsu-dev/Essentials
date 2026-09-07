@@ -92,8 +92,13 @@ public interface IEncodingProvider
 	/// <param name="destination">The destination stream to write the encoded data to.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the encoding was successful, false otherwise.</returns>
-	public Task<bool> TryEncodeAsync(ReadOnlyMemory<byte> data, Stream destination, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => TryEncode(data.Span, destination), cancellationToken);
+	public async Task<bool> TryEncodeAsync(ReadOnlyMemory<byte> data, Stream destination, CancellationToken cancellationToken = default)
+	{
+		using MemoryStream source = new();
+		await source.WriteAsync(data, cancellationToken).ConfigureAwait(false);
+		source.Position = 0;
+		return await TryEncodeAsync(source, destination, cancellationToken).ConfigureAwait(false);
+	}
 
 	/// <summary>
 	/// Tries to encode the data from the stream and write the result to the destination stream asynchronously.
@@ -120,8 +125,13 @@ public interface IEncodingProvider
 	/// <param name="data">The data to encode.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The encoded data.</returns>
-	public Task<byte[]> EncodeAsync(Stream data, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => Encode(data), cancellationToken);
+	public async Task<byte[]> EncodeAsync(Stream data, CancellationToken cancellationToken = default)
+	{
+		using MemoryStream destination = new();
+		return !await TryEncodeAsync(data, destination, cancellationToken).ConfigureAwait(false)
+			? throw new InvalidOperationException("Encoding failed to produce output with the allocated buffer.")
+			: destination.ToArray();
+	}
 
 	/// <summary>
 	/// Encodes the data from the string and returns the result asynchronously.
@@ -195,8 +205,13 @@ public interface IEncodingProvider
 	/// <param name="destination">The destination stream to write the decoded data to.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the decoding was successful, false otherwise.</returns>
-	public Task<bool> TryDecodeAsync(ReadOnlyMemory<byte> encodedData, Stream destination, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => TryDecode(encodedData.Span, destination), cancellationToken);
+	public async Task<bool> TryDecodeAsync(ReadOnlyMemory<byte> encodedData, Stream destination, CancellationToken cancellationToken = default)
+	{
+		using MemoryStream source = new();
+		await source.WriteAsync(encodedData, cancellationToken).ConfigureAwait(false);
+		source.Position = 0;
+		return await TryDecodeAsync(source, destination, cancellationToken).ConfigureAwait(false);
+	}
 
 	/// <summary>
 	/// Tries to decode the data from the stream and write the result to the destination stream asynchronously.
@@ -223,8 +238,13 @@ public interface IEncodingProvider
 	/// <param name="encodedData">The encoded data to decode.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The decoded data.</returns>
-	public Task<byte[]> DecodeAsync(Stream encodedData, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => Decode(encodedData), cancellationToken);
+	public async Task<byte[]> DecodeAsync(Stream encodedData, CancellationToken cancellationToken = default)
+	{
+		using MemoryStream destination = new();
+		return !await TryDecodeAsync(encodedData, destination, cancellationToken).ConfigureAwait(false)
+			? throw new InvalidOperationException("Decoding failed to produce output with the allocated buffer.")
+			: destination.ToArray();
+	}
 
 	/// <summary>
 	/// Decodes text produced by <see cref="Encode(string)"/> asynchronously.

@@ -5,6 +5,8 @@ namespace ktsu.Essentials.EncodingProviders.Hex;
 using ktsu.Essentials;
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 /// <summary>
 /// An encoding provider that uses hexadecimal encoding for data encoding and decoding.
@@ -148,4 +150,149 @@ public class HexEncodingProvider : IEncodingProvider
 
 		return value >= 0;
 	}
+
+	/// <inheritdoc/>
+	/// <remarks>
+	/// Genuinely asynchronous: the source is read and the result written with <c>ReadAsync</c> and
+	/// <c>WriteAsync</c>, so no thread is held for the duration of the I/O. Declaring this member and
+	/// its decoding counterpart replaces the interface's <c>Task.Run</c> defaults and converts every
+	/// stream path derived from them.
+	/// <para>
+	/// It transforms a chunk at a time rather than buffering the whole stream, which keeps the
+	/// synchronous path's constant memory use. Hex encodes one byte to two, so a chunk boundary never
+	/// splits a group and no state has to be carried across one.
+	/// </para>
+	/// </remarks>
+	public async Task<bool> TryEncodeAsync(Stream data, Stream destination, CancellationToken cancellationToken = default)
+	{
+		if (data is null || destination is null)
+		{
+			return false;
+		}
+
+		byte[] source = new byte[ChunkSize];
+		byte[] encoded = new byte[ChunkSize * 2];
+
+		try
+		{
+			int read;
+			while ((read = await data.ReadAsync(source.AsMemory(0, ChunkSize), cancellationToken).ConfigureAwait(false)) > 0)
+			{
+				for (int i = 0; i < read; i++)
+				{
+					encoded[i * 2] = (byte)HexDigits[source[i] >> 4];
+					encoded[(i * 2) + 1] = (byte)HexDigits[source[i] & 0x0F];
+				}
+
+				await destination.WriteAsync(encoded.AsMemory(0, read * 2), cancellationToken).ConfigureAwait(false);
+			}
+
+			return true;
+		}
+		catch (IOException)
+		{
+			return false;
+		}
+		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+	}
+
+	/// <inheritdoc/>
+	/// <remarks>
+	/// Genuinely asynchronous, and chunked, on the same terms as
+	/// <see cref="TryEncodeAsync(Stream, Stream, CancellationToken)"/>.
+	/// <para>
+	/// Decoding reads two characters per byte, so a chunk can end mid-pair. A read is therefore
+	/// topped up until it holds an even number of characters, or the stream ends — in which case a
+	/// leftover character means the input was truncated, and this reports failure exactly as the
+	/// synchronous path does.
+	/// </para>
+	/// </remarks>
+	public async Task<bool> TryDecodeAsync(Stream encodedData, Stream destination, CancellationToken cancellationToken = default)
+	{
+		if (encodedData is null || destination is null)
+		{
+			return false;
+		}
+
+		byte[] source = new byte[ChunkSize];
+		byte[] decoded = new byte[ChunkSize / 2];
+
+		try
+		{
+			while (true)
+			{
+				int filled = await ReadPairsAsync(encodedData, source, cancellationToken).ConfigureAwait(false);
+				if (filled == 0)
+				{
+					return true;
+				}
+
+				if (filled < 0)
+				{
+					// An odd number of characters: the last byte has no partner, so the input is truncated.
+					return false;
+				}
+
+				for (int i = 0; i < filled; i += 2)
+				{
+					if (!TryParseNibble(source[i], out int high) || !TryParseNibble(source[i + 1], out int low))
+					{
+						return false;
+					}
+
+					decoded[i / 2] = (byte)((high << 4) | low);
+				}
+
+				await destination.WriteAsync(decoded.AsMemory(0, filled / 2), cancellationToken).ConfigureAwait(false);
+			}
+		}
+		catch (IOException)
+		{
+			return false;
+		}
+		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Fills a buffer with an even number of characters, so no character pair straddles a chunk.
+	/// </summary>
+	/// <param name="source">The stream to read.</param>
+	/// <param name="buffer">The buffer to fill.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>
+	/// How many characters were read, zero at a clean end of stream, or -1 if the stream ended on an
+	/// unpaired character.
+	/// </returns>
+	/// <remarks>
+	/// A single <c>ReadAsync</c> may return fewer bytes than asked for at any time — that is the
+	/// stream contract, not an end-of-stream signal — so this keeps reading until the buffer is full
+	/// or the stream really has ended.
+	/// </remarks>
+	private static async Task<int> ReadPairsAsync(Stream source, byte[] buffer, CancellationToken cancellationToken)
+	{
+		int filled = 0;
+		while (filled < buffer.Length)
+		{
+			int read = await source.ReadAsync(buffer.AsMemory(filled, buffer.Length - filled), cancellationToken).ConfigureAwait(false);
+			if (read == 0)
+			{
+				break;
+			}
+
+			filled += read;
+		}
+
+		return filled % 2 == 0 ? filled : -1;
+	}
+
+	/// <summary>
+	/// The number of characters transformed per chunk. Even, so a pair is never split.
+	/// </summary>
+	private const int ChunkSize = 8192;
 }
