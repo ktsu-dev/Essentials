@@ -17,7 +17,7 @@ using System.Security.Cryptography;
 /// </remarks>
 public sealed class IncrementalHashAdapter : IIncrementalHash
 {
-	private readonly IncrementalHash inner;
+	private readonly IncrementalHash _inner;
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="IncrementalHashAdapter"/> class.
@@ -35,7 +35,7 @@ public sealed class IncrementalHashAdapter : IIncrementalHash
 			throw new ArgumentOutOfRangeException(nameof(hashLengthBytes), hashLengthBytes, "Hash length must be positive.");
 		}
 
-		this.inner = inner;
+		_inner = inner;
 		HashLengthBytes = hashLengthBytes;
 	}
 
@@ -43,7 +43,7 @@ public sealed class IncrementalHashAdapter : IIncrementalHash
 	public int HashLengthBytes { get; }
 
 	/// <inheritdoc/>
-	public void Append(ReadOnlySpan<byte> data) => inner.AppendData(data);
+	public void Append(ReadOnlySpan<byte> data) => _inner.AppendData(data);
 
 	/// <inheritdoc/>
 	public bool TryGetHashAndReset(Span<byte> destination, out int bytesWritten)
@@ -51,9 +51,9 @@ public sealed class IncrementalHashAdapter : IIncrementalHash
 		bytesWritten = 0;
 
 		return destination.Length >= HashLengthBytes
-			&& inner.TryGetHashAndReset(destination, out bytesWritten);
+			&& _inner.TryGetHashAndReset(destination, out bytesWritten);
 	}
 
 	/// <inheritdoc/>
-	public void Dispose() => inner.Dispose();
+	public void Dispose() => _inner.Dispose();
 }

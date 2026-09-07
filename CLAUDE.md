@@ -46,7 +46,7 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 - `Essentials/IValidationProvider.cs` - Validation interface with structured results
 - `Essentials/ILoggingProvider.cs` - Logging interface with six severity levels
 - `Essentials/INavigationProvider.cs` - Browser-like back/forward navigation interface
-- `Essentials/ICommandExecutor.cs` - Shell command execution interface
+- `Essentials/ICommandExecutor.cs` - Shell command execution interface; `Execute(command, environmentVariables, workingDirectory, cancellationToken)` is the synchronous primitive that every other synchronous member composes over
 - `Essentials/IFileSystemProvider.cs` - Filesystem abstraction extending Testably.Abstractions
 - `Essentials/ProviderHelpers.cs` - Internal utilities for async wrapping, stream bridging, UTF8 transforms
 - `Essentials/PersistenceProviderUtilities.cs` - Shared utilities for persistence providers (safe filenames, key conversion)
@@ -90,6 +90,15 @@ All provider interfaces follow a consistent three-tier pattern:
 2. **Convenience methods**: Self-allocating methods that call Try\* methods and manage buffers automatically. Provided via default interface implementations.
 3. **Async variants**: Task-based async versions with `CancellationToken` support. The stream paths of the compression providers and of `AesEncryptionProvider`, along with `IHashProvider.TryHashAsync(Stream, ...)` and `IKeyedHashProvider.TryHashAsync(ReadOnlyMemory<byte>, Stream, ...)`, are genuinely asynchronous — real `ReadAsync`/`WriteAsync`, no thread held. The rest are still `Task.Run` wrappers over synchronous work via `ProviderHelpers.RunAsync()`; see issue #8. A provider makes its stream paths genuine by declaring the two `Try…Async(Stream, Stream, ...)` primitives itself, which replaces the default implementation; the four derived stream defaults compose over those primitives, so overriding two members converts all six. Span-destination async overloads do not exist — an `out` parameter cannot cross an async boundary.
 
+`ICommandExecutor` is the one interface with the mirror-image concern: synchronous methods layered over an
+asynchronous one. It declares a synchronous primitive, `Execute(string, IReadOnlyDictionary<string, string>?,
+string?, CancellationToken)`, that the other two synchronous members compose over. Its default body bridges to
+`ExecuteAsync` with `GetAwaiter().GetResult()` — not `.Result`, which wraps the failure in an
+`AggregateException` — and still blocks a thread for the child process's lifetime. `NativeCommandExecutor`
+declares the primitive itself and drives `System.Diagnostics.Process` synchronously (`BeginOutputReadLine` plus
+a `WaitForExit(timeout)` poll that honours the cancellation token), so no pool thread is held; declaring that
+one member converts all three synchronous overloads. See issue #17.
+
 Common patterns are centralized in `ProviderHelpers.cs`:
 
 - `RunAsync()` - Wraps sync methods in `Task.Run` with cancellation. Used by the in-memory async variants and by any stream path whose provider has not declared its own asynchronous primitives.
@@ -109,7 +118,7 @@ Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.T
 - `IncrementalHashTests.cs` - Tests `CreateIncremental()` and async stream hashing across all 15 hash providers, asserting incremental output equals one-shot output
 - `KeyedHashProviderTests.cs` - Tests all 3 HMAC keyed hash providers, `Verify`, and `FixedTimeComparison`
 - `CacheProviderTests.cs` - Tests cache operations including expiration
-- `CommandExecutorTests.cs` - Tests command execution
+- `CommandExecutorTests.cs` - Tests command execution, including the synchronous path, its cancellation, and that `ExecuteAndGetOutput` throws unwrapped
 - `EncodingProviderTests.cs` - Tests Base64 and Hex encoding
 - `ObfuscationProviderTests.cs` - Tests all obfuscation providers via round-trip (obfuscate → deobfuscate)
 - `FileSystemProviderTests.cs` - Tests filesystem operations
