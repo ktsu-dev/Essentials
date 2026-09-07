@@ -46,7 +46,7 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 - `Essentials/IValidationProvider.cs` - Validation interface with structured results
 - `Essentials/ILoggingProvider.cs` - Logging interface with six severity levels
 - `Essentials/INavigationProvider.cs` - Browser-like back/forward navigation interface
-- `Essentials/ICommandExecutor.cs` - Shell command execution interface
+- `Essentials/ICommandExecutor.cs` - Shell command execution interface; `Execute(command, environmentVariables, workingDirectory, cancellationToken)` is the synchronous primitive that every other synchronous member composes over
 - `Essentials/IFileSystemProvider.cs` - Filesystem abstraction extending Testably.Abstractions
 - `Essentials/ProviderHelpers.cs` - Internal utilities for async wrapping, stream bridging, UTF8 transforms
 - `Essentials/PersistenceProviderUtilities.cs` - Shared utilities for persistence providers (safe filenames, key conversion)
@@ -90,6 +90,15 @@ All provider interfaces follow a consistent three-tier pattern:
 2. **Convenience methods**: Self-allocating methods that call Try\* methods and manage buffers automatically. Provided via default interface implementations.
 3. **Async variants**: Task-based async versions with `CancellationToken` support. The stream paths of the compression providers and of `AesEncryptionProvider`, along with `IHashProvider.TryHashAsync(Stream, ...)` and `IKeyedHashProvider.TryHashAsync(ReadOnlyMemory<byte>, Stream, ...)`, are genuinely asynchronous — real `ReadAsync`/`WriteAsync`, no thread held. The rest are still `Task.Run` wrappers over synchronous work via `ProviderHelpers.RunAsync()`; see issue #8. A provider makes its stream paths genuine by declaring the two `Try…Async(Stream, Stream, ...)` primitives itself, which replaces the default implementation; the four derived stream defaults compose over those primitives, so overriding two members converts all six. Span-destination async overloads do not exist — an `out` parameter cannot cross an async boundary.
 
+`ICommandExecutor` is the one interface with the mirror-image concern: synchronous methods layered over an
+asynchronous one. It declares a synchronous primitive, `Execute(string, IReadOnlyDictionary<string, string>?,
+string?, CancellationToken)`, that the other two synchronous members compose over. Its default body bridges to
+`ExecuteAsync` with `GetAwaiter().GetResult()` — not `.Result`, which wraps the failure in an
+`AggregateException` — and still blocks a thread for the child process's lifetime. `NativeCommandExecutor`
+declares the primitive itself and drives `System.Diagnostics.Process` synchronously (`BeginOutputReadLine` plus
+a `WaitForExit(timeout)` poll that honours the cancellation token), so no pool thread is held; declaring that
+one member converts all three synchronous overloads. See issue #17.
+
 Common patterns are centralized in `ProviderHelpers.cs`:
 
 - `RunAsync()` - Wraps sync methods in `Task.Run` with cancellation. Used by the in-memory async variants and by any stream path whose provider has not declared its own asynchronous primitives.
@@ -109,7 +118,7 @@ Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.T
 - `IncrementalHashTests.cs` - Tests `CreateIncremental()` and async stream hashing across all 15 hash providers, asserting incremental output equals one-shot output
 - `KeyedHashProviderTests.cs` - Tests all 3 HMAC keyed hash providers, `Verify`, and `FixedTimeComparison`
 - `CacheProviderTests.cs` - Tests cache operations including expiration
-- `CommandExecutorTests.cs` - Tests command execution
+- `CommandExecutorTests.cs` - Tests command execution, including the synchronous path, cancellation before and during a run, a working directory that does not exist, and that `ExecuteAndGetOutput` throws unwrapped. `ICommandExecutor`'s own synchronous defaults are reached through a test double that declares only the asynchronous members, since `NativeCommandExecutor` replaces them
 - `EncodingProviderTests.cs` - Tests Base64 and Hex encoding
 - `ObfuscationProviderTests.cs` - Tests all obfuscation providers via round-trip (obfuscate → deobfuscate)
 - `FileSystemProviderTests.cs` - Tests filesystem operations
@@ -121,6 +130,52 @@ Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.T
 - `DiTests.cs` - Tests dependency injection registration
 
 ## CI/CD
+
+### Running the ktsu analyzers locally
+
+`ktsu.Sdk.Analyzers` requires a newer Roslyn than some installed SDKs carry. When it does not match,
+every build fails with `CSC : error CS9057: Analyzer assembly ... references version '5.9.0.0' of the
+compiler, which is newer than the currently running version` — and the analyzers never run, so
+`KTSU****` findings are invisible until CI reports them. CI uses SDK 10.0.400, which carries Roslyn
+5.9.
+
+Rather than chase the SDK, override the compiler from NuGet. Put this in a file outside the
+repository and point MSBuild at it:
+
+```xml
+<Project>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Net.Compilers.Toolset" VersionOverride="5.9.0" PrivateAssets="all" />
+  </ItemGroup>
+</Project>
+```
+
+```bash
+dotnet build Essentials.slnx -p:CustomAfterMicrosoftCommonProps=/path/to/roslyn59.props
+```
+
+Note **`After`**, not `Before`: projects here declare their SDK with `<Sdk Name="..." />` elements
+rather than the `<Project Sdk="...">` attribute, which `CustomBeforeMicrosoftCommonProps` does not
+reach. Keep the file out of the repository so normal builds, CI and packaging are unaffected.
+
+### Two analyzer rules that contradict each other
+
+`KTSU0001` requires a `System.Memory` reference from every project using `Span<T>`/`Memory<T>`, and
+the 47 projects targeting netstandard2.1 do. That reference **cannot be added**: NuGet rejects it
+during solution restore with `NU1510` — *"This package is automatically available and does not need
+to be referenced explicitly. Remove the PackageReference item."* `NoWarn` metadata on the item does
+not reach that check, so the two rules cannot both be satisfied. NuGet is the one describing
+reality — the framework supplies the package — so `KTSU0001` is suppressed instead, in
+`Directory.Build.targets`, scoped to netstandard2.1.
+
+It has to be `Directory.Build.targets`, not `.props`: ktsu.Sdk assigns `NoWarn` outright, and props
+is imported before the SDK, so an addition there is silently overwritten. Check with
+`dotnet msbuild <proj> -p:TargetFramework=netstandard2.1 -getProperty:NoWarn` if it ever stops
+working.
+
+`CA1859` (use concrete types) is likewise wrong for `Essentials.Tests` and is in its `NoWarn`: the
+providers are built on default interface implementations, which are only callable through the
+interface, so binding a test to the concrete type would change or break what it dispatches to.
 
 Uses `scripts/PSBuild.psm1` PowerShell module for CI pipeline. Version increments are controlled by commit message tags: `[major]`, `[minor]`, `[patch]`, `[pre]`.
 
