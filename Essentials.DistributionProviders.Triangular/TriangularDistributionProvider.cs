@@ -73,15 +73,17 @@ public sealed class TriangularDistributionProvider : IContinuousDistribution
 			return 0.0;
 		}
 
+		// Each branch divides by the width of its own side, so the test has to keep a zero-width side out
+		// of the denominator. Below the mode is safe unguarded: if the lower side is empty then the mode
+		// is the lower bound and no value in range is below it. Above needs the guard, because the mode
+		// itself reaches it, and where the mode is the upper bound that leaves 0/0 rather than the peak.
 		double peak = 2.0 / width;
-		if (value == Mode)
+		if (value < Mode)
 		{
-			return peak;
+			return peak * (value - Minimum) / lowerWidth;
 		}
 
-		return value < Mode
-			? peak * (value - Minimum) / lowerWidth
-			: peak * (Maximum - value) / upperWidth;
+		return upperWidth > 0.0 ? peak * (Maximum - value) / upperWidth : peak;
 	}
 
 	/// <inheritdoc />

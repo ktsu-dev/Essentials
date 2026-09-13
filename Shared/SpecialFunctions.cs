@@ -256,12 +256,11 @@ internal static class SpecialFunctions
 			estimate = CentralBranch(probability);
 		}
 
+		// A residual of zero needs no special case. Where the density is representable the correction
+		// works out to zero and the estimate is returned unchanged; where it has underflowed the product
+		// is a zero times an infinity, and the guard below catches that along with every other way the
+		// far tail can produce a correction that is not a number.
 		double error = StandardNormalCdf(estimate) - probability;
-		if (error == 0.0)
-		{
-			return estimate;
-		}
-
 		double scaled = error * SqrtTwoPi * Math.Exp(estimate * estimate / 2.0);
 		double correction = scaled / (1.0 + (estimate * scaled / 2.0));
 		return double.IsNaN(correction) || double.IsInfinity(correction) ? estimate : estimate - correction;

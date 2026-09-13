@@ -173,9 +173,9 @@ public class DistributionProviderTests
 	[DynamicData(nameof(ContinuousDistributions))]
 	public void Continuous_LogDensity_Agrees_With_The_Density(IContinuousDistribution distribution, string name)
 	{
-		foreach (double probability in new[] { 0.05, 0.3, 0.5, 0.8, 0.95 })
+		double[] probabilities = [0.05, 0.3, 0.5, 0.8, 0.95];
+		foreach (double x in probabilities.Select(distribution.Quantile))
 		{
-			double x = distribution.Quantile(probability);
 			Assert.AreEqual(Math.Log(distribution.Pdf(x)), distribution.LogPdf(x), 1e-9, $"{name} at {x}");
 		}
 	}
@@ -184,9 +184,9 @@ public class DistributionProviderTests
 	[DynamicData(nameof(ContinuousDistributions))]
 	public void Continuous_Survival_Function_Complements_The_Cdf(IContinuousDistribution distribution, string name)
 	{
-		foreach (double probability in new[] { 0.01, 0.25, 0.5, 0.75, 0.99 })
+		double[] probabilities = [0.01, 0.25, 0.5, 0.75, 0.99];
+		foreach (double x in probabilities.Select(distribution.Quantile))
 		{
-			double x = distribution.Quantile(probability);
 			Assert.AreEqual(1.0, distribution.Cdf(x) + distribution.SurvivalFunction(x), 1e-12, $"{name} at {x}");
 		}
 	}
@@ -404,6 +404,37 @@ public class DistributionProviderTests
 		Assert.AreEqual(9.8658764503770119e-10, standard.SurvivalFunction(6.0), 9.8658764503770119e-10 * 1e-12);
 		Assert.AreEqual(6.2209605742718194e-16, standard.SurvivalFunction(8.0), 6.2209605742718194e-16 * 1e-12);
 		Assert.AreEqual(6.2209605742718194e-16, standard.Cdf(-8.0), 6.2209605742718194e-16 * 1e-12);
+	}
+
+	[TestMethod]
+	public void Normal_Quantile_Stays_Refined_Deep_Into_The_Tail()
+	{
+		// The quantile is a rational approximation good to about nine digits, refined by one Halley step
+		// against the CDF. These references come from Wichura's AS241, a different algorithm entirely, and
+		// they hold to a part in 10^12 — which they would not if the refinement stopped once the residual
+		// went small in absolute terms, because down here the CDF value itself is smaller than any fixed
+		// threshold worth writing.
+		NormalDistributionProvider standard = new();
+
+		Assert.AreEqual(0.0, standard.Quantile(0.5), Tight);
+		Assert.AreEqual(-4.2648907939228256, standard.Quantile(1e-5), 1e-12);
+		Assert.AreEqual(-9.2623400897984052, standard.Quantile(1e-20), 1e-11);
+		Assert.AreEqual(-21.273453560965319, standard.Quantile(1e-100), 1e-11);
+
+		// Past about 1e-309 the density underflows and the correction term is a zero times an infinity.
+		// The estimate has to come back unrefined rather than as a NaN.
+		double extreme = standard.Quantile(1e-300);
+		Assert.IsFalse(double.IsNaN(extreme), "the far tail produced a NaN");
+		Assert.AreEqual(-37.047096299361201, extreme, 1e-6);
+
+		Assert.AreEqual(double.NegativeInfinity, standard.Quantile(0.0));
+		Assert.AreEqual(double.PositiveInfinity, standard.Quantile(1.0));
+
+		// A target that is exactly a CDF value leaves a residual of exactly zero, which used to be short
+		// circuited and is now left to fall through the ordinary correction.
+		double quarter = standard.Quantile(0.25);
+		Assert.AreEqual(0.25, standard.Cdf(quarter), 1e-15);
+		Assert.AreEqual(-standard.Quantile(0.75), quarter, 1e-14);
 	}
 
 	[TestMethod]
