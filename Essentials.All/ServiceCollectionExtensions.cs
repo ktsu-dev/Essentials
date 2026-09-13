@@ -7,6 +7,13 @@ using ktsu.Essentials.CommandExecutors.Native;
 using ktsu.Essentials.CompressionProviders.Brotli;
 using ktsu.Essentials.CompressionProviders.Deflate;
 using ktsu.Essentials.CompressionProviders.Gzip;
+using ktsu.Essentials.DistributionProviders.Bernoulli;
+using ktsu.Essentials.DistributionProviders.Exponential;
+using ktsu.Essentials.DistributionProviders.Geometric;
+using ktsu.Essentials.DistributionProviders.LogNormal;
+using ktsu.Essentials.DistributionProviders.Normal;
+using ktsu.Essentials.DistributionProviders.Poisson;
+using ktsu.Essentials.DistributionProviders.Uniform;
 using ktsu.Essentials.EncodingProviders.Base64;
 using ktsu.Essentials.EncodingProviders.Hex;
 using ktsu.Essentials.EncryptionProviders.Aes;
@@ -38,6 +45,10 @@ using ktsu.Essentials.ObfuscationProviders.Hex;
 using ktsu.Essentials.ObfuscationProviders.Reverse;
 using ktsu.Essentials.ObfuscationProviders.Xor;
 using ktsu.Essentials.PersistenceProviders.InMemory;
+using ktsu.Essentials.RandomProviders.Crypto;
+using ktsu.Essentials.RandomProviders.Native;
+using ktsu.Essentials.RandomProviders.Pcg;
+using ktsu.Essentials.RandomProviders.Xoshiro;
 using ktsu.Essentials.SerializationProviders.Json;
 using ktsu.Essentials.SerializationProviders.NewtonsoftJson;
 using ktsu.Essentials.SerializationProviders.Toml;
@@ -54,8 +65,9 @@ using ktsu.Essentials.CompressionProviders.ZLib;
 /// <remarks>
 /// Each method delegates to the registration extension shipped by the individual provider package, so
 /// the behaviour is identical to registering them one at a time. Providers that need configuration —
-/// the composite obfuscator, and the filesystem, temp, data-home, and config-home persistence providers —
-/// are not included here; register those explicitly from their own packages.
+/// the composite obfuscator, the filesystem, temp, data-home, and config-home persistence providers, and
+/// the triangular, binomial, and categorical distributions — are not included here; register those
+/// explicitly from their own packages.
 /// </remarks>
 public static class ServiceCollectionExtensions
 {
@@ -72,6 +84,7 @@ public static class ServiceCollectionExtensions
 			.AddCacheProviders()
 			.AddCommandExecutors()
 			.AddCompressionProviders()
+			.AddDistributionProviders()
 			.AddEncodingProviders()
 			.AddEncryptionProviders()
 			.AddFileSystemProviders()
@@ -81,6 +94,7 @@ public static class ServiceCollectionExtensions
 			.AddNavigationProviders()
 			.AddObfuscationProviders()
 			.AddPersistenceProviders()
+			.AddRandomProviders()
 			.AddSerializationProviders();
 	}
 
@@ -104,6 +118,55 @@ public static class ServiceCollectionExtensions
 #endif
 
 		return services;
+	}
+
+	/// <summary>
+	/// Registers every bundled distribution provider that has a usable default parameterisation.
+	/// </summary>
+	/// <remarks>
+	/// The triangular, binomial, and categorical distributions are excluded because none of them has a
+	/// standard form to default to — a three-point estimate, a trial count and a weight vector all belong
+	/// to the situation being modelled. Register those from their own packages with the parameters you
+	/// want. What is registered here is each distribution in its standard form, which is what makes the
+	/// resolvable set useful: resolving <see cref="IContinuousDistribution"/> or
+	/// <see cref="IDiscreteDistribution"/> yields every shape at once.
+	/// </remarks>
+	/// <param name="services">The service collection to add the providers to.</param>
+	/// <returns>The same service collection, to allow chaining.</returns>
+	public static IServiceCollection AddDistributionProviders(this IServiceCollection services)
+	{
+		Ensure.NotNull(services);
+
+		return services
+			.AddUniformDistributionProvider()
+			.AddNormalDistributionProvider()
+			.AddLogNormalDistributionProvider()
+			.AddExponentialDistributionProvider()
+			.AddBernoulliDistributionProvider()
+			.AddGeometricDistributionProvider()
+			.AddPoissonDistributionProvider();
+	}
+
+	/// <summary>
+	/// Registers every bundled random provider.
+	/// </summary>
+	/// <remarks>
+	/// The cryptographic provider is a singleton and the other three are transients, because only the
+	/// first is stateless — see each package's own registration for why. A container-resolved seedable
+	/// provider is seeded from system entropy; construct one yourself when the point is to reproduce a
+	/// sequence.
+	/// </remarks>
+	/// <param name="services">The service collection to add the providers to.</param>
+	/// <returns>The same service collection, to allow chaining.</returns>
+	public static IServiceCollection AddRandomProviders(this IServiceCollection services)
+	{
+		Ensure.NotNull(services);
+
+		return services
+			.AddNativeRandomProvider()
+			.AddCryptoRandomProvider()
+			.AddXoshiroRandomProvider()
+			.AddPcgRandomProvider();
 	}
 
 	/// <summary>

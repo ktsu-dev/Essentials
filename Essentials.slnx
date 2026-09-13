@@ -16,6 +16,18 @@
     <Project Path="Essentials.CompressionProviders.Gzip/Essentials.CompressionProviders.Gzip.csproj" />
     <Project Path="Essentials.CompressionProviders.ZLib/Essentials.CompressionProviders.ZLib.csproj" />
   </Folder>
+  <Folder Name="/DistributionProviders/">
+    <Project Path="Essentials.DistributionProviders.Bernoulli/Essentials.DistributionProviders.Bernoulli.csproj" />
+    <Project Path="Essentials.DistributionProviders.Binomial/Essentials.DistributionProviders.Binomial.csproj" />
+    <Project Path="Essentials.DistributionProviders.Categorical/Essentials.DistributionProviders.Categorical.csproj" />
+    <Project Path="Essentials.DistributionProviders.Exponential/Essentials.DistributionProviders.Exponential.csproj" />
+    <Project Path="Essentials.DistributionProviders.Geometric/Essentials.DistributionProviders.Geometric.csproj" />
+    <Project Path="Essentials.DistributionProviders.LogNormal/Essentials.DistributionProviders.LogNormal.csproj" />
+    <Project Path="Essentials.DistributionProviders.Normal/Essentials.DistributionProviders.Normal.csproj" />
+    <Project Path="Essentials.DistributionProviders.Poisson/Essentials.DistributionProviders.Poisson.csproj" />
+    <Project Path="Essentials.DistributionProviders.Triangular/Essentials.DistributionProviders.Triangular.csproj" />
+    <Project Path="Essentials.DistributionProviders.Uniform/Essentials.DistributionProviders.Uniform.csproj" />
+  </Folder>
   <Folder Name="/EncodingProviders/">
     <Project Path="Essentials.EncodingProviders.Base64/Essentials.EncodingProviders.Base64.csproj" />
     <Project Path="Essentials.EncodingProviders.Hex/Essentials.EncodingProviders.Hex.csproj" />
@@ -70,6 +82,12 @@
     <Project Path="Essentials.PersistenceProviders.FileSystem/Essentials.PersistenceProviders.FileSystem.csproj" />
     <Project Path="Essentials.PersistenceProviders.InMemory/Essentials.PersistenceProviders.InMemory.csproj" />
     <Project Path="Essentials.PersistenceProviders.Temp/Essentials.PersistenceProviders.Temp.csproj" />
+  </Folder>
+  <Folder Name="/RandomProviders/">
+    <Project Path="Essentials.RandomProviders.Crypto/Essentials.RandomProviders.Crypto.csproj" />
+    <Project Path="Essentials.RandomProviders.Native/Essentials.RandomProviders.Native.csproj" />
+    <Project Path="Essentials.RandomProviders.Pcg/Essentials.RandomProviders.Pcg.csproj" />
+    <Project Path="Essentials.RandomProviders.Xoshiro/Essentials.RandomProviders.Xoshiro.csproj" />
   </Folder>
   <Folder Name="/SerializationProviders/">
     <Project Path="Essentials.SerializationProviders.Json/Essentials.SerializationProviders.Json.csproj" />
