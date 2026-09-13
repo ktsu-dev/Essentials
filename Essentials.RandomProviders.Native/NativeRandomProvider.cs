@@ -27,6 +27,7 @@ using System.Diagnostics.CodeAnalysis;
 /// </para>
 /// </remarks>
 [SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "Wrapping System.Random is the entire purpose of this type, and the choice between a fast generator and a secure one is the caller's: CryptoRandomProvider is the implementation of the same interface for work that must be unpredictable, and the remarks above point at it. Suppressed on the type rather than on each member because every member is the same wrap.")]
+[SuppressMessage("Security", "S2245:Using pseudorandom number generators (PRNGs) is security-sensitive", Justification = "This provider exists specifically to expose System.Random behind IRandomProvider, which callers select deliberately when they want the platform generator. The generator is fixed by the type's contract and cannot be substituted for a stronger one; CryptoRandomProvider is the implementation of the same interface for work that must be unpredictable")]
 public sealed class NativeRandomProvider : IRandomProvider
 {
 	private readonly Random random;
