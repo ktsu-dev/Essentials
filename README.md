@@ -1,6 +1,6 @@
 ﻿# ktsu.Essentials
 
-> A comprehensive .NET library providing high-performance interfaces and implementations for common cross-cutting concerns including compression, encoding, obfuscation, encryption, hashing, serialization, caching, persistence, validation, logging, navigation, command execution, and filesystem access.
+> A comprehensive .NET library providing high-performance interfaces and implementations for common cross-cutting concerns including compression, encoding, obfuscation, encryption, hashing, serialization, caching, persistence, validation, logging, navigation, randomness, probability distributions, command execution, and filesystem access.
 
 [![License](https://img.shields.io/github/license/ktsu-dev/Essentials.svg?label=License&logo=nuget)](LICENSE.md)
 [![NuGet Version](https://img.shields.io/nuget/v/ktsu.Essentials?label=Stable&logo=nuget)](https://nuget.org/packages/ktsu.Essentials)
@@ -29,6 +29,8 @@
 - **Validation**: `IValidationProvider<T>` with structured results, error codes, and throw-on-failure support
 - **Logging**: `ILoggingProvider` with console implementation supporting six severity levels
 - **Navigation**: `INavigationProvider<T>` with in-memory implementation for browser-like back/forward navigation
+- **Randomness**: `IRandomProvider` with four implementations — `Native` over `System.Random`, `Crypto` over the OS cryptographic generator, and `Xoshiro` (xoshiro256\*\*) and `Pcg` (PCG-XSH-RR), whose seeded sequences are fixed by the package rather than by the framework and so replay identically on any machine or runtime. One primitive to implement; range-limited draws are free of modulo bias, and shuffling, weighted choice and sampling without replacement come with it
+- **Probability Distributions**: `IContinuousDistribution` and `IDiscreteDistribution` with CDF, quantile, survival function, density or mass, moments and sampling. Ten implementations — uniform, normal, exponential, log-normal and triangular; Bernoulli, binomial, Poisson, geometric and categorical. Where a CDF has no closed form it is evaluated through the incomplete gamma and incomplete beta functions rather than by summation, so the cost does not grow with the value asked about
 - **Command Execution**: `ICommandExecutor` with native implementation for running shell commands and capturing output
 - **Filesystem**: `IFileSystemProvider` extending Testably.Abstractions for testable filesystem access
 - **Explicit Buffer Contract**: every span operation is `bool TryX(source, destination, out int bytesWritten)` and each category exposes a `GetMax…Length` bound, so callers can size a buffer up front and know exactly how much was written. Encoding, hashing and obfuscation run allocation-free on the span path; compression and encryption still buffer internally, because the underlying BCL APIs for those are stream-only
@@ -215,6 +217,95 @@ byte[] plaintext = encryption.Decrypt(ciphertext, encryptionKey, iv);
 
 For a large payload, authenticate incrementally with `CreateIncremental` and compare the result with
 `FixedTimeComparison.FixedTimeEquals` instead of allocating a concatenated copy the way the example above does.
+
+### Randomness
+
+```csharp
+using ktsu.Essentials;
+using ktsu.Essentials.RandomProviders.Crypto;
+using ktsu.Essentials.RandomProviders.Xoshiro;
+
+// Resolve whichever generator the container was given, or pick one deliberately.
+IRandomProvider random = provider.GetRequiredService<CryptoRandomProvider>();
+
+int roll = random.NextInt32(1, 7);              // unbiased over a range that does not divide 2^32
+double unit = random.NextDouble();               // [0, 1) at full 53-bit resolution
+bool heads = random.NextBoolean();
+bool rareEvent = random.NextBoolean(0.001);      // a Bernoulli trial
+byte[] token = random.NextBytes(32);
+
+List<Card> deck = BuildDeck();
+random.Shuffle(deck);                                          // every ordering equally likely
+Card drawn = random.Choose(deck);
+Item loot = random.Choose(items, weights: [60.0, 30.0, 10.0]);  // weighted
+IReadOnlyList<Player> team = random.Sample(roster, 5);          // distinct, without replacement
+
+// A seeded generator replays exactly, on any platform and any framework version — which is what
+// makes a simulation reproducible and a test that asserts on generated data possible.
+XoshiroRandomProvider seeded = new(seed: 20260913UL);
+XoshiroRandomProvider replay = new(seed: 20260913UL);
+bool identical = seeded.NextUInt64() == replay.NextUInt64();  // always true
+```
+
+Pick the implementation by what the output is for. `CryptoRandomProvider` is the one to use whenever the
+output is a secret or authenticates something — tokens, salts, nonces, a shuffle that must not be
+predictable — and it is stateless and thread-safe. `XoshiroRandomProvider` and `PcgRandomProvider` are far
+faster and replay from a seed, which the cryptographic provider cannot do by design; PCG adds a stream
+parameter, so one seed can give each actor in a simulation its own independent generator.
+`NativeRandomProvider` is the platform default, repeatable within a framework version but not across them.
+The three seedable providers carry state and are not thread-safe, which is why the container hands out a
+fresh instance per consumer rather than sharing one.
+
+### Probability Distributions
+
+```csharp
+using ktsu.Essentials;
+using ktsu.Essentials.DistributionProviders.Normal;
+using ktsu.Essentials.DistributionProviders.Poisson;
+using ktsu.Essentials.RandomProviders.Xoshiro;
+
+IContinuousDistribution latency = new NormalDistributionProvider(mean: 250.0, standardDeviation: 40.0);
+
+double median = latency.Median;                          // 250
+double p95 = latency.Quantile(0.95);                     // the 95th percentile, 315.8 ms
+double withinBudget = latency.Cdf(300.0);                // P(latency <= 300 ms) = 0.894
+double overBudget = latency.SurvivalFunction(300.0);     // the complement, computed directly
+
+// The survival function is not just 1 - Cdf. Far out in the tail the subtraction rounds the answer
+// away: 570 ms is eight standard deviations out, where the true tail is 6.2e-16 and subtracting a
+// CDF of 0.9999999999999994 from one keeps about one digit of it.
+double eightSigma = latency.SurvivalFunction(570.0);
+
+// Sampling takes the randomness at the call site, so the distribution stays immutable and shareable.
+IRandomProvider random = new XoshiroRandomProvider(seed: 42UL);
+double[] simulated = latency.Sample(random, count: 10_000);
+
+// Discrete distributions add the mass function, and the CDF is still a single evaluation.
+IDiscreteDistribution arrivals = new PoissonDistributionProvider(rate: 4.5);
+
+double exactlyThree = arrivals.Pmf(3);                   // P(N = 3) = 0.169
+double atMostThree = arrivals.Cdf(3);                    // P(N <= 3) = 0.342
+int busyHour = arrivals.Quantile(0.99);                  // the count only 1% of intervals exceed
+int observed = arrivals.Sample(random);
+```
+
+Every distribution requires only its CDF, quantile, support and first two moments; sampling defaults to
+inverting the CDF, the median to the half quantile, and a discrete quantile to bisecting the CDF, so a new
+distribution is a small class. Nothing in either interface is asynchronous, deliberately: a draw is a few
+arithmetic instructions over in-memory state, and scheduling one on the thread pool would cost far more
+than the work.
+
+The triangular, binomial and categorical distributions are left out of `AddEssentials()` because none of
+them has a standard form to default to — a three-point estimate, a trial count and a weight vector all
+belong to the situation being modelled. Register those from their own packages:
+
+```csharp
+using ktsu.Essentials.DistributionProviders.Categorical;
+using ktsu.Essentials.DistributionProviders.Triangular;
+
+services.AddTriangularDistributionProvider(minimum: 2.0, mode: 5.0, maximum: 14.0);  // a task estimate
+services.AddCategoricalDistributionProvider([60.0, 30.0, 9.0, 1.0]);                 // a loot table
+```
 
 ### Implementing a Custom Provider
 
@@ -434,6 +525,64 @@ Run shell commands and capture output.
 ### `IFileSystemProvider`
 
 Extends `Testably.Abstractions.IFileSystem` for testable filesystem operations.
+
+### `IRandomProvider`
+
+A source of uniformly distributed random values. `NextBytes(Span<byte>)` is the only member an implementation must supply; a word-at-a-time generator should also declare `NextUInt32` and `NextUInt64`, which every other default draws through. Range-limited integer draws reject the values that would make the mapping uneven rather than folding them into the low end, so they carry no modulo bias. Thread safety is per implementation.
+
+| Name | Return Type | Description |
+| ---- | ----------- | ----------- |
+| `NextBytes(Span<byte>)` | `void` | Fill a buffer with random bytes |
+| `NextBytes(int)` | `byte[]` | Self-allocating variant of the above |
+| `NextUInt32()` / `NextUInt64()` | `uint` / `ulong` | A full-width draw |
+| `NextInt32()` | `int` | A value in [0, `int.MaxValue`) |
+| `NextInt32(int)` | `int` | A value in [0, bound) |
+| `NextInt32(int, int)` | `int` | A value in [min, max) |
+| `NextInt64()`, `NextInt64(long)`, `NextInt64(long, long)` | `long` | The 64-bit counterparts |
+| `NextDouble()` | `double` | A value in [0, 1) at 53-bit resolution |
+| `NextDoubleExclusive()` | `double` | A value in (0, 1), for inverting a quantile function |
+| `NextDouble(double, double)` | `double` | A value in [min, max) |
+| `NextSingle()` | `float` | A value in [0, 1) |
+| `NextBoolean()` | `bool` | True or false with equal probability |
+| `NextBoolean(double)` | `bool` | A Bernoulli trial at the given probability |
+| `Shuffle<T>(IList<T>)` | `void` | Shuffle in place, every ordering equally likely |
+| `Choose<T>(IReadOnlyList<T>)` | `T` | One element, uniformly |
+| `Choose<T>(IReadOnlyList<T>, IReadOnlyList<double>)` | `T` | One element, weighted |
+| `Sample<T>(IReadOnlyList<T>, int)` | `IReadOnlyList<T>` | Distinct elements, without replacement |
+
+### `IDistribution<T>`
+
+A univariate probability distribution over `double` for a continuous family or `int` for a discrete one. An implementation supplies the CDF, the quantile, the support bounds and the first two moments; the rest is inherited. Instances are immutable, so one is safe to share across threads provided the `IRandomProvider` passed in at the call site is.
+
+| Name | Return Type | Description |
+| ---- | ----------- | ----------- |
+| `Mean` / `Variance` / `StandardDeviation` | `double` | The first two moments |
+| `Minimum` / `Maximum` | `T` | The support bounds, infinite where unbounded |
+| `Cdf(T)` | `double` | P(X ≤ value) |
+| `SurvivalFunction(T)` | `double` | P(X > value), declared directly where the tail matters |
+| `Quantile(double)` | `T` | The inverse of the CDF |
+| `Median` | `T` | `Quantile(0.5)` |
+| `Sample(IRandomProvider)` | `T` | One draw; defaults to inverting the CDF |
+| `Sample(IRandomProvider, Span<T>)` | `void` | Fill a buffer with independent draws |
+| `Sample(IRandomProvider, int)` | `T[]` | Self-allocating variant of the above |
+
+### `IContinuousDistribution`
+
+`IDistribution<double>` plus a density. The density is a probability per unit of x, not a probability: it integrates to one and may exceed one where the distribution is narrow.
+
+| Name | Return Type | Description |
+| ---- | ----------- | ----------- |
+| `Pdf(double)` | `double` | The probability density |
+| `LogPdf(double)` | `double` | Its logarithm, declared directly where a closed form exists |
+
+### `IDiscreteDistribution`
+
+`IDistribution<int>` plus a mass function. Unlike a density, the mass at a point is a probability in its own right. The quantile has a default here — bisection over the CDF, at most 31 evaluations even over an unbounded support — so a discrete distribution need only supply its CDF.
+
+| Name | Return Type | Description |
+| ---- | ----------- | ----------- |
+| `Pmf(int)` | `double` | The probability of exactly that outcome |
+| `LogPmf(int)` | `double` | Its logarithm, declared directly where a closed form exists |
 
 ## Contributing
 

@@ -19,7 +19,7 @@ dotnet build -c Release
 
 ## Project Structure
 
-This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces and implementations for common cross-cutting concerns: compression, encoding, obfuscation, encryption, hashing, serialization, caching, persistence, validation, logging, navigation, command execution, and filesystem access. The solution uses:
+This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces and implementations for common cross-cutting concerns: compression, encoding, obfuscation, encryption, hashing, serialization, caching, persistence, validation, logging, navigation, randomness, probability distributions, command execution, and filesystem access. The solution uses:
 
 - **ktsu.Sdk** - Custom SDK providing shared build configuration
 - **MSTest.Sdk** - Test project SDK with Microsoft Testing Platform
@@ -39,6 +39,13 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 - `Essentials/IKeyedHashProvider.cs` - Keyed hashing (HMAC) interface for authenticating data with a secret key
 - `Essentials/FixedTimeComparison.cs` - Static fixed-time byte comparison for tags obtained outside `IKeyedHashProvider.Verify`
 - `Shared/HmacKeyedHashCore.cs` - HMAC implementation shared across algorithms, linked into the three keyed hash provider projects rather than placed in the interfaces package
+- `Essentials/IRandomProvider.cs` - Uniform randomness interface. `NextBytes(Span<byte>)` is the only required member; the integer, floating-point, shuffle, choice and sampling members are default implementations over it. Deliberately has no async tier
+- `Essentials/RandomHelpers.cs` - Internal helpers behind those defaults: unbiased bounded draws (Lemire for 32 bits, rejection for 64), finite/probability/weight validation
+- `Essentials/IDistribution.cs` - `IDistribution<T>`, the shared contract of a univariate distribution: moments, support, CDF, survival function, quantile, median and sampling
+- `Essentials/IContinuousDistribution.cs` - `IDistribution<double>` plus `Pdf`/`LogPdf`
+- `Essentials/IDiscreteDistribution.cs` - `IDistribution<int>` plus `Pmf`/`LogPmf`, and a default `Quantile` that bisects the CDF. That default is an explicit reimplementation of `IDistribution<int>.Quantile`, which CA1033 misreads as an explicit implementation on a class; the suppression on it says why
+- `Shared/SpecialFunctions.cs` - Incomplete gamma, incomplete beta, error function and normal quantile, linked into the Normal, LogNormal, Binomial and Poisson providers rather than placed in the interfaces-only package
+- `Shared/DistributionArguments.cs` - Parameter validation shared by every distribution provider, linked in the same way
 - `Essentials/ISerializationProvider.cs` - Object serialization/deserialization interface
 - `Essentials/ISerializationOptions.cs` - Configurable serialization options (naming, inclusion, boxing policies)
 - `Essentials/ICacheProvider.cs` - Generic cache interface with expiration and get-or-add
@@ -62,6 +69,8 @@ Each provider implementation ships as its own project/package named `Essentials.
 - **EncryptionProviders**: Aes
 - **HashProviders**: MD5, SHA1, SHA256, SHA384, SHA512, FNV1_32, FNV1a_32, FNV1_64, FNV1a_64, CRC32, CRC64, XxHash32, XxHash64, XxHash3, XxHash128
 - **KeyedHashProviders**: HmacSha256, HmacSha384, HmacSha512
+- **RandomProviders**: Native (System.Random), Crypto (RandomNumberGenerator), Xoshiro (xoshiro256**), Pcg (PCG-XSH-RR). Xoshiro and Pcg write the algorithm out, so a seed replays identically across platforms and framework versions, which `System.Random` does not promise. The three stateful providers register as transients because they are not thread-safe; Crypto is stateless and registers as a singleton
+- **DistributionProviders**: Uniform, Normal, Exponential, LogNormal, Triangular (continuous); Bernoulli, Binomial, Poisson, Geometric, Categorical (discrete). Triangular, Binomial and Categorical need parameters with no standard default and are excluded from `AddEssentials()`, like the composite obfuscator
 - **SerializationProviders**: Json (System.Text.Json), NewtonsoftJson, Yaml, Toml
 - **FileSystemProviders**: Native
 - **CommandExecutors**: Native
@@ -92,6 +101,16 @@ All provider interfaces follow a consistent three-tier pattern:
 
    The two encoding providers each mirror their own synchronous memory profile rather than sharing one shape. `HexEncodingProvider` transforms a chunk at a time, because hex maps one byte to two and a chunk boundary never splits a pair; its decoder tops each read up to an even length first, since a `ReadAsync` may legally return fewer bytes than asked for and treating that as end-of-stream would truncate. `Base64EncodingProvider` buffers the whole input, because Base64 maps three bytes to four and a chunked transform would have to carry a partial group across every boundary — which is what its synchronous path does too. A provider makes its stream paths genuine by declaring the two `Try…Async(Stream, Stream, ...)` primitives itself, which replaces the default implementation; the four derived stream defaults compose over those primitives, so overriding two members converts all six. Span-destination async overloads do not exist — an `out` parameter cannot cross an async boundary.
 
+`IRandomProvider` and the distribution interfaces have **no async tier at all**, and that is a decision
+rather than an omission. The other interfaces offer async variants because they front I/O; a draw from a
+generator or an evaluation of a CDF is a handful of arithmetic instructions over in-memory state, so a
+`Task.Run` wrapper would cost orders of magnitude more than the work it wraps. Do not add one.
+
+Where a distribution's tail is small, `SurvivalFunction` is **declared rather than inherited**. The default
+subtracts the CDF from one, which discards the tail to cancellation: the normal survival function at 8
+sigma is 6.2e-16, and `1 - 0.9999999999999994` keeps about one digit of it. Normal, LogNormal, Exponential,
+Poisson and Geometric each compute the tail directly, and the tests assert the difference.
+
 `ICommandExecutor` is the one interface with the mirror-image concern: synchronous methods layered over an
 asynchronous one. It declares a synchronous primitive, `Execute(string, IReadOnlyDictionary<string, string>?,
 string?, CancellationToken)`, that the other two synchronous members compose over. Its default body bridges to
@@ -119,6 +138,8 @@ Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.T
 - `HashProviderTests.cs` - Tests all 15 hash provider implementations
 - `IncrementalHashTests.cs` - Tests `CreateIncremental()` and async stream hashing across all 15 hash providers, asserting incremental output equals one-shot output
 - `KeyedHashProviderTests.cs` - Tests all 3 HMAC keyed hash providers, `Verify`, and `FixedTimeComparison`
+- `RandomProviderTests.cs` - Contract tests over all 4 random providers (bounds, validation, shuffle and sampling invariants, uniformity of a range that does not divide 2^32), plus reference sequences for Xoshiro and Pcg produced by an independent transcription of each published algorithm. Those vectors make a seeded sequence part of the package contract: changing one is a breaking change and this is where it surfaces
+- `DistributionProviderTests.cs` - Tests all 10 distributions three ways: contract properties every distribution must have (CDF bounded and non-decreasing, quantile inverts it, density integrates to one, masses sum to one, survival function complements the CDF), reference values computed outside the codebase, and empirical checks that seeded samples match the analytic moments and deciles
 - `CacheProviderTests.cs` - Tests cache operations including expiration
 - `CommandExecutorTests.cs` - Tests command execution, including the synchronous path, cancellation before and during a run, a working directory that does not exist, and that `ExecuteAndGetOutput` throws unwrapped. `ICommandExecutor`'s own synchronous defaults are reached through a test double that declares only the asynchronous members, since `NativeCommandExecutor` replaces them
 - `EncodingProviderTests.cs` - Tests Base64 and Hex encoding
