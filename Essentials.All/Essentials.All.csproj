@@ -21,6 +21,16 @@
     <ProjectReference Include="..\Essentials.CompressionProviders.Gzip\Essentials.CompressionProviders.Gzip.csproj" />
     <!-- ZLib targets net6.0+ only (requires ZLibStream); excluded from netstandard2.1 -->
     <ProjectReference Include="..\Essentials.CompressionProviders.ZLib\Essentials.CompressionProviders.ZLib.csproj" Condition="'$(TargetFramework)' != 'netstandard2.1'" />
+    <ProjectReference Include="..\Essentials.DistributionProviders.Bernoulli\Essentials.DistributionProviders.Bernoulli.csproj" />
+    <ProjectReference Include="..\Essentials.DistributionProviders.Binomial\Essentials.DistributionProviders.Binomial.csproj" />
+    <ProjectReference Include="..\Essentials.DistributionProviders.Categorical\Essentials.DistributionProviders.Categorical.csproj" />
+    <ProjectReference Include="..\Essentials.DistributionProviders.Exponential\Essentials.DistributionProviders.Exponential.csproj" />
+    <ProjectReference Include="..\Essentials.DistributionProviders.Geometric\Essentials.DistributionProviders.Geometric.csproj" />
+    <ProjectReference Include="..\Essentials.DistributionProviders.LogNormal\Essentials.DistributionProviders.LogNormal.csproj" />
+    <ProjectReference Include="..\Essentials.DistributionProviders.Normal\Essentials.DistributionProviders.Normal.csproj" />
+    <ProjectReference Include="..\Essentials.DistributionProviders.Poisson\Essentials.DistributionProviders.Poisson.csproj" />
+    <ProjectReference Include="..\Essentials.DistributionProviders.Triangular\Essentials.DistributionProviders.Triangular.csproj" />
+    <ProjectReference Include="..\Essentials.DistributionProviders.Uniform\Essentials.DistributionProviders.Uniform.csproj" />
     <ProjectReference Include="..\Essentials.EncodingProviders.Base64\Essentials.EncodingProviders.Base64.csproj" />
     <ProjectReference Include="..\Essentials.EncodingProviders.Hex\Essentials.EncodingProviders.Hex.csproj" />
     <ProjectReference Include="..\Essentials.EncryptionProviders.Aes\Essentials.EncryptionProviders.Aes.csproj" />
@@ -57,6 +67,10 @@
     <ProjectReference Include="..\Essentials.PersistenceProviders.FileSystem\Essentials.PersistenceProviders.FileSystem.csproj" />
     <ProjectReference Include="..\Essentials.PersistenceProviders.InMemory\Essentials.PersistenceProviders.InMemory.csproj" />
     <ProjectReference Include="..\Essentials.PersistenceProviders.Temp\Essentials.PersistenceProviders.Temp.csproj" />
+    <ProjectReference Include="..\Essentials.RandomProviders.Crypto\Essentials.RandomProviders.Crypto.csproj" />
+    <ProjectReference Include="..\Essentials.RandomProviders.Native\Essentials.RandomProviders.Native.csproj" />
+    <ProjectReference Include="..\Essentials.RandomProviders.Pcg\Essentials.RandomProviders.Pcg.csproj" />
+    <ProjectReference Include="..\Essentials.RandomProviders.Xoshiro\Essentials.RandomProviders.Xoshiro.csproj" />
     <ProjectReference Include="..\Essentials.SerializationProviders.Json\Essentials.SerializationProviders.Json.csproj" />
     <ProjectReference Include="..\Essentials.SerializationProviders.NewtonsoftJson\Essentials.SerializationProviders.NewtonsoftJson.csproj" />
     <ProjectReference Include="..\Essentials.SerializationProviders.Toml\Essentials.SerializationProviders.Toml.csproj" />
