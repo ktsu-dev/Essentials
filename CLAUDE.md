@@ -116,9 +116,12 @@ asynchronous one. It declares a synchronous primitive, `Execute(string, IReadOnl
 string?, CancellationToken)`, that the other two synchronous members compose over. Its default body bridges to
 `ExecuteAsync` with `GetAwaiter().GetResult()` — not `.Result`, which wraps the failure in an
 `AggregateException` — and still blocks a thread for the child process's lifetime. `NativeCommandExecutor`
-declares the primitive itself and drives `System.Diagnostics.Process` synchronously (`BeginOutputReadLine` plus
-a `WaitForExit(timeout)` poll that honours the cancellation token), so no pool thread is held; declaring that
-one member converts all three synchronous overloads. See issue #17.
+declares the primitive itself and drives `System.Diagnostics.Process` synchronously (a `WaitForExit(timeout)`
+poll that honours the cancellation token, with a dedicated thread per redirected stream reading it to the end),
+so no pool thread is held; declaring that one member converts all three synchronous overloads. See issue #17.
+The reader threads read raw rather than going through the line-splitting `OutputDataReceived` callbacks, so the
+synchronous path returns byte-for-byte what the child wrote — the same text `ExecuteAsync` returns — instead of
+rewriting the terminators and adding one of its own. See issue #23.
 
 Common patterns are centralized in `ProviderHelpers.cs`:
 
@@ -141,7 +144,7 @@ Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.T
 - `RandomProviderTests.cs` - Contract tests over all 4 random providers (bounds, validation, shuffle and sampling invariants, uniformity of a range that does not divide 2^32), plus reference sequences for Xoshiro and Pcg produced by an independent transcription of each published algorithm. Those vectors make a seeded sequence part of the package contract: changing one is a breaking change and this is where it surfaces
 - `DistributionProviderTests.cs` - Tests all 10 distributions three ways: contract properties every distribution must have (CDF bounded and non-decreasing, quantile inverts it, density integrates to one, masses sum to one, survival function complements the CDF), reference values computed outside the codebase, and empirical checks that seeded samples match the analytic moments and deciles
 - `CacheProviderTests.cs` - Tests cache operations including expiration
-- `CommandExecutorTests.cs` - Tests command execution, including the synchronous path, cancellation before and during a run, a working directory that does not exist, and that `ExecuteAndGetOutput` throws unwrapped. `ICommandExecutor`'s own synchronous defaults are reached through a test double that declares only the asynchronous members, since `NativeCommandExecutor` replaces them
+- `CommandExecutorTests.cs` - Tests command execution, including the synchronous path, cancellation before and during a run, a working directory that does not exist, that the synchronous and asynchronous paths capture the same bytes for a command whose output ends without a terminator, and that `ExecuteAndGetOutput` throws unwrapped. `ICommandExecutor`'s own synchronous defaults are reached through a test double that declares only the asynchronous members, since `NativeCommandExecutor` replaces them
 - `EncodingProviderTests.cs` - Tests Base64 and Hex encoding
 - `ObfuscationProviderTests.cs` - Tests all obfuscation providers via round-trip (obfuscate → deobfuscate)
 - `FileSystemProviderTests.cs` - Tests filesystem operations
