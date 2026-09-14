@@ -289,6 +289,37 @@ public class CommandExecutorTests
 	}
 
 	/// <summary>
+	/// Regression test for issue #23: the synchronous primitive used to reassemble output line by line
+	/// with <see cref="System.Text.StringBuilder.AppendLine(string)"/>, which rewrote the child's line
+	/// terminators as <see cref="Environment.NewLine"/> and appended one the child never wrote. The two
+	/// paths disagreed on the exact text for the same command, which every other assertion here misses
+	/// because it compares with <c>Trim().Contains(...)</c>.
+	/// </summary>
+	/// <param name="executor">The executor under test.</param>
+	/// <param name="providerName">The name of the executor, for assertion messages.</param>
+	[TestMethod]
+	[DynamicData(nameof(CommandExecutors))]
+	public void CommandExecutor_Sync_Captures_The_Same_Bytes_As_Async(ICommandExecutor executor, string providerName)
+	{
+		bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+		// Both commands end without a terminator. The POSIX one also embeds a CRLF, which is foreign to
+		// the platform it runs on, so a path that normalizes terminators cannot pass by coincidence.
+		string command = isWindows ? "<nul set /p =a" : @"printf 'a\r\nb'";
+		string expected = isWindows ? "a" : "a\r\nb";
+
+		CommandResult asyncResult = executor.ExecuteAsync(command, cancellationToken: TestContext.CancellationToken).Result;
+		CommandResult syncResult = executor.Execute(command);
+
+		Assert.AreEqual(expected, asyncResult.StandardOutput, $"{providerName} async should capture exactly what the child wrote");
+		Assert.AreEqual(expected, syncResult.StandardOutput, $"{providerName} sync should capture exactly what the child wrote");
+		Assert.AreEqual(
+			asyncResult.StandardOutput,
+			syncResult.StandardOutput,
+			$"{providerName} should return the same standard output from both paths");
+	}
+
+	/// <summary>
 	/// The delay before the token used by the mid-run cancellation tests is cancelled. Long enough for the
 	/// child process to have started, short enough to keep the tests quick.
 	/// </summary>
