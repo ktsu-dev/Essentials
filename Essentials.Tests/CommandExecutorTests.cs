@@ -309,7 +309,7 @@ public class CommandExecutorTests
 		string expected = isWindows ? "a" : "a\r\nb";
 
 		CommandResult asyncResult = executor.ExecuteAsync(command, cancellationToken: TestContext.CancellationToken).Result;
-		CommandResult syncResult = executor.Execute(command);
+		CommandResult syncResult = executor.Execute(command, cancellationToken: TestContext.CancellationToken);
 
 		Assert.AreEqual(expected, asyncResult.StandardOutput, $"{providerName} async should capture exactly what the child wrote");
 		Assert.AreEqual(expected, syncResult.StandardOutput, $"{providerName} sync should capture exactly what the child wrote");
