@@ -46,31 +46,39 @@ public interface ICacheProvider<TKey, TValue> where TKey : notnull
 	/// <summary>
 	/// Gets a cached value by key, throwing if not found.
 	/// </summary>
+	/// <remarks>
+	/// Presence is decided solely by <see cref="TryGet"/>'s return value, so a key cached with a
+	/// <see langword="null"/> value returns that null rather than throwing.
+	/// </remarks>
 	/// <param name="key">The cache key.</param>
 	/// <returns>The cached value.</returns>
 	/// <exception cref="KeyNotFoundException">Thrown when the key is not found in the cache.</exception>
 	public TValue Get(TKey key)
 	{
-		if (!TryGet(key, out TValue? value) || value is null)
+		if (!TryGet(key, out TValue? value))
 		{
 			throw new KeyNotFoundException($"The key '{key}' was not found in the cache.");
 		}
 
-		return value;
+		return value!;
 	}
 
 	/// <summary>
 	/// Gets a cached value by key, or adds it using the provided factory if not found.
 	/// </summary>
+	/// <remarks>
+	/// Presence is decided solely by <see cref="TryGet"/>'s return value, so a key cached with a
+	/// <see langword="null"/> value is returned as-is and the factory is not invoked.
+	/// </remarks>
 	/// <param name="key">The cache key.</param>
 	/// <param name="factory">A factory function to create the value if not found in cache.</param>
 	/// <param name="expiration">The optional time-to-live for the cached entry if it is created.</param>
 	/// <returns>The cached or newly created value.</returns>
 	public TValue GetOrAdd(TKey key, Func<TKey, TValue> factory, TimeSpan? expiration = null)
 	{
-		if (TryGet(key, out TValue? value) && value is not null)
+		if (TryGet(key, out TValue? value))
 		{
-			return value;
+			return value!;
 		}
 
 		Ensure.NotNull(factory);

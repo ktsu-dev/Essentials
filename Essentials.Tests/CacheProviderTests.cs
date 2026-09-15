@@ -5,6 +5,7 @@ namespace ktsu.Essentials.Tests;
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using ktsu.Essentials;
 using ktsu.Essentials.All;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,14 @@ public class CacheProviderTests
 		services.AddCacheProviders();
 		using ServiceProvider provider = services.BuildServiceProvider();
 		return provider.GetRequiredService<ICacheProvider<string, int>>();
+	}
+
+	private static ICacheProvider<string, string?> CreateNullableCache()
+	{
+		ServiceCollection services = new();
+		services.AddCacheProviders();
+		using ServiceProvider provider = services.BuildServiceProvider();
+		return provider.GetRequiredService<ICacheProvider<string, string?>>();
 	}
 
 	[TestMethod]
@@ -113,6 +122,60 @@ public class CacheProviderTests
 		bool found = cache.TryGet("key", out int cached);
 		Assert.IsTrue(found, "Should cache the new value");
 		Assert.AreEqual(99, cached);
+	}
+
+	[TestMethod]
+	public void Cache_Get_Returns_Cached_Null()
+	{
+		ICacheProvider<string, string?> cache = CreateNullableCache();
+
+		cache.Set("key", null);
+
+		Assert.IsNull(cache.Get("key"), "Should return the cached null rather than throwing");
+	}
+
+	[TestMethod]
+	public void Cache_GetOrAdd_Returns_Cached_Null_Without_Invoking_Factory()
+	{
+		ICacheProvider<string, string?> cache = CreateNullableCache();
+		int factoryCalls = 0;
+
+		cache.Set("key", null);
+		string? result = cache.GetOrAdd("key", _ =>
+		{
+			factoryCalls++;
+			return "replacement";
+		});
+
+		Assert.IsNull(result, "Should return the cached null");
+		Assert.AreEqual(0, factoryCalls, "Should not re-invoke the factory for a cached null");
+	}
+
+	[TestMethod]
+	public async Task Cache_GetAsync_Returns_Cached_Null()
+	{
+		ICacheProvider<string, string?> cache = CreateNullableCache();
+
+		await cache.SetAsync("key", null).ConfigureAwait(false);
+
+		Assert.IsNull(await cache.GetAsync("key").ConfigureAwait(false), "Should return the cached null rather than throwing");
+	}
+
+	[TestMethod]
+	public async Task Cache_GetOrAddAsync_Returns_Cached_Null_Without_Invoking_Factory()
+	{
+		ICacheProvider<string, string?> cache = CreateNullableCache();
+		int factoryCalls = 0;
+
+		await cache.SetAsync("key", null).ConfigureAwait(false);
+		string? result = await cache.GetOrAddAsync("key", _ =>
+		{
+			Interlocked.Increment(ref factoryCalls);
+			return "replacement";
+		}).ConfigureAwait(false);
+
+		Assert.IsNull(result, "Should return the cached null");
+		Assert.AreEqual(0, factoryCalls, "Should not re-invoke the factory for a cached null");
 	}
 
 	[TestMethod]
