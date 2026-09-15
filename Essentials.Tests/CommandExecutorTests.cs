@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -159,7 +160,7 @@ public class CommandExecutorTests
 	}
 
 	/// <summary>
-	/// Tests that the success path of <see cref="ICommandExecutor.ExecuteAndGetOutput"/> returns the
+	/// Tests that the success path of <see cref="ICommandExecutor.ExecuteAndGetOutput(string, string?, CancellationToken)"/> returns the
 	/// captured standard output rather than throwing.
 	/// </summary>
 	/// <param name="executor">The executor under test.</param>
@@ -317,6 +318,67 @@ public class CommandExecutorTests
 			asyncResult.StandardOutput,
 			syncResult.StandardOutput,
 			$"{providerName} should return the same standard output from both paths");
+	}
+
+	/// <summary>
+	/// The synchronous members of <see cref="ICommandExecutor"/> as they were declared up to v2.3.1, in the
+	/// shape a consumer compiled against that version emits a <c>callvirt</c> to. Optional parameters are not
+	/// part of a method's signature, so a caller that omitted <c>workingDirectory</c> still bound to the
+	/// two-parameter token.
+	/// </summary>
+	public static IEnumerable<object[]> PreV232SyncSignatures =>
+	[
+		["Execute", new[] { typeof(string), typeof(string) }],
+		["Execute", new[] { typeof(string), typeof(IReadOnlyDictionary<string, string>), typeof(string) }],
+		["ExecuteAndGetOutput", new[] { typeof(string), typeof(string) }],
+	];
+
+	/// <summary>
+	/// Regression test for issue #24. v2.3.2 added an optional <see cref="CancellationToken"/> parameter to
+	/// three synchronous members of <see cref="ICommandExecutor"/> and shipped it as a patch. That is
+	/// source-compatible but not binary-compatible: the old method tokens left the assembly, so an assembly
+	/// compiled against v2.3.1 threw <see cref="MissingMethodException"/> at its first call after the upgrade.
+	/// Nothing in the source of this project can observe that, because the source binds at compile time — the
+	/// check has to be against the emitted metadata.
+	/// </summary>
+	/// <param name="name">The member name.</param>
+	/// <param name="parameterTypes">The parameter types of the pre-v2.3.2 arity.</param>
+	[TestMethod]
+	[DynamicData(nameof(PreV232SyncSignatures))]
+	public void CommandExecutor_Keeps_The_Pre_V232_Synchronous_Arities(string name, Type[] parameterTypes)
+	{
+		MethodInfo? member = typeof(ICommandExecutor).GetMethod(name, parameterTypes);
+
+		Assert.IsNotNull(
+			member,
+			$"ICommandExecutor.{name}({string.Join(", ", Array.ConvertAll(parameterTypes, t => t.Name))}) is the arity consumers " +
+			"compiled against v2.3.1 or earlier call. Removing it is a binary break that no compile step catches.");
+	}
+
+	/// <summary>
+	/// The restored arities have to do the work, not merely exist: a consumer that never recompiled reaches
+	/// them by the old token, so each one must land on the current implementation. Invoking through
+	/// <see cref="MethodInfo"/> dispatches the same way that consumer's <c>callvirt</c> does.
+	/// </summary>
+	[TestMethod]
+	public void CommandExecutor_Pre_V232_Arities_Reach_The_Current_Implementation()
+	{
+		ICommandExecutor executor = new AsyncOnlyCommandExecutor();
+
+		MethodInfo execute = typeof(ICommandExecutor).GetMethod("Execute", [typeof(string), typeof(string)])!;
+		MethodInfo executeWithEnvironment = typeof(ICommandExecutor).GetMethod(
+			"Execute",
+			[typeof(string), typeof(IReadOnlyDictionary<string, string>), typeof(string)])!;
+		MethodInfo executeAndGetOutput = typeof(ICommandExecutor).GetMethod("ExecuteAndGetOutput", [typeof(string), typeof(string)])!;
+
+		CommandResult result = (CommandResult)execute.Invoke(executor, ["restored", null])!;
+		Assert.AreEqual("restored", result.StandardOutput, "the two-parameter Execute should return the current implementation's result");
+
+		CommandResult withEnvironment = (CommandResult)executeWithEnvironment.Invoke(executor, ["restored", null, null])!;
+		Assert.AreEqual("restored", withEnvironment.StandardOutput, "the three-parameter Execute should return the current implementation's result");
+
+		string output = (string)executeAndGetOutput.Invoke(executor, ["restored", null])!;
+		Assert.AreEqual("restored", output, "the two-parameter ExecuteAndGetOutput should return the current implementation's output");
 	}
 
 	/// <summary>

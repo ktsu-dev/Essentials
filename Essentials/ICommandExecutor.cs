@@ -4,6 +4,7 @@ namespace ktsu.Essentials;
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -73,6 +74,26 @@ public interface ICommandExecutor
 		Execute(command, null, workingDirectory, cancellationToken);
 
 	/// <summary>
+	/// Executes a command synchronously and returns the result.
+	/// </summary>
+	/// <param name="command">The command to execute.</param>
+	/// <param name="workingDirectory">The optional working directory for the command. If null, uses the current directory.</param>
+	/// <returns>A <see cref="CommandResult"/> containing the exit code, standard output, and standard error.</returns>
+	/// <remarks>
+	/// The arity this member had before v2.3.2, kept so assemblies compiled against v2.3.1 or earlier keep
+	/// binding. Adding the optional <c>cancellationToken</c> parameter in v2.3.2 was source-compatible but not
+	/// binary-compatible: the old method token left the assembly, so a consumer that upgraded without
+	/// recompiling hit <see cref="MissingMethodException"/> at its first call. Newly compiled source that omits
+	/// the token binds here too — overload resolution prefers the member with no omitted optional parameters —
+	/// and this forwards to the token-taking overload with <see cref="CancellationToken.None"/>, which is the
+	/// behaviour that arity had before v2.3.2. Pass a token to reach
+	/// <see cref="Execute(string, string?, CancellationToken)"/>.
+	/// </remarks>
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	public CommandResult Execute(string command, string? workingDirectory) =>
+		Execute(command, workingDirectory, CancellationToken.None);
+
+	/// <summary>
 	/// Executes a command synchronously with custom environment variables and returns the result.
 	/// </summary>
 	/// <param name="command">The command to execute.</param>
@@ -95,6 +116,22 @@ public interface ICommandExecutor
 #pragma warning disable VSTHRD002 // Avoid problematic synchronous waits: the bridge is the documented fallback when a provider declares no synchronous primitive.
 		ExecuteAsync(command, environmentVariables, workingDirectory, cancellationToken).GetAwaiter().GetResult();
 #pragma warning restore VSTHRD002
+
+	/// <summary>
+	/// Executes a command synchronously with custom environment variables and returns the result.
+	/// </summary>
+	/// <param name="command">The command to execute.</param>
+	/// <param name="environmentVariables">Optional environment variables to set for the command. If null, inherits the current environment.</param>
+	/// <param name="workingDirectory">The optional working directory for the command. If null, uses the current directory.</param>
+	/// <returns>A <see cref="CommandResult"/> containing the exit code, standard output, and standard error.</returns>
+	/// <remarks>
+	/// The arity this member had before v2.3.2, kept for binary compatibility on the same terms as
+	/// <see cref="Execute(string, string?)"/>. It forwards to the synchronous primitive with
+	/// <see cref="CancellationToken.None"/>, so a provider that declares the primitive converts this too.
+	/// </remarks>
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	public CommandResult Execute(string command, IReadOnlyDictionary<string, string>? environmentVariables, string? workingDirectory) =>
+		Execute(command, environmentVariables, workingDirectory, CancellationToken.None);
 
 	/// <summary>
 	/// Executes a command asynchronously and returns just the standard output, throwing if the command fails.
@@ -134,4 +171,19 @@ public interface ICommandExecutor
 
 		return result.StandardOutput;
 	}
+
+	/// <summary>
+	/// Executes a command synchronously and returns just the standard output, throwing if the command fails.
+	/// </summary>
+	/// <param name="command">The command to execute.</param>
+	/// <param name="workingDirectory">The optional working directory for the command. If null, uses the current directory.</param>
+	/// <returns>The standard output of the command.</returns>
+	/// <exception cref="InvalidOperationException">Thrown when the command exits with a non-zero exit code.</exception>
+	/// <remarks>
+	/// The arity this member had before v2.3.2, kept for binary compatibility on the same terms as
+	/// <see cref="Execute(string, string?)"/>.
+	/// </remarks>
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	public string ExecuteAndGetOutput(string command, string? workingDirectory) =>
+		ExecuteAndGetOutput(command, workingDirectory, CancellationToken.None);
 }
