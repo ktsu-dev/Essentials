@@ -18,4 +18,36 @@
     <NoWarn>$(NoWarn);KTSU0001</NoWarn>
   </PropertyGroup>
 
+  <!--
+    ktsu.Sdk turns on EnablePackageValidation and ApiCompatValidateAssemblies, but the baseline half of
+    package validation only runs once a baseline version is named. Without one, nothing compares a pack
+    against what is already on nuget.org - which is how v2.3.2 shipped a binary-breaking change to
+    ICommandExecutor as a patch (issue #24). Every public surface here is default interface methods, so
+    adding an optional parameter stays source-compatible, reviews clean, and is caught by nothing until a
+    consumer that upgraded without recompiling throws MissingMethodException.
+
+    2.5.2 is the newest version published for all 70 packages, including the distribution providers that
+    first shipped in 2.5.0 - an older baseline does not exist for those and would fail to restore. Move it
+    forward when a break is intended and accepted; leaving it behind is safe, because an older baseline only
+    widens what is compared.
+
+    ktsu.Sdk also sets EnableStrictModeForBaselineValidation, which makes the comparison symmetric: every
+    API *added* since the baseline is reported as well. That is the right setting for a servicing branch
+    that must stay API-identical, and the wrong one here, where minor releases add providers and members -
+    it would fail the build on exactly the changes this repository exists to make. Turned off so the
+    baseline reports what it is here for: members that disappeared.
+
+    Both live in Directory.Build.targets rather than .props for the reason above: the SDK assigns
+    EnableStrictModeForBaselineValidation outright, and props is imported before the SDK.
+  -->
+  <PropertyGroup>
+    <PackageValidationBaselineVersion Condition="'$(PackageValidationBaselineVersion)' == ''">2.5.2</PackageValidationBaselineVersion>
+    <EnableStrictModeForBaselineValidation>false</EnableStrictModeForBaselineValidation>
+  </PropertyGroup>
+
+  <!-- See ApiCompatExcludeAttributes.txt for why the one attribute it lists is not compared. -->
+  <ItemGroup>
+    <ApiCompatExcludeAttributesFile Include="$(MSBuildThisFileDirectory)ApiCompatExcludeAttributes.txt" />
+  </ItemGroup>
+
 </Project>

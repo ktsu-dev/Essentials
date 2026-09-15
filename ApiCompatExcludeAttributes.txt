@@ -1,0 +1,9 @@
+# Attributes package validation must not compare, in DocId format.
+#
+# AsyncStateMachineAttribute names the compiler-generated state machine type behind an async method
+# body. The name is an implementation detail - it moves when the body is edited, when members are
+# reordered, and between compiler versions - and it carries no contract a consumer can bind to.
+# Compared against a published baseline it reports CP0015 on every async default interface method
+# whose body has changed since, which would make the baseline unusable on this library: its whole
+# public surface is default interface methods.
+T:System.Runtime.CompilerServices.AsyncStateMachineAttribute
