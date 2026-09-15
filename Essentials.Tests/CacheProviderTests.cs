@@ -156,9 +156,9 @@ public class CacheProviderTests
 	{
 		ICacheProvider<string, string?> cache = CreateNullableCache();
 
-		await cache.SetAsync("key", null).ConfigureAwait(false);
+		await cache.SetAsync("key", null, cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
 
-		Assert.IsNull(await cache.GetAsync("key").ConfigureAwait(false), "Should return the cached null rather than throwing");
+		Assert.IsNull(await cache.GetAsync("key", TestContext.CancellationToken).ConfigureAwait(false), "Should return the cached null rather than throwing");
 	}
 
 	[TestMethod]
@@ -167,12 +167,12 @@ public class CacheProviderTests
 		ICacheProvider<string, string?> cache = CreateNullableCache();
 		int factoryCalls = 0;
 
-		await cache.SetAsync("key", null).ConfigureAwait(false);
+		await cache.SetAsync("key", null, cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
 		string? result = await cache.GetOrAddAsync("key", _ =>
 		{
 			Interlocked.Increment(ref factoryCalls);
 			return "replacement";
-		}).ConfigureAwait(false);
+		}, cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
 
 		Assert.IsNull(result, "Should return the cached null");
 		Assert.AreEqual(0, factoryCalls, "Should not re-invoke the factory for a cached null");
