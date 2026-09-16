@@ -1,8 +1,6 @@
-## v2.6.1 (patch)
+## v2.6.2 (patch)
 
-Changes since v2.6.0:
+Changes since v2.6.1:
 
-- fix: keep a legitimately-null destination in navigation history [patch] ([@Claude](https://github.com/Claude))
-- test: pass TestContext.CancellationToken in the new async cache tests ([@matt-edmondson](https://github.com/matt-edmondson))
-- fix: honour a legitimately cached null in ICacheProvider.Get and GetOrAdd [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- Gate Dependabot auto-merge on CI actually being green ([@Claude](https://github.com/Claude))
 
