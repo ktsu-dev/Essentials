@@ -4,6 +4,7 @@ namespace ktsu.Essentials.Tests;
 
 using ktsu.Essentials;
 using ktsu.Essentials.All;
+using ktsu.Essentials.NavigationProviders.InMemory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -19,6 +20,10 @@ public class NavigationProviderTests
 		using ServiceProvider provider = services.BuildServiceProvider();
 		return provider.GetRequiredService<INavigationProvider<string>>();
 	}
+
+	// The DI registration is an open generic, and nullable annotations do not survive to runtime, so a
+	// provider over a nullable destination type is constructed directly rather than resolved.
+	private static INavigationProvider<string?> CreateNullableNavigation() => new InMemoryNavigationProvider<string?>();
 
 	[TestMethod]
 	public void Navigation_Initial_State()
@@ -160,5 +165,98 @@ public class NavigationProviderTests
 
 		nav.GoForward(); // C
 		Assert.AreEqual("C", nav.Current);
+	}
+
+	[TestMethod]
+	public void Navigation_NavigateTo_Pushes_Null_Current_To_BackStack()
+	{
+		INavigationProvider<string?> nav = CreateNullableNavigation();
+
+		nav.NavigateTo("a");
+		nav.NavigateTo(null);
+		nav.NavigateTo("b");
+
+		Assert.AreEqual("b", nav.Current);
+		Assert.AreEqual(2, nav.BackStack.Count, "A null destination is a step in the history, not an absent one");
+		Assert.AreEqual("a", nav.BackStack[0]);
+		Assert.IsNull(nav.BackStack[1], "The null destination should be the most recent back entry");
+	}
+
+	[TestMethod]
+	public void Navigation_GoBack_Lands_On_Null_Destination()
+	{
+		INavigationProvider<string?> nav = CreateNullableNavigation();
+
+		nav.NavigateTo("a");
+		nav.NavigateTo(null);
+		nav.NavigateTo("b");
+		nav.GoBack();
+
+		Assert.IsNull(nav.Current, "GoBack should land on the null destination, not skip past it");
+		Assert.AreEqual(1, nav.BackStack.Count, "Only 'a' should remain behind the null destination");
+		Assert.AreEqual("a", nav.BackStack[0]);
+		Assert.AreEqual(1, nav.ForwardStack.Count);
+		Assert.AreEqual("b", nav.ForwardStack[0]);
+	}
+
+	[TestMethod]
+	public void Navigation_GoBack_From_Null_Destination_Returns_Previous()
+	{
+		INavigationProvider<string?> nav = CreateNullableNavigation();
+
+		nav.NavigateTo("a");
+		nav.NavigateTo(null);
+		nav.NavigateTo("b");
+		nav.GoBack();
+		string? result = nav.GoBack();
+
+		Assert.AreEqual("a", result, "The step before the null destination should still be reachable");
+		Assert.AreEqual("a", nav.Current);
+		Assert.AreEqual(2, nav.ForwardStack.Count, "Both the null destination and 'b' should be ahead");
+		Assert.IsNull(nav.ForwardStack[1], "The null destination should be the next forward entry");
+		Assert.AreEqual("b", nav.ForwardStack[0]);
+	}
+
+	[TestMethod]
+	public void Navigation_GoForward_Pushes_Null_Current_To_BackStack()
+	{
+		INavigationProvider<string?> nav = CreateNullableNavigation();
+
+		nav.NavigateTo("a");
+		nav.NavigateTo(null);
+		nav.NavigateTo("b");
+		nav.GoBack();
+		string? result = nav.GoForward();
+
+		Assert.AreEqual("b", result);
+		Assert.AreEqual(2, nav.BackStack.Count, "Going forward off the null destination should push it back");
+		Assert.AreEqual("a", nav.BackStack[0]);
+		Assert.IsNull(nav.BackStack[1]);
+	}
+
+	[TestMethod]
+	public void Navigation_First_NavigateTo_Does_Not_Push_Unset_Current()
+	{
+		INavigationProvider<string?> nav = CreateNullableNavigation();
+
+		nav.NavigateTo(null);
+
+		Assert.IsNull(nav.Current);
+		Assert.AreEqual(0, nav.BackStack.Count, "An unset current destination is not a history entry");
+		Assert.IsFalse(nav.CanGoBack);
+	}
+
+	[TestMethod]
+	public void Navigation_Clear_Forgets_Null_Current()
+	{
+		INavigationProvider<string?> nav = CreateNullableNavigation();
+
+		nav.NavigateTo(null);
+		nav.Clear();
+		nav.NavigateTo("a");
+
+		Assert.AreEqual("a", nav.Current);
+		Assert.AreEqual(0, nav.BackStack.Count, "Clear should forget that a destination was ever set");
+		Assert.IsFalse(nav.CanGoBack);
 	}
 }

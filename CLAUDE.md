@@ -149,7 +149,7 @@ Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.T
 - `ObfuscationProviderTests.cs` - Tests all obfuscation providers via round-trip (obfuscate → deobfuscate)
 - `FileSystemProviderTests.cs` - Tests filesystem operations
 - `LoggingProviderTests.cs` - Tests logging provider
-- `NavigationProviderTests.cs` - Tests navigation stack behavior
+- `NavigationProviderTests.cs` - Tests navigation stack behavior, including a nullable destination type where null is a legitimate step in the history rather than an unset current destination
 - `PersistenceProviderTests.cs` - Tests all persistence backends
 - `SerializationProviderTests.cs` - Tests serialization provider implementations
 - `RoundTripTests.cs` - Tests compression/encoding/encryption round-trips
