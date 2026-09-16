@@ -15,6 +15,14 @@ public class InMemoryNavigationProvider<T> : INavigationProvider<T>
 	private readonly List<T> forwardStack = [];
 
 	/// <summary>
+	/// Whether a destination has been navigated to, which is what decides if <see cref="Current"/>
+	/// belongs on one of the stacks. Presence is tracked separately from the value because for a
+	/// nullable <typeparamref name="T"/> a null <see cref="Current"/> is a legitimate destination
+	/// rather than the absence of one.
+	/// </summary>
+	private bool hasCurrent;
+
+	/// <summary>
 	/// Gets the current navigation destination, or the default value if no navigation has occurred.
 	/// </summary>
 	public T? Current { get; private set; }
@@ -44,14 +52,19 @@ public class InMemoryNavigationProvider<T> : INavigationProvider<T>
 	/// and the forward stack is cleared.
 	/// </summary>
 	/// <param name="destination">The destination to navigate to.</param>
+	/// <remarks>
+	/// A null destination is pushed onto the back stack like any other, so a nullable
+	/// <typeparamref name="T"/> can use null to mean a real "nothing selected" step in the history.
+	/// </remarks>
 	public void NavigateTo(T destination)
 	{
-		if (Current is not null)
+		if (hasCurrent)
 		{
-			backStack.Add(Current);
+			backStack.Add(Current!);
 		}
 
 		Current = destination;
+		hasCurrent = true;
 		forwardStack.Clear();
 	}
 
@@ -67,13 +80,14 @@ public class InMemoryNavigationProvider<T> : INavigationProvider<T>
 			return default;
 		}
 
-		if (Current is not null)
+		if (hasCurrent)
 		{
-			forwardStack.Add(Current);
+			forwardStack.Add(Current!);
 		}
 
 		int lastIndex = backStack.Count - 1;
 		Current = backStack[lastIndex];
+		hasCurrent = true;
 		backStack.RemoveAt(lastIndex);
 		return Current;
 	}
@@ -90,13 +104,14 @@ public class InMemoryNavigationProvider<T> : INavigationProvider<T>
 			return default;
 		}
 
-		if (Current is not null)
+		if (hasCurrent)
 		{
-			backStack.Add(Current);
+			backStack.Add(Current!);
 		}
 
 		int lastIndex = forwardStack.Count - 1;
 		Current = forwardStack[lastIndex];
+		hasCurrent = true;
 		forwardStack.RemoveAt(lastIndex);
 		return Current;
 	}
@@ -109,5 +124,6 @@ public class InMemoryNavigationProvider<T> : INavigationProvider<T>
 		backStack.Clear();
 		forwardStack.Clear();
 		Current = default;
+		hasCurrent = false;
 	}
 }
