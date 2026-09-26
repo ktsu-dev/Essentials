@@ -90,7 +90,7 @@ public class PersistenceNamingTests
 	public async Task Keys_Containing_A_Tilde_Are_Listed()
 	{
 		string[] tildeKeys = ["a~b", "backup~1", "~draft"];
-		string dir = Path.Combine(Path.GetTempPath(), "NamingTests_" + Guid.NewGuid().ToString("N")[..8]);
+		string dir = Directory.CreateTempSubdirectory("NamingTests_").FullName;
 		try
 		{
 			FileSystemPersistenceProvider<string> persistence = new(new NativeFileSystemProvider(), new JsonSerializationProvider(), dir);
