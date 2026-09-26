@@ -383,15 +383,50 @@ public class ProviderContractTests
 	public void Compression_Bound_Holds_For_Incompressible_Input(ICompressionProvider compressor, string providerName)
 	{
 		// Random data cannot be compressed, so the output exceeds the input and exercises the bound's margin.
-		byte[] incompressible = new byte[4096];
-		new Random(20260814).NextBytes(incompressible);
+		// Sizes well past 64 KB matter: zlib emits a block roughly every 16 KB, so a per-64 KB margin
+		// only failed once the input passed about 280 KB.
+		foreach (int length in new[] { 4096, 1024 * 1024, 10 * 1024 * 1024 })
+		{
+			byte[] incompressible = new byte[length];
+			new Random(20260814).NextBytes(incompressible);
 
-		byte[] buffer = new byte[compressor.GetMaxCompressedLength(incompressible.Length)];
-		Assert.IsTrue(compressor.TryCompress(incompressible, buffer, out int written),
-			$"{providerName}: GetMaxCompressedLength must be large enough even when the data cannot be compressed");
+			byte[] buffer = new byte[compressor.GetMaxCompressedLength(incompressible.Length)];
+			Assert.IsTrue(compressor.TryCompress(incompressible, buffer, out int written),
+				$"{providerName}: GetMaxCompressedLength must be large enough for {length} incompressible bytes");
 
-		byte[] restored = compressor.Decompress(buffer.AsSpan(0, written));
-		CollectionAssert.AreEqual(incompressible, restored, $"{providerName} should round-trip incompressible data");
+			byte[] restored = compressor.Decompress(buffer.AsSpan(0, written));
+			CollectionAssert.AreEqual(incompressible, restored, $"{providerName} should round-trip {length} incompressible bytes");
+		}
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(CompressionProviders))]
+	public void Compress_Succeeds_For_Large_Incompressible_Input(ICompressionProvider compressor, string providerName)
+	{
+		// Compress sizes its buffer from GetMaxCompressedLength, so an undersized bound surfaced as an exception here.
+		byte[] incompressible = new byte[1024 * 1024];
+		new Random(20260926).NextBytes(incompressible);
+
+		byte[] compressed = compressor.Compress(incompressible);
+
+		CollectionAssert.AreEqual(incompressible, compressor.Decompress(compressed), $"{providerName} should round-trip 1 MiB of incompressible data");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(CompressionProviders))]
+	public void Compression_Bound_Does_Not_Overflow(ICompressionProvider compressor, string providerName)
+	{
+		int bound;
+		try
+		{
+			bound = compressor.GetMaxCompressedLength(int.MaxValue - 16);
+		}
+		catch (ArgumentOutOfRangeException)
+		{
+			return;
+		}
+
+		Assert.IsGreaterThan(0, bound, $"{providerName}: a bound near int.MaxValue must throw rather than wrap to a small or negative value");
 	}
 
 	[TestMethod]

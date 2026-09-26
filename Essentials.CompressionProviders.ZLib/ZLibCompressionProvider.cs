@@ -16,12 +16,20 @@ public class ZLibCompressionProvider : ICompressionProvider
 {
 	/// <inheritdoc/>
 	/// <remarks>
-	/// Incompressible input can grow slightly: the deflate family emits stored blocks of up to 65535
-	/// bytes with a 5-byte header each, plus a fixed container header and trailer. The margin below
-	/// covers that for every algorithm here.
+	/// This is zlib's <c>deflateBound</c> for the default parameters, plus the 6-byte zlib header and checksum. zlib closes a block each
+	/// time its literal buffer fills, roughly every 16 KB, so incompressible input pays a stored-block
+	/// header far more often than once per 64 KB. Computed in <see cref="long"/> so a large
+	/// <paramref name="sourceLength"/> cannot overflow into a small bound.
 	/// </remarks>
+	/// <exception cref="ArgumentOutOfRangeException">The bound for <paramref name="sourceLength"/> exceeds <see cref="int.MaxValue"/>.</exception>
 	public int GetMaxCompressedLength(int sourceLength)
-		=> sourceLength + (((sourceLength / 65535) + 1) * 5) + 64;
+	{
+		long length = sourceLength;
+		long bound = length + (length >> 12) + (length >> 14) + (length >> 25) + 13 + 6;
+		return bound <= int.MaxValue
+			? (int)bound
+			: throw new ArgumentOutOfRangeException(nameof(sourceLength), sourceLength, "The compressed length bound exceeds the largest possible buffer.");
+	}
 
 	/// <summary>
 	/// Tries to compress the data from the span and write the result to the destination.
