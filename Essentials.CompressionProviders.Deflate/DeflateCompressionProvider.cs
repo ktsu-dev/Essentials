@@ -18,7 +18,7 @@ public class DeflateCompressionProvider : ICompressionProvider
 	/// <remarks>zlib's <c>deflateBound</c>, raw deflate adds no container; see <see cref="DeflateBound"/>.</remarks>
 	/// <exception cref="ArgumentOutOfRangeException">The bound for <paramref name="sourceLength"/> exceeds <see cref="int.MaxValue"/>.</exception>
 	public int GetMaxCompressedLength(int sourceLength)
-		=> DeflateBound.GetMaxCompressedLength(sourceLength, containerOverhead: 0);
+		=> DeflateBound.GetMaxCompressedLength(sourceLength, DeflateBound.RawDeflateOverhead);
 
 	/// <summary>
 	/// Tries to compress the data from the span and write the result to the destination.

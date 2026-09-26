@@ -18,7 +18,7 @@ public class GzipCompressionProvider : ICompressionProvider
 	/// <remarks>zlib's <c>deflateBound</c>, plus the 18-byte gzip header and trailer; see <see cref="DeflateBound"/>.</remarks>
 	/// <exception cref="ArgumentOutOfRangeException">The bound for <paramref name="sourceLength"/> exceeds <see cref="int.MaxValue"/>.</exception>
 	public int GetMaxCompressedLength(int sourceLength)
-		=> DeflateBound.GetMaxCompressedLength(sourceLength, containerOverhead: 18);
+		=> DeflateBound.GetMaxCompressedLength(sourceLength, DeflateBound.GzipOverhead);
 
 	/// <summary>
 	/// Tries to compress the data from the span and write the result to the destination.
