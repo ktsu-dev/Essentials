@@ -31,8 +31,14 @@ public static class PersistenceProviderUtilities
 	/// </summary>
 	private const int MaxEncodedLength = 100;
 
-	/// <summary>Separates the truncated prefix from its hash. Never produced by encoding.</summary>
+	/// <summary>
+	/// Separates the truncated prefix from its hash. Keys may contain it too, so a truncated name is
+	/// recognised by its whole shape (see <see cref="IsTruncatedName"/>), not by the marker alone.
+	/// </summary>
 	private const char TruncationMarker = '~';
+
+	/// <summary>The length of the hexadecimal hash that follows <see cref="TruncationMarker"/>, as formatted by <c>x16</c>.</summary>
+	private const int TruncationHashLength = 16;
 
 	/// <summary>
 	/// Converts a key to a filename that is safe on every supported platform.
@@ -92,7 +98,7 @@ public static class PersistenceProviderUtilities
 	/// <returns>The original key text, or null if the name was truncated or is not valid encoded output.</returns>
 	public static string? GetKeyFromFileName(string fileName)
 	{
-		if (string.IsNullOrEmpty(fileName) || fileName.Contains(TruncationMarker))
+		if (string.IsNullOrEmpty(fileName) || IsTruncatedName(fileName))
 		{
 			// Truncated names intentionally discard part of the key and cannot be recovered.
 			return null;
@@ -203,6 +209,39 @@ public static class PersistenceProviderUtilities
 		}
 
 		return $"{encoded[..prefixLength]}{TruncationMarker}{hash}";
+	}
+
+	/// <summary>
+	/// Reports whether <paramref name="fileName"/> has the shape <see cref="Truncate"/> produces: at or
+	/// just under <see cref="MaxEncodedLength"/>, ending in the marker and a lowercase hexadecimal hash.
+	/// </summary>
+	/// <remarks>
+	/// Checking only for the marker hid every key that merely contains a <c>~</c>, such as
+	/// <c>backup~1</c>, from key listings even though it was stored and retrievable.
+	/// </remarks>
+	private static bool IsTruncatedName(string fileName)
+	{
+		// Truncate backs off by up to two characters to avoid splitting a percent-escape.
+		if (fileName.Length is < (MaxEncodedLength - 2) or > MaxEncodedLength)
+		{
+			return false;
+		}
+
+		int markerIndex = fileName.Length - TruncationHashLength - 1;
+		if (fileName[markerIndex] != TruncationMarker)
+		{
+			return false;
+		}
+
+		for (int i = markerIndex + 1; i < fileName.Length; i++)
+		{
+			if (fileName[i] is not ((>= '0' and <= '9') or (>= 'a' and <= 'f')))
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	private static bool IsInsideEscape(string encoded, int cut)
