@@ -15,13 +15,10 @@ using System.Threading.Tasks;
 public class DeflateCompressionProvider : ICompressionProvider
 {
 	/// <inheritdoc/>
-	/// <remarks>
-	/// Incompressible input can grow slightly: the deflate family emits stored blocks of up to 65535
-	/// bytes with a 5-byte header each, plus a fixed container header and trailer. The margin below
-	/// covers that for every algorithm here.
-	/// </remarks>
+	/// <remarks>zlib's <c>deflateBound</c>, raw deflate adds no container; see <see cref="DeflateBound"/>.</remarks>
+	/// <exception cref="ArgumentOutOfRangeException">The bound for <paramref name="sourceLength"/> exceeds <see cref="int.MaxValue"/>.</exception>
 	public int GetMaxCompressedLength(int sourceLength)
-		=> sourceLength + (((sourceLength / 65535) + 1) * 5) + 64;
+		=> DeflateBound.GetMaxCompressedLength(sourceLength, DeflateBound.RawDeflateOverhead);
 
 	/// <summary>
 	/// Tries to compress the data from the span and write the result to the destination.

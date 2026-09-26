@@ -44,6 +44,7 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 - `Essentials/IDistribution.cs` - `IDistribution<T>`, the shared contract of a univariate distribution: moments, support, CDF, survival function, quantile, median and sampling
 - `Essentials/IContinuousDistribution.cs` - `IDistribution<double>` plus `Pdf`/`LogPdf`
 - `Essentials/IDiscreteDistribution.cs` - `IDistribution<int>` plus `Pmf`/`LogPmf`, and a default `Quantile` that bisects the CDF. That default is an explicit reimplementation of `IDistribution<int>.Quantile`, which CA1033 misreads as an explicit implementation on a class; the suppression on it says why
+- `Shared/DeflateBound.cs` - zlib's `deflateBound` plus container overhead, linked into the Deflate, Gzip and ZLib providers as their `GetMaxCompressedLength`
 - `Shared/SpecialFunctions.cs` - Incomplete gamma, incomplete beta, error function and normal quantile, linked into the Normal, LogNormal, Binomial and Poisson providers rather than placed in the interfaces-only package
 - `Shared/DistributionArguments.cs` - Parameter validation shared by every distribution provider, linked in the same way
 - `Essentials/ISerializationProvider.cs` - Object serialization/deserialization interface

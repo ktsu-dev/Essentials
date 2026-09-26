@@ -15,13 +15,10 @@ using System.Threading.Tasks;
 public class BrotliCompressionProvider : ICompressionProvider
 {
 	/// <inheritdoc/>
-	/// <remarks>
-	/// Incompressible input can grow slightly: the deflate family emits stored blocks of up to 65535
-	/// bytes with a 5-byte header each, plus a fixed container header and trailer. The margin below
-	/// covers that for every algorithm here.
-	/// </remarks>
+	/// <remarks>Delegates to Brotli's own worst-case bound rather than approximating it.</remarks>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="sourceLength"/> is negative or larger than Brotli can bound.</exception>
 	public int GetMaxCompressedLength(int sourceLength)
-		=> sourceLength + (((sourceLength / 65535) + 1) * 5) + 64;
+		=> BrotliEncoder.GetMaxCompressedLength(sourceLength);
 
 	/// <summary>
 	/// Tries to compress the data from the span and write the result to the destination.

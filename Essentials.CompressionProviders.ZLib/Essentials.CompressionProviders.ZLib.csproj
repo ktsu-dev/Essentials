@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\DeflateBound.cs" Link="DeflateBound.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="ktsu.Essentials.Tests" />
   </ItemGroup>
 
