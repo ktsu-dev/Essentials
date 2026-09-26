@@ -15,21 +15,10 @@ using System.Threading.Tasks;
 public class GzipCompressionProvider : ICompressionProvider
 {
 	/// <inheritdoc/>
-	/// <remarks>
-	/// This is zlib's <c>deflateBound</c> for the default parameters, plus the 18-byte gzip header and trailer. zlib closes a block each
-	/// time its literal buffer fills, roughly every 16 KB, so incompressible input pays a stored-block
-	/// header far more often than once per 64 KB. Computed in <see cref="long"/> so a large
-	/// <paramref name="sourceLength"/> cannot overflow into a small bound.
-	/// </remarks>
+	/// <remarks>zlib's <c>deflateBound</c>, plus the 18-byte gzip header and trailer; see <see cref="DeflateBound"/>.</remarks>
 	/// <exception cref="ArgumentOutOfRangeException">The bound for <paramref name="sourceLength"/> exceeds <see cref="int.MaxValue"/>.</exception>
 	public int GetMaxCompressedLength(int sourceLength)
-	{
-		long length = sourceLength;
-		long bound = length + (length >> 12) + (length >> 14) + (length >> 25) + 13 + 18;
-		return bound <= int.MaxValue
-			? (int)bound
-			: throw new ArgumentOutOfRangeException(nameof(sourceLength), sourceLength, "The compressed length bound exceeds the largest possible buffer.");
-	}
+		=> DeflateBound.GetMaxCompressedLength(sourceLength, containerOverhead: 18);
 
 	/// <summary>
 	/// Tries to compress the data from the span and write the result to the destination.
