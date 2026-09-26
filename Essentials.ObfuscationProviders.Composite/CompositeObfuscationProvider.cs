@@ -58,10 +58,9 @@ public class CompositeObfuscationProvider : IObfuscationProvider
 	{
 		bytesWritten = 0;
 
-		byte[] current = data.ToArray();
-		foreach (IObfuscationProvider stage in _stages)
+		if (!TryRunForward(data.ToArray(), out byte[] current))
 		{
-			current = stage.Obfuscate(current);
+			return false;
 		}
 
 		if (destination.Length < current.Length)
@@ -84,10 +83,9 @@ public class CompositeObfuscationProvider : IObfuscationProvider
 
 		using MemoryStream buffer = new();
 		data.CopyTo(buffer);
-		byte[] current = buffer.ToArray();
-		foreach (IObfuscationProvider stage in _stages)
+		if (!TryRunForward(buffer.ToArray(), out byte[] current))
 		{
-			current = stage.Obfuscate(current);
+			return false;
 		}
 
 		destination.Write(current, 0, current.Length);
@@ -99,10 +97,9 @@ public class CompositeObfuscationProvider : IObfuscationProvider
 	{
 		bytesWritten = 0;
 
-		byte[] current = obfuscatedData.ToArray();
-		for (int i = _stages.Count - 1; i >= 0; i--)
+		if (!TryRunReverse(obfuscatedData.ToArray(), out byte[] current))
 		{
-			current = _stages[i].Deobfuscate(current);
+			return false;
 		}
 
 		if (destination.Length < current.Length)
@@ -125,13 +122,58 @@ public class CompositeObfuscationProvider : IObfuscationProvider
 
 		using MemoryStream buffer = new();
 		obfuscatedData.CopyTo(buffer);
-		byte[] current = buffer.ToArray();
-		for (int i = _stages.Count - 1; i >= 0; i--)
+		if (!TryRunReverse(buffer.ToArray(), out byte[] current))
 		{
-			current = _stages[i].Deobfuscate(current);
+			return false;
 		}
 
 		destination.Write(current, 0, current.Length);
+		return true;
+	}
+
+	/// <summary>
+	/// Obfuscates <paramref name="data"/> through every stage in order, stopping at the first stage
+	/// that fails. Each stage runs through its own <c>Try</c> method, so a failure is reported rather
+	/// than thrown and the composite keeps the <c>Try</c> contract of its stages.
+	/// </summary>
+	private bool TryRunForward(byte[] data, out byte[] result)
+	{
+		result = data;
+		foreach (IObfuscationProvider stage in _stages)
+		{
+			byte[] buffer = new byte[stage.GetMaxObfuscatedLength(result.Length)];
+			if (!stage.TryObfuscate(result, buffer, out int written))
+			{
+				result = [];
+				return false;
+			}
+
+			result = buffer.AsSpan(0, written).ToArray();
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// Deobfuscates <paramref name="data"/> through every stage in reverse order, stopping at the
+	/// first stage that fails, for the same reason as <see cref="TryRunForward"/>.
+	/// </summary>
+	private bool TryRunReverse(byte[] data, out byte[] result)
+	{
+		result = data;
+		for (int i = _stages.Count - 1; i >= 0; i--)
+		{
+			IObfuscationProvider stage = _stages[i];
+			byte[] buffer = new byte[stage.GetMaxDeobfuscatedLength(result.Length)];
+			if (!stage.TryDeobfuscate(result, buffer, out int written))
+			{
+				result = [];
+				return false;
+			}
+
+			result = buffer.AsSpan(0, written).ToArray();
+		}
+
 		return true;
 	}
 }

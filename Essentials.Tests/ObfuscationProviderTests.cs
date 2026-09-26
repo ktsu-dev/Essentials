@@ -6,7 +6,9 @@ using System.Collections.Generic;
 using System.Text;
 using ktsu.Essentials;
 using ktsu.Essentials.ObfuscationProviders.Base64;
+using ktsu.Essentials.ObfuscationProviders.Composite;
 using ktsu.Essentials.ObfuscationProviders.Hex;
+using ktsu.Essentials.ObfuscationProviders.Xor;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -94,5 +96,39 @@ public class ObfuscationProviderTests
 
 		Assert.AreNotEqual(original, obfuscated, "Obfuscated text should not match the input");
 		Assert.AreEqual(original, restored);
+	}
+
+	private static IObfuscationProvider CompositeWithFallibleStage()
+		=> new CompositeObfuscationProvider([new XorObfuscationProvider(), new Base64ObfuscationProvider()]);
+
+	[TestMethod]
+	public void Obfuscation_Composite_TryDeobfuscate_Span_ReturnsFalseWhenAStageFails()
+	{
+		IObfuscationProvider provider = CompositeWithFallibleStage();
+		byte[] invalid = Encoding.UTF8.GetBytes("!!!");
+		byte[] destination = new byte[provider.GetMaxDeobfuscatedLength(invalid.Length)];
+
+		Assert.IsFalse(provider.TryDeobfuscate(invalid, destination, out int bytesWritten));
+		Assert.AreEqual(0, bytesWritten);
+	}
+
+	[TestMethod]
+	public void Obfuscation_Composite_TryDeobfuscate_Stream_ReturnsFalseWhenAStageFails()
+	{
+		IObfuscationProvider provider = CompositeWithFallibleStage();
+		using MemoryStream invalid = new(Encoding.UTF8.GetBytes("!!!"));
+		using MemoryStream destination = new();
+
+		Assert.IsFalse(provider.TryDeobfuscate(invalid, destination));
+		Assert.AreEqual(0, destination.Length, "Nothing should be written when a stage fails");
+	}
+
+	[TestMethod]
+	public void Obfuscation_Composite_WithFallibleStage_Roundtrips()
+	{
+		IObfuscationProvider provider = CompositeWithFallibleStage();
+		byte[] original = Encoding.UTF8.GetBytes("composite with a base64 stage");
+
+		CollectionAssert.AreEqual(original, provider.Deobfuscate(provider.Obfuscate(original)));
 	}
 }
