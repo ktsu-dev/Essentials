@@ -43,7 +43,7 @@ public class PersistenceNamingTests
 	[TestMethod]
 	public void SafeFileName_Roundtrips_Through_Decoding()
 	{
-		foreach (string key in CollidingKeys.Concat(["plain", "with space", "unicode-日本語", "pct%sign", "dot.in.middle"]))
+		foreach (string key in CollidingKeys.Concat(["plain", "with space", "unicode-日本語", "pct%sign", "dot.in.middle", "backup~1", "~draft", "a~b"]))
 		{
 			string encoded = PersistenceProviderUtilities.GetSafeFileName(key);
 
@@ -84,6 +84,32 @@ public class PersistenceNamingTests
 		Assert.IsLessThanOrEqualTo(100, first.Length, "Long keys must be bounded to keep paths within platform limits");
 		Assert.AreNotEqual(first, second, "Truncated keys must remain distinct");
 		Assert.IsNull(PersistenceProviderUtilities.GetKeyFromFileName(first), "Truncated names are not recoverable and must report so");
+	}
+
+	[TestMethod]
+	public async Task Keys_Containing_A_Tilde_Are_Listed()
+	{
+		string[] tildeKeys = ["a~b", "backup~1", "~draft"];
+		string dir = Directory.CreateTempSubdirectory("NamingTests_").FullName;
+		try
+		{
+			FileSystemPersistenceProvider<string> persistence = new(new NativeFileSystemProvider(), new JsonSerializationProvider(), dir);
+
+			foreach (string key in tildeKeys)
+			{
+				await persistence.StoreAsync(key, key, TestContext.CancellationToken).ConfigureAwait(false);
+			}
+
+			string[] keys = [.. await persistence.GetAllKeysAsync(TestContext.CancellationToken).ConfigureAwait(false)];
+			CollectionAssert.AreEquivalent(tildeKeys, keys, "Keys that contain '~' but were never truncated must be listed");
+		}
+		finally
+		{
+			if (Directory.Exists(dir))
+			{
+				Directory.Delete(dir, true);
+			}
+		}
 	}
 
 	[TestMethod]
