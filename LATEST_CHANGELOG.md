@@ -1,10 +1,10 @@
-## v2.7.0 (minor)
+## v2.8.0 (minor)
 
-Changes since v2.6.0:
+Changes since v2.7.0:
 
-- Return false from the composite's Try methods when a stage fails ([@Claude](https://github.com/Claude))
-- Gate Dependabot auto-merge on CI actually being green ([@Claude](https://github.com/Claude))
-- fix: keep a legitimately-null destination in navigation history [patch] ([@Claude](https://github.com/Claude))
-- test: pass TestContext.CancellationToken in the new async cache tests ([@matt-edmondson](https://github.com/matt-edmondson))
-- fix: honour a legitimately cached null in ICacheProvider.Get and GetOrAdd [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- Name each container's deflate overhead ([@Claude](https://github.com/Claude))
+- Share the deflate bound across the Deflate, Gzip and ZLib providers ([@Claude](https://github.com/Claude))
+- Create the tilde-key test's temp directory with CreateTempSubdirectory ([@Claude](https://github.com/Claude))
+- Size compression bounds for incompressible input past 280 KB ([@Claude](https://github.com/Claude))
+- List persisted keys that contain a tilde ([@Claude](https://github.com/Claude))
 
