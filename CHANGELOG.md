@@ -1,6 +1,12 @@
-## v2.8.0
+## v2.9.0 (minor)
 
-No significant changes detected since v2.8.0.
+Changes since v2.8.0:
+
+- Drop the byte-order marks the edit added ([@Claude](https://github.com/Claude))
+- Drop the byte-order marks the edit added ([@Claude](https://github.com/Claude))
+- Guard ExpM1 and Log1P on the argument instead of exact float equality ([@Claude](https://github.com/Claude))
+- Keep the exponential CDF and quantile precise near zero ([@Claude](https://github.com/Claude))
+- Compute the triangular variance from the side widths ([@Claude](https://github.com/Claude))
 
 ## v2.8.0 (minor)
 
