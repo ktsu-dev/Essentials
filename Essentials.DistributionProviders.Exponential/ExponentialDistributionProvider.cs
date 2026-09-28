@@ -50,7 +50,12 @@ public sealed class ExponentialDistributionProvider(double rate) : IContinuousDi
 	public double LogPdf(double value) => value < 0.0 ? double.NegativeInfinity : Math.Log(Rate) - (Rate * value);
 
 	/// <inheritdoc />
-	public double Cdf(double value) => value <= 0.0 ? 0.0 : 1.0 - Math.Exp(-Rate * value);
+	/// <remarks>
+	/// Evaluated as <c>-expm1(-λx)</c> rather than <c>1 - exp(-λx)</c>: the subtraction keeps only the
+	/// digits of a number near one, so short waits lost their precision and anything below about 1e-16
+	/// came out as zero.
+	/// </remarks>
+	public double Cdf(double value) => value <= 0.0 ? 0.0 : -SpecialFunctions.ExpM1(-Rate * value);
 
 	/// <summary>
 	/// Evaluates the survival function, the probability that the wait exceeds <paramref name="value"/>.
@@ -69,7 +74,9 @@ public sealed class ExponentialDistributionProvider(double rate) : IContinuousDi
 	{
 		DistributionArguments.QuantileProbability(probability, nameof(probability));
 
-		return probability >= 1.0 ? double.PositiveInfinity : -Math.Log(1.0 - probability) / Rate;
+		// log1p rather than log(1 - p), for the same reason Cdf uses expm1: a small probability would
+		// otherwise round to a quantile of zero, and the negation of log(1) to one of negative zero.
+		return probability >= 1.0 ? double.PositiveInfinity : -SpecialFunctions.Log1P(-probability) / Rate;
 	}
 
 	/// <inheritdoc />

@@ -478,6 +478,29 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Exponential_Keeps_Its_Precision_Near_Zero()
+	{
+		// 1 - exp(-λx) and -log(1 - p) keep only the digits of a number near one: below about 1e-16 both
+		// rounded to zero, and the quantile to negative zero, outside the support.
+		ExponentialDistributionProvider distribution = new(2.0);
+		Assert.AreEqual(2e-17, distribution.Cdf(1e-17), 2e-17 * 1e-15);
+		Assert.AreEqual(5e-18, distribution.Quantile(1e-17), 5e-18 * 1e-15);
+
+		ExponentialDistributionProvider unit = new();
+		Assert.AreEqual(9.9999999995e-11, unit.Cdf(1e-10), 9.9999999995e-11 * 1e-15);
+		Assert.AreEqual(1.00000000005e-10, unit.Quantile(1e-10), 1.00000000005e-10 * 1e-15);
+
+		Assert.IsFalse(double.IsNegative(distribution.Quantile(0.0)), "Quantile(0) is negative zero");
+		Assert.IsFalse(double.IsNegative(distribution.Quantile(1e-17)), "Quantile(1e-17) is negative");
+
+		// The rewrite must not disturb the ordinary range or the far tail.
+		Assert.AreEqual(0.6321205588285577, distribution.Cdf(0.5), 1e-15);
+		Assert.AreEqual(1.0, distribution.Cdf(1000.0), Tight);
+		Assert.AreEqual(1.0, distribution.Cdf(double.PositiveInfinity), Tight);
+		Assert.AreEqual(0.5, distribution.Quantile(distribution.Cdf(0.5)), 1e-14);
+	}
+
+	[TestMethod]
 	public void LogNormal_Matches_Its_Closed_Form()
 	{
 		LogNormalDistributionProvider standard = new();

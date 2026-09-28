@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\SpecialFunctions.cs" Link="SpecialFunctions.cs" />
     <Compile Include="..\Shared\DistributionArguments.cs" Link="DistributionArguments.cs" />
   </ItemGroup>
 
