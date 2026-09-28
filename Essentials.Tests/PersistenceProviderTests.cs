@@ -524,7 +524,7 @@ public class PersistenceProviderTests
 		// Called through the interface, as consumers do: FileSystem and Temp declared their own public
 		// RetrieveOrCreateAsync that returned a default without storing it, so the same call persisted on
 		// InMemory, ConfigHome and DataHome but not on these two.
-		string fileSystemDir = Path.Combine(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
+		string fileSystemDir = Path.Join(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
 		NativeFileSystemProvider fs = new();
 		JsonSerializationProvider serializer = new();
 		using TempPersistenceProvider<string> temp = new(fs, serializer, "PersistenceTests_Temp_" + Guid.NewGuid().ToString("N")[..8]);
