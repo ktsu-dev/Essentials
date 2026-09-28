@@ -521,6 +521,25 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Triangular_Moments_Do_Not_Depend_On_Where_The_Triangle_Sits()
+	{
+		// Bounds large next to their spread made the textbook variance cancel to 0, or go negative and
+		// turn the standard deviation into NaN.
+		double reference = new TriangularDistributionProvider(0.0, 1.0, 2.0).Variance;
+		Assert.AreEqual(1.0 / 6.0, reference, Tight);
+		Assert.AreEqual(reference, new TriangularDistributionProvider(1e9, 1e9 + 1, 1e9 + 2).Variance, 1e-15);
+		Assert.AreEqual(reference, new TriangularDistributionProvider(1e12, 1e12 + 1, 1e12 + 2).Variance, 1e-15);
+		Assert.AreEqual(7.0 / 18.0, new TriangularDistributionProvider(1e8, 1e8 + 1, 1e8 + 3).Variance, 1e-15);
+
+		IContinuousDistribution offset = new TriangularDistributionProvider(1e12, 1e12 + 1, 1e12 + 2);
+		Assert.AreEqual(Math.Sqrt(reference), offset.StandardDeviation, 1e-15);
+
+		// Averaging the raw bounds overflows near the top of the range; measuring from the lower bound does not.
+		TriangularDistributionProvider huge = new(double.MaxValue / 2.0, double.MaxValue * 0.75, double.MaxValue);
+		Assert.AreEqual(double.MaxValue * 0.75, huge.Mean, double.MaxValue * 1e-15);
+	}
+
+	[TestMethod]
 	public void Bernoulli_Matches_Its_Closed_Form()
 	{
 		BernoulliDistributionProvider distribution = new(0.3);

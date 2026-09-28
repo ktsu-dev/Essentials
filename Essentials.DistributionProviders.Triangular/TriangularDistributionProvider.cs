@@ -58,12 +58,22 @@ public sealed class TriangularDistributionProvider : IContinuousDistribution
 	public double Mode { get; }
 
 	/// <inheritdoc />
-	public double Mean => (Minimum + Mode + Maximum) / 3.0;
+	/// <remarks>
+	/// Measured from the lower bound rather than as the average of the three raw parameters, so bounds
+	/// near ±<see cref="double.MaxValue"/> cannot overflow the sum.
+	/// </remarks>
+	public double Mean => Minimum + ((lowerWidth + width) / 3.0);
 
 	/// <inheritdoc />
+	/// <remarks>
+	/// The textbook form, <c>(a² + b² + c² − ab − ac − bc) / 18</c>, is algebraically identical but squares
+	/// the raw bounds. For bounds that are large next to their spread — timestamps, prices in cents, file
+	/// offsets — those squares cancel down to an O(1) result and every significant digit is lost, which can
+	/// even leave the variance negative. Written in the two side widths the variance depends only on the
+	/// shape of the triangle, not on where it sits.
+	/// </remarks>
 	public double Variance
-		=> ((Minimum * Minimum) + (Mode * Mode) + (Maximum * Maximum)
-			- (Minimum * Mode) - (Minimum * Maximum) - (Mode * Maximum)) / 18.0;
+		=> ((lowerWidth * lowerWidth) + (upperWidth * upperWidth) + (lowerWidth * upperWidth)) / 18.0;
 
 	/// <inheritdoc />
 	public double Pdf(double value)
