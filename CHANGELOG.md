@@ -1,3 +1,7 @@
+## v2.9.0
+
+No significant changes detected since v2.9.0.
+
 ## v2.9.0 (minor)
 
 Changes since v2.8.0:
@@ -307,6 +311,8 @@ Changes since v1.1.0:
 - Add configuration providers for JSON, TOML, and YAML formats ([@matt-edmondson](https://github.com/matt-edmondson))
 - Add abstractions for command execution, configuration, encoding, logging, navigation, persistence, and validation ([@matt-edmondson](https://github.com/matt-edmondson))
 - Add .gitignore and project.yml for Serena configuration ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 - Refactor permissions in dotnet.yml for least privilege; add SonarLint settings.json for project configuration ([@matt-edmondson](https://github.com/matt-edmondson))
 - Remove legacy build scripts ([@matt-edmondson](https://github.com/matt-edmondson))
 - Remove skipped_release logic from build steps in dotnet.yml ([@matt-edmondson](https://github.com/matt-edmondson))
@@ -317,6 +323,8 @@ Changes since v1.1.0:
 - Migrate to KtsuBuild dotnet build pipeline ([@matt-edmondson](https://github.com/matt-edmondson))
 - Add .gitignore and project.yml for Serena configuration ([@matt-edmondson](https://github.com/matt-edmondson))
 - Refactor null checks in IObfuscationProvider and ISerializationProvider to use Ensure.NotNull method; update Polyfill package version to 9.8.0 ([@matt-edmondson](https://github.com/matt-edmondson))
+- Remove .github\workflows\project.yml ([@matt-edmondson](https://github.com/matt-edmondson))
+- Remove .github\workflows\project.yml ([@matt-edmondson](https://github.com/matt-edmondson))
 - Update docs and api compatibility files ([@matt-edmondson](https://github.com/matt-edmondson))
 - Add project references and update AssemblyInfo for testing and source linking ([@matt-edmondson](https://github.com/matt-edmondson))
 - Change project SDK from Microsoft.NET.Sdk to MSTest.Sdk ([@matt-edmondson](https://github.com/matt-edmondson))
@@ -326,7 +334,9 @@ Changes since v1.1.0:
 - Add test project detection to Invoke-DotNetTest function ([@matt-edmondson](https://github.com/matt-edmondson))
 - Update .NET version to 10.0 and adjust test coverage reporting ([@matt-edmondson](https://github.com/matt-edmondson))
 - Update project configuration and add CLAUDE.md for documentation ([@matt-edmondson](https://github.com/matt-edmondson))
+- Add .runsettings file for coverage configuration, update GitHub Actions workflow to handle skipped releases, and enhance PSBuild script for coverage file handling. Update winget manifest script to detect NuGet packages and refine project type checks. ([@matt-edmondson](https://github.com/matt-edmondson))
 - Enhance project type detection in update-winget-manifests.ps1 by adding checks for generated NuGet packages and refining logic to distinguish between library, executable, test, and demo projects. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Enhance GitHub Actions workflow to set outputs based on pipeline results for skipped releases, ensuring fallback to build configuration values when necessary. ([@matt-edmondson](https://github.com/matt-edmondson))
 - Refactor ISerializationOptions interface to unify member serialization policies and enhance clarity. Introduce new properties for serialization and deserialization policies, and update related enums for improved configurability. ([@matt-edmondson](https://github.com/matt-edmondson))
 - Add ISerializationOptions interface and related policies for serialization configuration ([@matt-edmondson](https://github.com/matt-edmondson))
 - Add SHA384 and SHA512 hash providers, along with FNV1_32, FNV1a_32, FNV1_64, and FNV1a_64 implementations. Update Common.sln and add corresponding unit tests for all new providers. Enhance existing tests for dependency injection and serialization. Include necessary project files and suppressions for compatibility. ([@matt-edmondson](https://github.com/matt-edmondson))
