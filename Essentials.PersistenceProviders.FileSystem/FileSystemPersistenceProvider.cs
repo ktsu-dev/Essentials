@@ -118,11 +118,8 @@ public sealed class FileSystemPersistenceProvider<TKey>(
 	}
 
 	/// <inheritdoc/>
-	public async Task<T> RetrieveOrCreateAsync<T>(TKey key, CancellationToken cancellationToken = default) where T : new()
-	{
-		T? obj = await RetrieveAsync<T>(key, cancellationToken).ConfigureAwait(false);
-		return obj ?? new T();
-	}
+	public Task<T> RetrieveOrCreateAsync<T>(TKey key, CancellationToken cancellationToken = default) where T : new()
+		=> PersistenceDefaults.RetrieveOrCreateAsync<TKey, T>(this, key, cancellationToken);
 
 	/// <inheritdoc/>
 	public Task<bool> ExistsAsync(TKey key, CancellationToken cancellationToken = default)

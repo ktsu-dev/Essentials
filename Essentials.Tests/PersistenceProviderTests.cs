@@ -516,6 +516,42 @@ public class PersistenceProviderTests
 		}
 	}
 
+	// --- Cross-provider contract ---
+
+	[TestMethod]
+	public async Task RetrieveOrCreate_Stores_The_New_Instance_On_Every_Provider()
+	{
+		// Called through the interface, as consumers do: FileSystem and Temp declared their own public
+		// RetrieveOrCreateAsync that returned a default without storing it, so the same call persisted on
+		// InMemory, ConfigHome and DataHome but not on these two.
+		string fileSystemDir = Path.Join(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+		using TempPersistenceProvider<string> temp = new(fs, serializer, "PersistenceTests_Temp_" + Guid.NewGuid().ToString("N")[..8]);
+
+		try
+		{
+			IPersistenceProvider<string>[] providers =
+			[
+				CreatePersistence(),
+				new FileSystemPersistenceProvider<string>(fs, serializer, fileSystemDir),
+				temp,
+			];
+
+			foreach (IPersistenceProvider<string> persistence in providers)
+			{
+				TestData created = await persistence.RetrieveOrCreateAsync<TestData>("bootstrap", TestContext.CancellationToken).ConfigureAwait(false);
+				Assert.IsNotNull(created);
+				Assert.IsTrue(await persistence.ExistsAsync("bootstrap", TestContext.CancellationToken).ConfigureAwait(false), $"{persistence.ProviderName} did not store the new instance");
+			}
+		}
+		finally
+		{
+			CleanupDirectory(fileSystemDir);
+			temp.CleanupDirectory();
+		}
+	}
+
 	public sealed class TestData
 	{
 		public string Name { get; set; } = string.Empty;

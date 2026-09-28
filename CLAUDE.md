@@ -47,6 +47,7 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 - `Shared/DeflateBound.cs` - zlib's `deflateBound` plus container overhead, linked into the Deflate, Gzip and ZLib providers as their `GetMaxCompressedLength`
 - `Shared/SpecialFunctions.cs` - Incomplete gamma, incomplete beta, error function, normal quantile and cancellation-free `ExpM1`/`Log1P`, linked into the Normal, LogNormal, Exponential, Binomial and Poisson providers rather than placed in the interfaces-only package
 - `Shared/DistributionArguments.cs` - Parameter validation shared by every distribution provider, linked in the same way
+- `Shared/PersistenceDefaults.cs` - The `IPersistenceProvider` default `RetrieveOrCreateAsync` body, linked into the FileSystem and Temp providers, which declare that member themselves and so hide the default
 - `Essentials/ISerializationProvider.cs` - Object serialization/deserialization interface
 - `Essentials/ISerializationOptions.cs` - Configurable serialization options (naming, inclusion, boxing policies)
 - `Essentials/ICacheProvider.cs` - Generic cache interface with expiration and get-or-add
