@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials;
 
@@ -132,6 +132,63 @@ internal static class SpecialFunctions
 	/// <param name="value">The argument. Must not be negative.</param>
 	/// <returns>The natural logarithm of <paramref name="value"/> factorial.</returns>
 	internal static double LogFactorial(int value) => LogGamma(value + 1.0);
+
+	/// <summary>
+	/// Evaluates <c>exp(x) - 1</c> without losing precision for arguments near zero.
+	/// </summary>
+	/// <remarks>
+	/// Subtracting one from <c>exp(x)</c> keeps only the digits that survived the rounding of a number
+	/// near one, so the relative error grows like ε/|x| and the result is zero below about 1e-16. Kahan's
+	/// correction divides the rounded difference by the logarithm of the same rounded exponential, which
+	/// carries the identical rounding error and cancels it, leaving an answer good to a few ulps. Written
+	/// out because <c>double.ExpM1</c> is not available on every target and on .NET is the naive
+	/// subtraction anyway.
+	/// </remarks>
+	/// <param name="value">The argument.</param>
+	/// <returns><c>exp(value) - 1</c>.</returns>
+	internal static double ExpM1(double value)
+	{
+		double exponential = Math.Exp(value);
+		if (exponential == 1.0)
+		{
+			return value;
+		}
+
+		double difference = exponential - 1.0;
+		if (difference == -1.0 || double.IsPositiveInfinity(exponential))
+		{
+			return difference;
+		}
+
+		return difference * value / Math.Log(exponential);
+	}
+
+	/// <summary>
+	/// Evaluates <c>log(1 + x)</c> without losing precision for arguments near zero.
+	/// </summary>
+	/// <remarks>
+	/// The mirror of <see cref="ExpM1"/>: forming <c>1 + x</c> rounds away the low digits of a small
+	/// <c>x</c> before the logarithm sees them. Scaling by <c>x / ((1 + x) - 1)</c> — the ratio of the
+	/// argument to what actually survived the addition — restores them. Returns <paramref name="value"/>
+	/// itself, sign of zero included, when the addition rounds to exactly one.
+	/// </remarks>
+	/// <param name="value">The argument. Must be greater than or equal to -1.</param>
+	/// <returns><c>log(1 + value)</c>.</returns>
+	internal static double Log1P(double value)
+	{
+		double sum = 1.0 + value;
+		if (sum == 1.0)
+		{
+			return value;
+		}
+
+		if (double.IsPositiveInfinity(sum) || sum == 0.0)
+		{
+			return Math.Log(sum);
+		}
+
+		return Math.Log(sum) * value / (sum - 1.0);
+	}
 
 	/// <summary>
 	/// Evaluates the natural logarithm of a binomial coefficient.
