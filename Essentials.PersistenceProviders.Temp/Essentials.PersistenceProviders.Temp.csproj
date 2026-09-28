@@ -15,6 +15,10 @@
     <PackageReference Include="Testably.Abstractions.FileSystem.Interface" /></ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\PersistenceDefaults.cs" Link="PersistenceDefaults.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="ktsu.Essentials.Tests" />
   </ItemGroup>
 
