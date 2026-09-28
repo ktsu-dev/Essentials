@@ -118,7 +118,17 @@ public sealed class TempPersistenceProvider<TKey>(
 	public async Task<T> RetrieveOrCreateAsync<T>(TKey key, CancellationToken cancellationToken = default) where T : new()
 	{
 		T? obj = await RetrieveAsync<T>(key, cancellationToken).ConfigureAwait(false);
-		return obj ?? new T();
+		if (obj is not null)
+		{
+			return obj;
+		}
+
+		// Stored before it is returned, as the interface documents and the other providers do: callers
+		// bootstrap a record with this, and one that was never written comes back as a fresh default on
+		// every call.
+		T newInstance = new();
+		await StoreAsync(key, newInstance, cancellationToken).ConfigureAwait(false);
+		return newInstance;
 	}
 
 	/// <inheritdoc/>
