@@ -148,19 +148,25 @@ internal static class SpecialFunctions
 	/// <returns><c>exp(value) - 1</c>.</returns>
 	internal static double ExpM1(double value)
 	{
-		double exponential = Math.Exp(value);
-		if (exponential == 1.0)
+		// Below ε the answer is the argument itself to within an ulp, and exp rounds to exactly one, which
+		// would leave the correction below dividing zero by zero. Above ε it never rounds to one.
+		if (Math.Abs(value) <= Epsilon)
 		{
 			return value;
 		}
 
-		double difference = exponential - 1.0;
-		if (difference == -1.0 || double.IsPositiveInfinity(exponential))
+		double exponential = Math.Exp(value);
+		if (exponential <= 0.0)
 		{
-			return difference;
+			return -1.0;
 		}
 
-		return difference * value / Math.Log(exponential);
+		if (double.IsPositiveInfinity(exponential))
+		{
+			return exponential;
+		}
+
+		return (exponential - 1.0) * value / Math.Log(exponential);
 	}
 
 	/// <summary>
@@ -170,19 +176,20 @@ internal static class SpecialFunctions
 	/// The mirror of <see cref="ExpM1"/>: forming <c>1 + x</c> rounds away the low digits of a small
 	/// <c>x</c> before the logarithm sees them. Scaling by <c>x / ((1 + x) - 1)</c> — the ratio of the
 	/// argument to what actually survived the addition — restores them. Returns <paramref name="value"/>
-	/// itself, sign of zero included, when the addition rounds to exactly one.
+	/// itself, sign of zero included, when it is too small for the addition to register.
 	/// </remarks>
 	/// <param name="value">The argument. Must be greater than or equal to -1.</param>
 	/// <returns><c>log(1 + value)</c>.</returns>
 	internal static double Log1P(double value)
 	{
-		double sum = 1.0 + value;
-		if (sum == 1.0)
+		// As in ExpM1: below ε the answer is the argument, and 1 + x may round to exactly one.
+		if (Math.Abs(value) <= Epsilon)
 		{
 			return value;
 		}
 
-		if (double.IsPositiveInfinity(sum) || sum == 0.0)
+		double sum = 1.0 + value;
+		if (double.IsPositiveInfinity(sum) || sum <= 0.0)
 		{
 			return Math.Log(sum);
 		}
