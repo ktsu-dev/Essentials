@@ -4,11 +4,13 @@ namespace ktsu.Essentials.Tests;
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using ktsu.Essentials;
 using ktsu.Essentials.FileSystemProviders.Native;
 using ktsu.Essentials.PersistenceProviders.FileSystem;
+using ktsu.Essentials.PersistenceProviders.Temp;
 using ktsu.Essentials.SerializationProviders.Json;
 using ktsu.Essentials.SerializationProviders.Toml;
 using ktsu.Essentials.SerializationProviders.Yaml;
@@ -161,6 +163,160 @@ public class PersistenceNamingTests
 				Directory.Delete(dir, true);
 			}
 		}
+	}
+
+	private static readonly double[] CultureSensitiveDoubleKeys = [1.5, 0.1, -2.25e-7, 1234567.875];
+
+	private static readonly DateTime[] CultureSensitiveDateKeys =
+	[
+		new(2026, 3, 4, 5, 6, 7, DateTimeKind.Utc),
+		new DateTime(2026, 12, 31, 23, 59, 59, 123, DateTimeKind.Unspecified).AddTicks(4567),
+	];
+
+	[TestMethod]
+	public void FormatKey_Ignores_The_Current_Culture()
+	{
+		CultureInfo original = CultureInfo.CurrentCulture;
+		try
+		{
+			CultureInfo.CurrentCulture = CommaDecimalDayFirstCulture();
+
+			Assert.AreEqual("1.5", PersistenceProviderUtilities.FormatKey(1.5));
+			Assert.AreEqual("2026-03-04T05:06:07.0000000Z", PersistenceProviderUtilities.FormatKey(new DateTime(2026, 3, 4, 5, 6, 7, DateTimeKind.Utc)));
+			Assert.AreEqual("a,b", PersistenceProviderUtilities.FormatKey("a,b"));
+		}
+		finally
+		{
+			CultureInfo.CurrentCulture = original;
+		}
+	}
+
+	[TestMethod]
+	public void FormatKey_Round_Trips_Every_Key_Kind_Through_TryConvertToKey()
+	{
+		CultureInfo original = CultureInfo.CurrentCulture;
+		try
+		{
+			CultureInfo.CurrentCulture = CommaDecimalDayFirstCulture();
+
+			AssertRoundTrips(0.1f, "0.1");
+			AssertRoundTrips(12.5m, "12.5");
+			AssertRoundTrips(-7L, "-7");
+			AssertRoundTrips(new DateTimeOffset(2026, 3, 4, 5, 6, 7, TimeSpan.FromHours(10)), "2026-03-04T05:06:07.0000000+10:00");
+
+			DateTime utc = new(2026, 3, 4, 5, 6, 7, DateTimeKind.Utc);
+			Assert.IsTrue(PersistenceProviderUtilities.TryConvertToKey(PersistenceProviderUtilities.FormatKey(utc), out DateTime parsedUtc));
+			Assert.AreEqual(DateTimeKind.Utc, parsedUtc.Kind, "A UTC key should not come back as local time");
+		}
+		finally
+		{
+			CultureInfo.CurrentCulture = original;
+		}
+
+		Assert.AreEqual("plain", PersistenceProviderUtilities.FormatKey(new NonFormattableKey("plain")), "A key that is not IFormattable falls back to ToString");
+		Assert.IsFalse(PersistenceProviderUtilities.TryConvertToKey("not-a-date", out DateTime _), "Unparseable input should fail, not yield DateTime.MinValue");
+		Assert.IsFalse(PersistenceProviderUtilities.TryConvertToKey("not-a-date", out DateTimeOffset _), "Unparseable input should fail, not yield DateTimeOffset.MinValue");
+	}
+
+	private static void AssertRoundTrips<TKey>(TKey key, string expectedText) where TKey : notnull
+	{
+		string text = PersistenceProviderUtilities.FormatKey(key);
+		Assert.AreEqual(expectedText, text);
+		Assert.IsTrue(PersistenceProviderUtilities.TryConvertToKey(text, out TKey parsed), $"'{text}' should parse back");
+		Assert.AreEqual(key, parsed);
+	}
+
+	private sealed record NonFormattableKey(string Name)
+	{
+		public override string ToString() => Name;
+	}
+
+	[TestMethod]
+	public async Task FileSystem_Double_And_Date_Keys_Round_Trip_Across_Cultures()
+	{
+		string dir = Path.Join(Path.GetTempPath(), "NamingTests_" + Guid.NewGuid().ToString("N")[..8]);
+		try
+		{
+			NativeFileSystemProvider fs = new();
+			JsonSerializationProvider serializer = new();
+			await AssertKeysRoundTripAcrossCultures(new FileSystemPersistenceProvider<double>(fs, serializer, dir), CultureSensitiveDoubleKeys).ConfigureAwait(false);
+			await AssertKeysRoundTripAcrossCultures(new FileSystemPersistenceProvider<DateTime>(fs, serializer, Path.Join(dir, "dates")), CultureSensitiveDateKeys).ConfigureAwait(false);
+		}
+		finally
+		{
+			if (Directory.Exists(dir))
+			{
+				Directory.Delete(dir, true);
+			}
+		}
+	}
+
+	[TestMethod]
+	public async Task Temp_Double_And_Date_Keys_Round_Trip_Across_Cultures()
+	{
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+
+		using TempPersistenceProvider<double> doubles = new(fs, serializer, "NamingTests");
+		await AssertKeysRoundTripAcrossCultures(doubles, CultureSensitiveDoubleKeys).ConfigureAwait(false);
+
+		using TempPersistenceProvider<DateTime> dates = new(fs, serializer, "NamingTests");
+		await AssertKeysRoundTripAcrossCultures(dates, CultureSensitiveDateKeys).ConfigureAwait(false);
+	}
+
+	/// <summary>
+	/// Stores each key under a culture whose decimal separator and date order differ from the invariant
+	/// culture, then checks that enumeration lists exactly those keys and that each can still be
+	/// retrieved after the process switches to a culture that formats both differently again.
+	/// </summary>
+	private async Task AssertKeysRoundTripAcrossCultures<TKey>(IPersistenceProvider<TKey> persistence, TKey[] keys) where TKey : notnull
+	{
+		CultureInfo original = CultureInfo.CurrentCulture;
+		try
+		{
+			CultureInfo.CurrentCulture = CommaDecimalDayFirstCulture();
+			for (int i = 0; i < keys.Length; i++)
+			{
+				await persistence.StoreAsync(keys[i], $"value {i}", TestContext.CancellationToken).ConfigureAwait(false);
+			}
+
+			TKey[] listed = [.. await persistence.GetAllKeysAsync(TestContext.CancellationToken).ConfigureAwait(false)];
+			CollectionAssert.AreEquivalent(keys, listed, "GetAllKeys should list the stored keys, not culture-mangled ones");
+
+			CultureInfo.CurrentCulture = MonthFirstTwelveHourCulture();
+			for (int i = 0; i < keys.Length; i++)
+			{
+				string? value = await persistence.RetrieveAsync<string>(keys[i], TestContext.CancellationToken).ConfigureAwait(false);
+				Assert.AreEqual($"value {i}", value, $"Key '{keys[i]}' stored under de-DE should be found under another culture");
+			}
+		}
+		finally
+		{
+			CultureInfo.CurrentCulture = original;
+		}
+	}
+
+	/// <summary>
+	/// A culture formatted like de-DE: a comma decimal separator and day-first dates. It is built from
+	/// the invariant culture so the tests do not depend on the machine's ICU data.
+	/// </summary>
+	private static CultureInfo CommaDecimalDayFirstCulture()
+	{
+		CultureInfo culture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
+		culture.NumberFormat.NumberDecimalSeparator = ",";
+		culture.NumberFormat.NumberGroupSeparator = ".";
+		culture.DateTimeFormat.ShortDatePattern = "dd.MM.yyyy";
+		culture.DateTimeFormat.LongTimePattern = "HH:mm:ss";
+		return culture;
+	}
+
+	/// <summary>A culture formatted like en-US: month-first dates and a twelve-hour clock.</summary>
+	private static CultureInfo MonthFirstTwelveHourCulture()
+	{
+		CultureInfo culture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
+		culture.DateTimeFormat.ShortDatePattern = "M/d/yyyy";
+		culture.DateTimeFormat.LongTimePattern = "h:mm:ss tt";
+		return culture;
 	}
 
 	[TestMethod]
