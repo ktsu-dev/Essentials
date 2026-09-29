@@ -127,6 +127,30 @@ public static class PersistenceProviderUtilities
 	}
 
 	/// <summary>
+	/// Formats a key as the text its filename is built from, independently of the current culture.
+	/// </summary>
+	/// <remarks>
+	/// <see cref="TryConvertToKey{TKey}(string, out TKey)"/> parses with the invariant culture, so a key
+	/// formatted with the current culture would come back as a different key: <c>1.5</c> is written as
+	/// <c>1,5</c> under de-DE and read back as <c>15</c>. Formatting invariantly also keeps a key's file
+	/// the same whichever culture the process runs under. Floating-point values use the round-trip
+	/// format and dates the ISO 8601 round-trip format, so no precision or <see cref="DateTimeKind"/> is lost.
+	/// </remarks>
+	/// <typeparam name="TKey">The key type.</typeparam>
+	/// <param name="key">The key to format.</param>
+	/// <returns>The key's culture-independent text.</returns>
+	public static string FormatKey<TKey>(TKey key) where TKey : notnull => key switch
+	{
+		string text => text,
+		DateTime dateTime => dateTime.ToString("O", CultureInfo.InvariantCulture),
+		DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("O", CultureInfo.InvariantCulture),
+		double number => number.ToString("R", CultureInfo.InvariantCulture),
+		float number => number.ToString("R", CultureInfo.InvariantCulture),
+		IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+		_ => key.ToString()!,
+	};
+
+	/// <summary>
 	/// Attempts to convert a string value to the specified key type.
 	/// </summary>
 	/// <remarks>
@@ -174,6 +198,28 @@ public static class PersistenceProviderUtilities
 				}
 
 				key = (TKey)(object)intValue;
+				return true;
+			}
+
+			if (typeof(TKey) == typeof(DateTime))
+			{
+				if (!DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTime dateTime))
+				{
+					return false;
+				}
+
+				key = (TKey)(object)dateTime;
+				return true;
+			}
+
+			if (typeof(TKey) == typeof(DateTimeOffset))
+			{
+				if (!DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTimeOffset dateTimeOffset))
+				{
+					return false;
+				}
+
+				key = (TKey)(object)dateTimeOffset;
 				return true;
 			}
 

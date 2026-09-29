@@ -251,7 +251,7 @@ public sealed class TempPersistenceProvider<TKey>(
 
 	private string GetFilePath(TKey key)
 	{
-		string fileName = PersistenceProviderUtilities.GetSafeFileName(key.ToString()!) + _serializationProvider.FileExtension;
+		string fileName = PersistenceProviderUtilities.GetSafeFileName(PersistenceProviderUtilities.FormatKey(key)) + _serializationProvider.FileExtension;
 		return _fileSystemProvider.Path.Combine(_tempDirectory, fileName);
 	}
 
