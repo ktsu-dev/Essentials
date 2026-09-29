@@ -194,13 +194,13 @@ public class PersistenceNamingTests
 	[TestMethod]
 	public async Task FileSystem_Double_And_Date_Keys_Round_Trip_Across_Cultures()
 	{
-		string dir = Path.Combine(Path.GetTempPath(), "NamingTests_" + Guid.NewGuid().ToString("N")[..8]);
+		string dir = Path.Join(Path.GetTempPath(), "NamingTests_" + Guid.NewGuid().ToString("N")[..8]);
 		try
 		{
 			NativeFileSystemProvider fs = new();
 			JsonSerializationProvider serializer = new();
 			await AssertKeysRoundTripAcrossCultures(new FileSystemPersistenceProvider<double>(fs, serializer, dir), CultureSensitiveDoubleKeys).ConfigureAwait(false);
-			await AssertKeysRoundTripAcrossCultures(new FileSystemPersistenceProvider<DateTime>(fs, serializer, Path.Combine(dir, "dates")), CultureSensitiveDateKeys).ConfigureAwait(false);
+			await AssertKeysRoundTripAcrossCultures(new FileSystemPersistenceProvider<DateTime>(fs, serializer, Path.Join(dir, "dates")), CultureSensitiveDateKeys).ConfigureAwait(false);
 		}
 		finally
 		{
