@@ -5,6 +5,7 @@ namespace ktsu.Essentials.CacheProviders.InMemory;
 using ktsu.Essentials;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 /// <summary>
 /// An in-memory cache provider that stores key-value pairs with optional expiration support.
@@ -31,8 +32,9 @@ public class InMemoryCacheProvider<TKey, TValue> : ICacheProvider<TKey, TValue> 
 				return true;
 			}
 
-			// Entry has expired, remove it
-			cache.TryRemove(key, out _);
+			// Entry has expired. Remove only the entry that was observed, so a fresh value another thread
+			// has just set under the same key is left in place.
+			RemoveEntry(key, entry);
 		}
 
 		value = default;
@@ -45,11 +47,8 @@ public class InMemoryCacheProvider<TKey, TValue> : ICacheProvider<TKey, TValue> 
 	/// <param name="key">The cache key.</param>
 	/// <param name="value">The value to cache.</param>
 	/// <param name="expiration">The optional time-to-live for the cached entry. If null, the entry does not expire.</param>
-	public void Set(TKey key, TValue value, TimeSpan? expiration = null)
-	{
-		DateTime? expirationTime = expiration.HasValue ? DateTime.UtcNow + expiration.Value : null;
-		cache[key] = new CacheEntry(value, expirationTime);
-	}
+	public void Set(TKey key, TValue value, TimeSpan? expiration = null) =>
+		cache[key] = new CacheEntry(value, ComputeExpiration(expiration));
 
 	/// <summary>
 	/// Removes a cached value by key.
@@ -62,6 +61,37 @@ public class InMemoryCacheProvider<TKey, TValue> : ICacheProvider<TKey, TValue> 
 	/// Clears all entries from the cache.
 	/// </summary>
 	public void Clear() => cache.Clear();
+
+	/// <summary>
+	/// Converts a time-to-live into an absolute expiration time, saturating rather than overflowing.
+	/// A time-to-live that reaches past <see cref="DateTime.MaxValue"/> never expires, and one that
+	/// reaches before <see cref="DateTime.MinValue"/> has already expired.
+	/// </summary>
+	private static DateTime? ComputeExpiration(TimeSpan? expiration)
+	{
+		if (expiration is null)
+		{
+			return null;
+		}
+
+		DateTime now = DateTime.UtcNow;
+		if (expiration.Value > DateTime.MaxValue - now)
+		{
+			return null;
+		}
+
+		return expiration.Value < DateTime.MinValue - now ? DateTime.MinValue : now + expiration.Value;
+	}
+
+	private void RemoveEntry(TKey key, CacheEntry entry)
+	{
+		KeyValuePair<TKey, CacheEntry> observed = new(key, entry);
+#if NET5_0_OR_GREATER
+		cache.TryRemove(observed);
+#else
+		((ICollection<KeyValuePair<TKey, CacheEntry>>)cache).Remove(observed);
+#endif
+	}
 
 	private sealed class CacheEntry(TValue value, DateTime? expiration)
 	{
