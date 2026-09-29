@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ktsu.Essentials;
 using ktsu.Essentials.All;
+using ktsu.Essentials.CacheProviders.InMemory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -201,5 +202,78 @@ public class CacheProviderTests
 		bool found = cache.TryGet("key", out int value);
 		Assert.IsTrue(found, "Should find entry without expiration");
 		Assert.AreEqual(42, value);
+	}
+
+	[TestMethod]
+	public void Cache_Expired_TryGet_Does_Not_Remove_A_Value_Set_Concurrently()
+	{
+		InMemoryCacheProvider<InterleavingKey, int> cache = new();
+		InterleavingKey key = new();
+
+		cache.Set(key, -1, TimeSpan.FromTicks(-1));
+
+		// TryGet hashes the key once to read the expired entry and again to remove it. Setting a fresh
+		// value between the two reproduces another thread's Set landing inside that window.
+		key.OnSecondHash(() => cache.Set(key, 2));
+		bool foundExpired = cache.TryGet(key, out _);
+
+		Assert.IsFalse(foundExpired, "The entry TryGet read had expired");
+		Assert.IsTrue(key.Interleaved, "The concurrent Set should have run between the read and the remove");
+		Assert.IsTrue(cache.TryGet(key, out int value), "The value set concurrently should survive the expired entry's removal");
+		Assert.AreEqual(2, value);
+	}
+
+	[TestMethod]
+	public void Cache_Set_With_MaxValue_Expiration_Never_Expires()
+	{
+		ICacheProvider<string, int> cache = CreateCache();
+
+		cache.Set("key", 42, TimeSpan.MaxValue);
+
+		Assert.IsTrue(cache.TryGet("key", out int value), "An entry with the largest time-to-live should be found");
+		Assert.AreEqual(42, value);
+	}
+
+	[TestMethod]
+	public void Cache_Set_With_MinValue_Expiration_Has_Already_Expired()
+	{
+		ICacheProvider<string, int> cache = CreateCache();
+
+		cache.Set("key", 42, TimeSpan.MinValue);
+
+		Assert.IsFalse(cache.TryGet("key", out _), "An entry with the most negative time-to-live has already expired");
+	}
+
+	/// <summary>
+	/// A key that runs an action when it is hashed for the second time after being armed, which lets a
+	/// test interleave work between the lookups a single cache call makes.
+	/// </summary>
+	private sealed class InterleavingKey
+	{
+		private Action? pending;
+		private int hashesUntilAction;
+
+		public bool Interleaved { get; private set; }
+
+		public void OnSecondHash(Action action)
+		{
+			pending = action;
+			hashesUntilAction = 2;
+		}
+
+		public override int GetHashCode()
+		{
+			if (pending is not null && --hashesUntilAction == 0)
+			{
+				Action action = pending;
+				pending = null;
+				action();
+				Interleaved = true;
+			}
+
+			return 17;
+		}
+
+		public override bool Equals(object? obj) => ReferenceEquals(this, obj);
 	}
 }
