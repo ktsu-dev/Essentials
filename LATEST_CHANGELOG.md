@@ -1,9 +1,6 @@
-## v2.10.0 (minor)
+## v2.10.1 (patch)
 
-Changes since v2.9.0:
+Changes since v2.10.0:
 
-- Cover every FormatKey arm and the date parse paths ([@Claude](https://github.com/Claude))
-- Build the culture round-trip test's directories with Path.Join ([@Claude](https://github.com/Claude))
-- Format persistence keys with the invariant culture ([@Claude](https://github.com/Claude))
-- Remove only the expired cache entry TryGet observed, and saturate the TTL ([@Claude](https://github.com/Claude))
+- Move CI onto the shared ci-shared.yml pipeline ([@Claude](https://github.com/Claude))
 
