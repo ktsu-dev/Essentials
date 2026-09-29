@@ -192,6 +192,46 @@ public class PersistenceNamingTests
 	}
 
 	[TestMethod]
+	public void FormatKey_Round_Trips_Every_Key_Kind_Through_TryConvertToKey()
+	{
+		CultureInfo original = CultureInfo.CurrentCulture;
+		try
+		{
+			CultureInfo.CurrentCulture = CommaDecimalDayFirstCulture();
+
+			AssertRoundTrips(0.1f, "0.1");
+			AssertRoundTrips(12.5m, "12.5");
+			AssertRoundTrips(-7L, "-7");
+			AssertRoundTrips(new DateTimeOffset(2026, 3, 4, 5, 6, 7, TimeSpan.FromHours(10)), "2026-03-04T05:06:07.0000000+10:00");
+
+			DateTime utc = new(2026, 3, 4, 5, 6, 7, DateTimeKind.Utc);
+			Assert.IsTrue(PersistenceProviderUtilities.TryConvertToKey(PersistenceProviderUtilities.FormatKey(utc), out DateTime parsedUtc));
+			Assert.AreEqual(DateTimeKind.Utc, parsedUtc.Kind, "A UTC key should not come back as local time");
+		}
+		finally
+		{
+			CultureInfo.CurrentCulture = original;
+		}
+
+		Assert.AreEqual("plain", PersistenceProviderUtilities.FormatKey(new NonFormattableKey("plain")), "A key that is not IFormattable falls back to ToString");
+		Assert.IsFalse(PersistenceProviderUtilities.TryConvertToKey("not-a-date", out DateTime _), "Unparseable input should fail, not yield DateTime.MinValue");
+		Assert.IsFalse(PersistenceProviderUtilities.TryConvertToKey("not-a-date", out DateTimeOffset _), "Unparseable input should fail, not yield DateTimeOffset.MinValue");
+	}
+
+	private static void AssertRoundTrips<TKey>(TKey key, string expectedText) where TKey : notnull
+	{
+		string text = PersistenceProviderUtilities.FormatKey(key);
+		Assert.AreEqual(expectedText, text);
+		Assert.IsTrue(PersistenceProviderUtilities.TryConvertToKey(text, out TKey parsed), $"'{text}' should parse back");
+		Assert.AreEqual(key, parsed);
+	}
+
+	private sealed record NonFormattableKey(string Name)
+	{
+		public override string ToString() => Name;
+	}
+
+	[TestMethod]
 	public async Task FileSystem_Double_And_Date_Keys_Round_Trip_Across_Cultures()
 	{
 		string dir = Path.Join(Path.GetTempPath(), "NamingTests_" + Guid.NewGuid().ToString("N")[..8]);
