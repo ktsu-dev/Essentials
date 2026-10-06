@@ -224,13 +224,7 @@ public static class PersistenceProviderUtilities
 				return true;
 			}
 
-			if (typeof(IConvertible).IsAssignableFrom(typeof(TKey)) && !typeof(TKey).IsEnum)
-			{
-				key = (TKey)Convert.ChangeType(value, typeof(TKey), CultureInfo.InvariantCulture);
-				return true;
-			}
-
-			return TryConvertNonConvertibleKey(value, out key);
+			return TryConvertOtherKey(value, out key);
 		}
 		catch (Exception)
 		{
@@ -239,17 +233,25 @@ public static class PersistenceProviderUtilities
 	}
 
 	/// <summary>
-	/// Parses a key whose type <see cref="Convert.ChangeType(object, Type, IFormatProvider)"/> cannot target.
+	/// Parses a key of a type <see cref="TryConvertToKey{TKey}(string, out TKey)"/> does not special-case.
 	/// </summary>
 	/// <remarks>
-	/// Without this, enum, <see cref="TimeSpan"/> and <see cref="Uri"/> keys made the conversion throw, and
-	/// their keys silently disappeared from enumeration. FormatKey writes an enum by name (or by number
-	/// when the value is not a named member), which <see cref="Enum.TryParse(Type, string, bool, out object)"/>
-	/// reads back in both forms; the type's converter parses the invariant text of everything else.
+	/// <see cref="Convert.ChangeType(object, Type, IFormatProvider)"/> only targets <see cref="IConvertible"/>
+	/// types other than enums. Using it for everything made enum, <see cref="TimeSpan"/> and <see cref="Uri"/>
+	/// keys throw, and those keys silently disappeared from enumeration. FormatKey writes an enum by name
+	/// (or by number when the value is not a named member), which
+	/// <see cref="Enum.TryParse(Type, string, bool, out object)"/> reads back in both forms; the type's
+	/// converter parses the invariant text of everything else.
 	/// </remarks>
-	private static bool TryConvertNonConvertibleKey<TKey>(string value, out TKey key) where TKey : notnull
+	private static bool TryConvertOtherKey<TKey>(string value, out TKey key) where TKey : notnull
 	{
 		key = default!;
+
+		if (typeof(IConvertible).IsAssignableFrom(typeof(TKey)) && !typeof(TKey).IsEnum)
+		{
+			key = (TKey)Convert.ChangeType(value, typeof(TKey), CultureInfo.InvariantCulture);
+			return true;
+		}
 
 		if (typeof(TKey).IsEnum)
 		{
