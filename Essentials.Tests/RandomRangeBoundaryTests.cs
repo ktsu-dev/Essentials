@@ -60,6 +60,20 @@ public class RandomRangeBoundaryTests
 		Assert.IsTrue(double.IsFinite(uniform.Sample(new ConstantRandomProvider(0UL))));
 	}
 
+	[TestMethod]
+	[DataRow(1.0)]
+	[DataRow(-1.0)]
+	[DataRow(0.0)]
+	[DataRow(-0.0)]
+	[DataRow(double.Epsilon)]
+	[DataRow(-double.Epsilon)]
+	[DataRow(double.MaxValue)]
+	[DataRow(double.MinValue + 1e292)]
+	public void NextDown_Matches_Math_BitDecrement(double value)
+	{
+		Assert.AreEqual(Math.BitDecrement(value), RandomHelpers.NextDown(value), $"NextDown({value:R})");
+	}
+
 	/// <summary>A provider that fills every buffer with the same 64-bit word, for pinning boundary draws.</summary>
 	private sealed class ConstantRandomProvider(ulong word) : IRandomProvider
 	{

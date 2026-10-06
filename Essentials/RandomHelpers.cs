@@ -29,13 +29,16 @@ internal static class RandomHelpers
 	/// <returns>The adjacent representable value toward negative infinity.</returns>
 	internal static double NextDown(double value)
 	{
-		if (value == 0.0)
+		long bits = BitConverter.DoubleToInt64Bits(value);
+
+		// Both zeros, tested on the bits so that -0.0 is caught too: the step down from either is the
+		// smallest negative subnormal.
+		if ((bits & long.MaxValue) == 0)
 		{
 			return -double.Epsilon;
 		}
 
-		long bits = BitConverter.DoubleToInt64Bits(value);
-		return BitConverter.Int64BitsToDouble(value > 0.0 ? bits - 1 : bits + 1);
+		return BitConverter.Int64BitsToDouble(bits > 0 ? bits - 1 : bits + 1);
 	}
 
 	/// <summary>
