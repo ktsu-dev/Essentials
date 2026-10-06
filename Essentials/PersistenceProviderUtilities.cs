@@ -224,41 +224,52 @@ public static class PersistenceProviderUtilities
 				return true;
 			}
 
-			if (typeof(TKey).IsEnum)
-			{
-				// FormatKey writes an enum by name (or by number when the value is not a named member),
-				// which Enum.TryParse reads back in both forms. Convert.ChangeType cannot target an enum.
-				if (!Enum.TryParse(typeof(TKey), value, ignoreCase: false, out object? enumValue))
-				{
-					return false;
-				}
-
-				key = (TKey)enumValue!;
-				return true;
-			}
-
-			if (typeof(IConvertible).IsAssignableFrom(typeof(TKey)))
+			if (typeof(IConvertible).IsAssignableFrom(typeof(TKey)) && !typeof(TKey).IsEnum)
 			{
 				key = (TKey)Convert.ChangeType(value, typeof(TKey), CultureInfo.InvariantCulture);
 				return true;
 			}
 
-			// Types such as TimeSpan and Uri are not IConvertible, so Convert.ChangeType always throws for
-			// them and their keys silently disappeared from enumeration. Their type converters parse the
-			// invariant text FormatKey writes.
-			TypeConverter converter = TypeDescriptor.GetConverter(typeof(TKey));
-			if (!converter.CanConvertFrom(typeof(string)) || converter.ConvertFromInvariantString(value) is not TKey converted)
-			{
-				return false;
-			}
-
-			key = converted;
-			return true;
+			return TryConvertNonConvertibleKey(value, out key);
 		}
 		catch (Exception)
 		{
 			return false;
 		}
+	}
+
+	/// <summary>
+	/// Parses a key whose type <see cref="Convert.ChangeType(object, Type, IFormatProvider)"/> cannot target.
+	/// </summary>
+	/// <remarks>
+	/// Without this, enum, <see cref="TimeSpan"/> and <see cref="Uri"/> keys made the conversion throw, and
+	/// their keys silently disappeared from enumeration. FormatKey writes an enum by name (or by number
+	/// when the value is not a named member), which <see cref="Enum.TryParse(Type, string, bool, out object)"/>
+	/// reads back in both forms; the type's converter parses the invariant text of everything else.
+	/// </remarks>
+	private static bool TryConvertNonConvertibleKey<TKey>(string value, out TKey key) where TKey : notnull
+	{
+		key = default!;
+
+		if (typeof(TKey).IsEnum)
+		{
+			if (!Enum.TryParse(typeof(TKey), value, ignoreCase: false, out object? enumValue) || enumValue is not TKey parsed)
+			{
+				return false;
+			}
+
+			key = parsed;
+			return true;
+		}
+
+		TypeConverter converter = TypeDescriptor.GetConverter(typeof(TKey));
+		if (!converter.CanConvertFrom(typeof(string)) || converter.ConvertFromInvariantString(value) is not TKey converted)
+		{
+			return false;
+		}
+
+		key = converted;
+		return true;
 	}
 
 	private static string Escape(char c) => string.Format(CultureInfo.InvariantCulture, "%{0:X2}", (int)c);
