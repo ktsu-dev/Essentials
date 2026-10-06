@@ -3,6 +3,8 @@
 namespace ktsu.Essentials.Tests;
 
 using ktsu.Essentials;
+using ktsu.Essentials.DistributionProviders.LogNormal;
+using ktsu.Essentials.DistributionProviders.Normal;
 using ktsu.Essentials.RandomProviders.Crypto;
 using ktsu.Essentials.RandomProviders.Native;
 using ktsu.Essentials.RandomProviders.Pcg;
@@ -435,6 +437,26 @@ public class RandomProviderTests
 		}
 	}
 
+	[TestMethod]
+	[DataRow(ulong.MaxValue)]
+	[DataRow(0UL)]
+	public void NextDoubleExclusive_Excludes_Both_Ends_At_The_Extreme_Draws(ulong word)
+	{
+		// The top 53-bit draw plus half a step is a tie between 2^53 - 1 and 2^53, which rounds to
+		// even and so returned exactly 1.0; the quantile of an unbounded distribution is infinite there.
+		IRandomProvider random = new ConstantRandomProvider(word);
+
+		double u = random.NextDoubleExclusive();
+		Assert.IsTrue(u is > 0.0 and < 1.0, $"NextDoubleExclusive returned {u:R} for 0x{word:X16}");
+
+		IDistribution<double> normal = new NormalDistributionProvider();
+		IDistribution<double> logNormal = new LogNormalDistributionProvider();
+		double normalSample = normal.Sample(random);
+		double logNormalSample = logNormal.Sample(random);
+		Assert.IsTrue(double.IsFinite(normalSample), $"Normal(0, 1) sampled {normalSample} for 0x{word:X16}");
+		Assert.IsTrue(double.IsFinite(logNormalSample), $"LogNormal(0, 1) sampled {logNormalSample} for 0x{word:X16}");
+	}
+
 	private static void AssertSeedBehaviour(Func<ulong, IRandomProvider> factory, string name)
 	{
 		ulong[] first = Draw(factory(99UL));
@@ -446,4 +468,17 @@ public class RandomProviderTests
 	}
 
 	private static ulong[] Draw(IRandomProvider random) => [.. Enumerable.Range(0, 32).Select(_ => random.NextUInt64())];
+
+	/// <summary>A provider that fills every buffer with the same 64-bit word, for pinning boundary draws.</summary>
+	private sealed class ConstantRandomProvider(ulong word) : IRandomProvider
+	{
+		public void NextBytes(Span<byte> destination)
+		{
+			byte[] bytes = BitConverter.GetBytes(word);
+			for (int i = 0; i < destination.Length; i++)
+			{
+				destination[i] = bytes[i % bytes.Length];
+			}
+		}
+	}
 }

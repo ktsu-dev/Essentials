@@ -166,11 +166,12 @@ public interface IRandomProvider
 	/// <remarks>
 	/// Inverse-transform sampling needs this: the quantile function of an unbounded distribution is
 	/// infinite at 0 and at 1, so a draw that can return either endpoint would produce an infinity
-	/// rather than a sample. The 53-bit draw is offset by half a step, which excludes both ends
-	/// without distorting the spacing of the values in between.
+	/// rather than a sample. A 52-bit draw is offset by half a step, which excludes both ends
+	/// without distorting the spacing of the values in between. It is 52 bits rather than 53 because
+	/// the half-step sum of the largest 53-bit draw is not representable and rounds up to exactly 1.
 	/// </remarks>
 	/// <returns>A value in the range (0, 1).</returns>
-	public double NextDoubleExclusive() => ((NextUInt64() >> 11) + 0.5) * RandomHelpers.UnitScale;
+	public double NextDoubleExclusive() => ((NextUInt64() >> 12) + 0.5) * RandomHelpers.OpenUnitScale;
 
 	/// <summary>
 	/// Returns a uniformly distributed double within the specified range.
