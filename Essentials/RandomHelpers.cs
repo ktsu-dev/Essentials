@@ -18,6 +18,27 @@ internal static class RandomHelpers
 	internal const float UnitScaleSingle = 1.0f / 16777216.0f;
 
 	/// <summary>
+	/// Returns the largest double below a finite <paramref name="value"/>.
+	/// </summary>
+	/// <remarks>
+	/// <c>Math.BitDecrement</c>, which netstandard2.1 does not have. For a finite double the ordering of
+	/// the values follows the ordering of their bit patterns within each sign, so a step down is one
+	/// less in magnitude above zero and one more below it.
+	/// </remarks>
+	/// <param name="value">A finite value.</param>
+	/// <returns>The adjacent representable value toward negative infinity.</returns>
+	internal static double NextDown(double value)
+	{
+		if (value == 0.0)
+		{
+			return -double.Epsilon;
+		}
+
+		long bits = BitConverter.DoubleToInt64Bits(value);
+		return BitConverter.Int64BitsToDouble(value > 0.0 ? bits - 1 : bits + 1);
+	}
+
+	/// <summary>
 	/// Draws a 32-bit value uniformly from [0, <paramref name="range"/>) without modulo bias.
 	/// </summary>
 	/// <remarks>

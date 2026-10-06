@@ -185,7 +185,17 @@ public interface IRandomProvider
 		RandomHelpers.EnsureFinite(maxExclusive, nameof(maxExclusive));
 		Ensure.NotLessThan(maxExclusive, minInclusive);
 
-		return minInclusive + (NextDouble() * (maxExclusive - minInclusive));
+		double unit = NextDouble();
+		double width = maxExclusive - minInclusive;
+
+		// Bounds of opposite sign can be far enough apart that the width overflows, so interpolate
+		// between them instead; each term is then no larger in magnitude than its bound.
+		double value = double.IsInfinity(width)
+			? (minInclusive * (1.0 - unit)) + (maxExclusive * unit)
+			: minInclusive + (unit * width);
+
+		// Rounding the final addition can land on the excluded bound when the unit draw is close to 1.
+		return value >= maxExclusive && maxExclusive > minInclusive ? RandomHelpers.NextDown(maxExclusive) : value;
 	}
 
 	/// <summary>

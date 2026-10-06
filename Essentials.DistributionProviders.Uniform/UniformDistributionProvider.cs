@@ -17,6 +17,9 @@ public sealed class UniformDistributionProvider : IContinuousDistribution
 {
 	private readonly double width;
 
+	/// <summary>Half the width, which stays finite when the full width overflows.</summary>
+	private readonly double halfWidth;
+
 	/// <summary>
 	/// Initializes the standard uniform distribution on the unit interval.
 	/// </summary>
@@ -40,6 +43,7 @@ public sealed class UniformDistributionProvider : IContinuousDistribution
 		Minimum = minimum;
 		Maximum = maximum;
 		width = maximum - minimum;
+		halfWidth = (maximum / 2.0) - (minimum / 2.0);
 	}
 
 	/// <inheritdoc />
@@ -49,13 +53,13 @@ public sealed class UniformDistributionProvider : IContinuousDistribution
 	public double Maximum { get; }
 
 	/// <inheritdoc />
-	public double Mean => Minimum + (width / 2.0);
+	public double Mean => (Minimum / 2.0) + (Maximum / 2.0);
 
 	/// <inheritdoc />
 	public double Variance => width * width / 12.0;
 
 	/// <inheritdoc />
-	public double Pdf(double value) => value >= Minimum && value <= Maximum ? 1.0 / width : 0.0;
+	public double Pdf(double value) => value >= Minimum && value <= Maximum ? 0.5 / halfWidth : 0.0;
 
 	/// <inheritdoc />
 	public double Cdf(double value)
@@ -65,7 +69,14 @@ public sealed class UniformDistributionProvider : IContinuousDistribution
 			return 0.0;
 		}
 
-		return value >= Maximum ? 1.0 : (value - Minimum) / width;
+		if (value >= Maximum)
+		{
+			return 1.0;
+		}
+
+		// Bounds of opposite sign can be far enough apart that the width overflows; halving both
+		// sides of the ratio keeps every term finite.
+		return double.IsInfinity(width) ? ((value / 2.0) - (Minimum / 2.0)) / halfWidth : (value - Minimum) / width;
 	}
 
 	/// <inheritdoc />
@@ -73,7 +84,9 @@ public sealed class UniformDistributionProvider : IContinuousDistribution
 	{
 		DistributionArguments.QuantileProbability(probability, nameof(probability));
 
-		return Minimum + (probability * width);
+		return double.IsInfinity(width)
+			? (Minimum * (1.0 - probability)) + (Maximum * probability)
+			: Minimum + (probability * width);
 	}
 
 	/// <inheritdoc />
