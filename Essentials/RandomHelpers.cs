@@ -14,6 +14,9 @@ internal static class RandomHelpers
 	/// <summary>The step between adjacent 53-bit fixed-point values on the unit interval.</summary>
 	internal const double UnitScale = 1.0 / 9007199254740992.0;
 
+	/// <summary>The step between adjacent 52-bit fixed-point values, used for the open unit interval.</summary>
+	internal const double OpenUnitScale = 1.0 / 4503599627370496.0;
+
 	/// <summary>The step between adjacent 24-bit fixed-point values on the unit interval.</summary>
 	internal const float UnitScaleSingle = 1.0f / 16777216.0f;
 
