@@ -3,6 +3,7 @@
 namespace ktsu.Essentials;
 
 using System;
+using System.ComponentModel;
 using System.Globalization;
 using System.Text;
 
@@ -223,7 +224,35 @@ public static class PersistenceProviderUtilities
 				return true;
 			}
 
-			key = (TKey)Convert.ChangeType(value, typeof(TKey), CultureInfo.InvariantCulture);
+			if (typeof(TKey).IsEnum)
+			{
+				// FormatKey writes an enum by name (or by number when the value is not a named member),
+				// which Enum.TryParse reads back in both forms. Convert.ChangeType cannot target an enum.
+				if (!Enum.TryParse(typeof(TKey), value, ignoreCase: false, out object? enumValue))
+				{
+					return false;
+				}
+
+				key = (TKey)enumValue!;
+				return true;
+			}
+
+			if (typeof(IConvertible).IsAssignableFrom(typeof(TKey)))
+			{
+				key = (TKey)Convert.ChangeType(value, typeof(TKey), CultureInfo.InvariantCulture);
+				return true;
+			}
+
+			// Types such as TimeSpan and Uri are not IConvertible, so Convert.ChangeType always throws for
+			// them and their keys silently disappeared from enumeration. Their type converters parse the
+			// invariant text FormatKey writes.
+			TypeConverter converter = TypeDescriptor.GetConverter(typeof(TKey));
+			if (!converter.CanConvertFrom(typeof(string)) || converter.ConvertFromInvariantString(value) is not TKey converted)
+			{
+				return false;
+			}
+
+			key = converted;
 			return true;
 		}
 		catch (Exception)

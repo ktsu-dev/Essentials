@@ -358,4 +358,64 @@ public class PersistenceNamingTests
 			}
 		}
 	}
+
+	[Flags]
+	private enum SlotKey
+	{
+		None = 0,
+		Primary = 1,
+		Secondary = 2,
+	}
+
+	private static readonly SlotKey[] EnumKeys = [SlotKey.Primary, SlotKey.Primary | SlotKey.Secondary, (SlotKey)8];
+
+	private static readonly TimeSpan[] TimeSpanKeys = [TimeSpan.FromMinutes(5), TimeSpan.FromDays(-1.5), new TimeSpan(1234567)];
+
+	[TestMethod]
+	public void TryConvertToKey_Reads_Back_Keys_That_Are_Not_IConvertible()
+	{
+		AssertRoundTrips(SlotKey.Primary, "Primary");
+		AssertRoundTrips(SlotKey.Primary | SlotKey.Secondary, "Primary, Secondary");
+		AssertRoundTrips((SlotKey)8, "8");
+		AssertRoundTrips(TimeSpan.FromMinutes(5), "00:05:00");
+		AssertRoundTrips(new TimeSpan(1234567), "00:00:00.1234567");
+		AssertRoundTrips(new Uri("https://example.com/a?b=c"), "https://example.com/a?b=c");
+
+		Assert.IsFalse(PersistenceProviderUtilities.TryConvertToKey("Tertiary", out SlotKey _), "An unknown enum name should fail");
+		Assert.IsFalse(PersistenceProviderUtilities.TryConvertToKey("primary", out SlotKey _), "Enum names are written in their declared case, so parsing stays case-sensitive");
+		Assert.IsFalse(PersistenceProviderUtilities.TryConvertToKey("not-a-timespan", out TimeSpan _), "Unparseable input should fail, not yield TimeSpan.Zero");
+	}
+
+	[TestMethod]
+	public async Task FileSystem_Enum_And_TimeSpan_Keys_Are_Listed()
+	{
+		string dir = Path.Join(Path.GetTempPath(), "NamingTests_" + Guid.NewGuid().ToString("N")[..8]);
+		try
+		{
+			NativeFileSystemProvider fs = new();
+			JsonSerializationProvider serializer = new();
+			await AssertKeysRoundTripAcrossCultures(new FileSystemPersistenceProvider<SlotKey>(fs, serializer, dir), EnumKeys).ConfigureAwait(false);
+			await AssertKeysRoundTripAcrossCultures(new FileSystemPersistenceProvider<TimeSpan>(fs, serializer, Path.Join(dir, "spans")), TimeSpanKeys).ConfigureAwait(false);
+		}
+		finally
+		{
+			if (Directory.Exists(dir))
+			{
+				Directory.Delete(dir, true);
+			}
+		}
+	}
+
+	[TestMethod]
+	public async Task Temp_Enum_And_TimeSpan_Keys_Are_Listed()
+	{
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+
+		using TempPersistenceProvider<SlotKey> slots = new(fs, serializer, "NamingTests");
+		await AssertKeysRoundTripAcrossCultures(slots, EnumKeys).ConfigureAwait(false);
+
+		using TempPersistenceProvider<TimeSpan> spans = new(fs, serializer, "NamingTests");
+		await AssertKeysRoundTripAcrossCultures(spans, TimeSpanKeys).ConfigureAwait(false);
+	}
 }
