@@ -278,7 +278,7 @@ public class CommandExecutorTests
 			TimeSpan remaining = sideEffectDelay + TimeSpan.FromSeconds(2) - syncRun.Elapsed;
 			if (remaining > TimeSpan.Zero)
 			{
-				Thread.Sleep(remaining);
+				_ = TestContext.CancellationToken.WaitHandle.WaitOne(remaining);
 			}
 
 			Assert.IsFalse(File.Exists(asyncMarker), $"{providerName} async should kill a cancelled command before it reaches its side effect");
