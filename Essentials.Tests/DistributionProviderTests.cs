@@ -694,6 +694,22 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Geometric_Bisection_Fallback_Agrees_With_The_Closed_Form_Quantile()
+	{
+		// The quantile falls back to bisecting the support only when its closed-form estimate is off by more
+		// than the bounded correction allows, which no ordinary parameter provokes. Checked directly, so the
+		// fallback is known to land on the same outcome whenever it is needed.
+		foreach (double p in new[] { 0.25, 1e-6, 1e-17 })
+		{
+			GeometricDistributionProvider distribution = new(p);
+			foreach (double q in new[] { 0.0, 1e-9, 0.25, 0.5, 0.999 })
+			{
+				Assert.AreEqual(distribution.Quantile(q), distribution.Bisect(q), $"Geometric({p}) at {q}");
+			}
+		}
+	}
+
+	[TestMethod]
 	public void Categorical_Normalises_Its_Weights()
 	{
 		CategoricalDistributionProvider distribution = new([1.0, 3.0, 0.0, 6.0]);

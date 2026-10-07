@@ -147,7 +147,7 @@ public sealed class GeometricDistributionProvider : IDiscreteDistribution
 	/// </summary>
 	/// <param name="probability">The target probability.</param>
 	/// <returns>The quantile.</returns>
-	private int Bisect(double probability)
+	internal int Bisect(double probability)
 	{
 		int low = 0;
 		int high = int.MaxValue;
