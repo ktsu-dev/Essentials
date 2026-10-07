@@ -691,6 +691,7 @@ public class DistributionProviderTests
 		GeometricDistributionProvider vanishing = new(1e-300);
 		Assert.AreEqual(1001e-300, vanishing.Cdf(1000), 1001e-300 * 1e-15);
 		Assert.AreEqual(1e-300, vanishing.Pmf(1000), 1e-300 * 1e-15);
+		Assert.AreEqual(0.0, vanishing.Pmf(-1), Tight);
 	}
 
 	[TestMethod]

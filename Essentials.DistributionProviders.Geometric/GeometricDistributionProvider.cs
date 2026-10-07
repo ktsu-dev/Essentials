@@ -82,7 +82,22 @@ public sealed class GeometricDistributionProvider : IDiscreteDistribution
 	public double Variance => failureProbability / (Probability * Probability);
 
 	/// <inheritdoc />
-	public double Pmf(int value) => value < 0 ? 0.0 : value == 0 ? Probability : Math.Exp(value * logFailureProbability) * Probability;
+	public double Pmf(int value)
+	{
+		if (value < 0)
+		{
+			return 0.0;
+		}
+
+		// Zero failures is the success probability itself. Taking it through the logarithm would multiply a
+		// zero count by the infinite logarithm of a certain success, which is a NaN rather than one.
+		if (value == 0)
+		{
+			return Probability;
+		}
+
+		return Math.Exp(value * logFailureProbability) * Probability;
+	}
 
 	/// <inheritdoc />
 	/// <remarks>
