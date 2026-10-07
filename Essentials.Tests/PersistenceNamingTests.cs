@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.Tests;
 
@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using ktsu.Essentials;
 using ktsu.Essentials.FileSystemProviders.Native;
 using ktsu.Essentials.PersistenceProviders.FileSystem;
@@ -86,6 +87,78 @@ public class PersistenceNamingTests
 		Assert.IsLessThanOrEqualTo(100, first.Length, "Long keys must be bounded to keep paths within platform limits");
 		Assert.AreNotEqual(first, second, "Truncated keys must remain distinct");
 		Assert.IsNull(PersistenceProviderUtilities.GetKeyFromFileName(first), "Truncated names are not recoverable and must report so");
+	}
+
+	/// <summary>
+	/// Keys whose encoded names exceed the 255-byte file-name limit of Linux and macOS while staying within
+	/// 100 UTF-16 characters, or whose truncation point falls inside a surrogate pair. See issue #48.
+	/// </summary>
+	public static IEnumerable<object[]> MultibyteKeys =>
+	[
+		[new string('日', 90)],
+		[new string('日', 83)],
+		[string.Concat(Enumerable.Repeat("😀", 60))],
+		["a" + string.Concat(Enumerable.Repeat("😀", 60))],
+		[string.Concat(Enumerable.Repeat("é日😀%", 30))],
+	];
+
+	[TestMethod]
+	[DynamicData(nameof(MultibyteKeys))]
+	public void SafeFileName_Bounds_Utf8_Bytes_Without_Splitting_A_Code_Point(string key)
+	{
+		string encoded = PersistenceProviderUtilities.GetSafeFileName(key);
+
+		// The longest suffix the file-system providers append is a five-byte extension and ".tmp".
+		Assert.IsLessThanOrEqualTo(255 - 9, Encoding.UTF8.GetByteCount(encoded), "The name plus its extension and .tmp must fit in 255 bytes");
+		for (int i = 0; i < encoded.Length; i++)
+		{
+			if (char.IsHighSurrogate(encoded[i]))
+			{
+				Assert.IsTrue(i + 1 < encoded.Length && char.IsLowSurrogate(encoded[i + 1]), $"A surrogate pair was split at {i}");
+				i++;
+			}
+			else
+			{
+				Assert.IsFalse(char.IsLowSurrogate(encoded[i]), $"A lone low surrogate was left at {i}");
+			}
+		}
+
+		Assert.IsNull(PersistenceProviderUtilities.GetKeyFromFileName(encoded), "A truncated name must be reported as unrecoverable");
+		Assert.AreNotEqual(encoded, PersistenceProviderUtilities.GetSafeFileName(key + "x"), "Truncated keys must remain distinct");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(MultibyteKeys))]
+	public async Task Long_Multibyte_Keys_Store_And_Retrieve_On_The_Native_File_System(string key)
+	{
+		string dir = Directory.CreateTempSubdirectory("NamingTests_").FullName;
+		try
+		{
+			FileSystemPersistenceProvider<string> persistence = new(new NativeFileSystemProvider(), new YamlSerializationProvider(), dir);
+
+			await persistence.StoreAsync(key, "value", TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsTrue(await persistence.ExistsAsync(key, TestContext.CancellationToken).ConfigureAwait(false), "A stored key must exist");
+			Assert.AreEqual("value", await persistence.RetrieveAsync<string>(key, TestContext.CancellationToken).ConfigureAwait(false), "A stored key must read back");
+		}
+		finally
+		{
+			if (Directory.Exists(dir))
+			{
+				Directory.Delete(dir, true);
+			}
+		}
+	}
+
+	[TestMethod]
+	public void SafeFileName_Keeps_Names_That_Fit_The_Byte_Budget_Verbatim()
+	{
+		// 82 CJK characters encode to 246 bytes, the most a name can be and still be written with a
+		// five-byte extension and ".tmp". Names like it were stored before the byte budget existed, so
+		// they must keep resolving to the same file.
+		string key = new('日', 82);
+
+		Assert.AreEqual(key, PersistenceProviderUtilities.GetSafeFileName(key), "A name within the byte budget must not be truncated");
 	}
 
 	[TestMethod]
