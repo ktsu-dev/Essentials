@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials;
 
@@ -31,6 +31,16 @@ public static class PersistenceProviderUtilities
 	/// which keeps full paths clear of platform length limits.
 	/// </summary>
 	private const int MaxEncodedLength = 100;
+
+	/// <summary>
+	/// The most UTF-8 bytes an encoded name is kept verbatim at. Linux and macOS limit a file-name component
+	/// to 255 bytes, not UTF-16 characters, so a name of multibyte characters can be under
+	/// <see cref="MaxEncodedLength"/> and still too long. The file-system providers append the serializer's
+	/// extension and then <c>.tmp</c>, so this leaves room for both with a five-byte extension, the length of
+	/// every built-in serializer's. Every name that could be written before this limit existed is therefore
+	/// kept, and still finds its file. See issue #48.
+	/// </summary>
+	private const int MaxEncodedBytes = 255 - 9;
 
 	/// <summary>
 	/// Separates the truncated prefix from its hash. Keys may contain it too, so a truncated name is
@@ -89,7 +99,9 @@ public static class PersistenceProviderUtilities
 		}
 
 		string encoded = builder.ToString();
-		return encoded.Length > MaxEncodedLength ? Truncate(encoded) : encoded;
+		return encoded.Length > MaxEncodedLength || Encoding.UTF8.GetByteCount(encoded) > MaxEncodedBytes
+			? Truncate(encoded)
+			: encoded;
 	}
 
 	/// <summary>
@@ -288,7 +300,24 @@ public static class PersistenceProviderUtilities
 	private static string Truncate(string encoded)
 	{
 		string hash = Fnv1a64(encoded).ToString("x16", CultureInfo.InvariantCulture);
-		int prefixLength = MaxEncodedLength - hash.Length - 1;
+		int maxPrefixLength = MaxEncodedLength - hash.Length - 1;
+		int maxPrefixBytes = MaxEncodedBytes - hash.Length - 1;
+
+		// Take whole code points while both budgets allow, so a surrogate pair is never split.
+		int prefixLength = 0;
+		int prefixBytes = 0;
+		while (prefixLength < encoded.Length)
+		{
+			int width = char.IsSurrogatePair(encoded, prefixLength) ? 2 : 1;
+			int bytes = Encoding.UTF8.GetByteCount(encoded.AsSpan(prefixLength, width));
+			if (prefixLength + width > maxPrefixLength || prefixBytes + bytes > maxPrefixBytes)
+			{
+				break;
+			}
+
+			prefixLength += width;
+			prefixBytes += bytes;
+		}
 
 		// Never split a percent-escape across the truncation boundary.
 		while (prefixLength > 0 && IsInsideEscape(encoded, prefixLength))
@@ -301,7 +330,8 @@ public static class PersistenceProviderUtilities
 
 	/// <summary>
 	/// Reports whether <paramref name="fileName"/> has the shape <see cref="Truncate"/> produces: at or
-	/// just under <see cref="MaxEncodedLength"/>, ending in the marker and a lowercase hexadecimal hash.
+	/// just under <see cref="MaxEncodedLength"/> characters or <see cref="MaxEncodedBytes"/> UTF-8 bytes,
+	/// ending in the marker and a lowercase hexadecimal hash.
 	/// </summary>
 	/// <remarks>
 	/// Checking only for the marker hid every key that merely contains a <c>~</c>, such as
@@ -309,10 +339,17 @@ public static class PersistenceProviderUtilities
 	/// </remarks>
 	private static bool IsTruncatedName(string fileName)
 	{
-		// Truncate backs off by up to two characters to avoid splitting a percent-escape.
-		if (fileName.Length is < (MaxEncodedLength - 2) or > MaxEncodedLength)
+		// Truncate stops up to one character short of the character budget rather than split a surrogate
+		// pair, or up to three bytes short of the byte budget rather than split a code point, and then backs
+		// off by up to two more characters, each one byte, to avoid splitting a percent-escape.
+		bool nearMaxLength = fileName.Length is >= (MaxEncodedLength - 3) and <= MaxEncodedLength;
+		if (!nearMaxLength)
 		{
-			return false;
+			int byteCount = Encoding.UTF8.GetByteCount(fileName);
+			if (byteCount is < (MaxEncodedBytes - 5) or > MaxEncodedBytes)
+			{
+				return false;
+			}
 		}
 
 		int markerIndex = fileName.Length - TruncationHashLength - 1;
