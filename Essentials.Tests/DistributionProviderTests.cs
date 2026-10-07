@@ -690,6 +690,44 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Geometric_Keeps_Its_Precision_For_A_Rare_Success()
+	{
+		// Below p of about 1e-16, 1 - p rounds to exactly one, so a CDF built on it is zero everywhere and
+		// the quantile walks one outcome at a time to int.MaxValue. The reference values were computed to
+		// 60 digits outside this codebase.
+		GeometricDistributionProvider rare = new(1e-17);
+		Assert.AreEqual(1.0000000095e-9, rare.Cdf(100_000_000), 1.0000000095e-9 * 1e-12);
+		Assert.AreEqual(1.0 - 1.0000000095e-9, rare.SurvivalFunction(100_000_000), 1e-15);
+		Assert.AreEqual(100_000_000, rare.Quantile(1e-9));
+
+		// Above that threshold 1 - p survives but carries a relative error of about ε/p into the CDF.
+		GeometricDistributionProvider uncommon = new(1e-12);
+		Assert.AreEqual(9.995001676245083e-4, uncommon.Cdf(1_000_000_000), 9.995001676245083e-4 * 1e-12);
+
+		// At the bottom of the double range the CDF is (k + 1) p to every digit that can be stored.
+		GeometricDistributionProvider vanishing = new(1e-300);
+		Assert.AreEqual(1001e-300, vanishing.Cdf(1000), 1001e-300 * 1e-15);
+		Assert.AreEqual(1e-300, vanishing.Pmf(1000), 1e-300 * 1e-15);
+		Assert.AreEqual(0.0, vanishing.Pmf(-1), Tight);
+	}
+
+	[TestMethod]
+	public void Geometric_Bisection_Fallback_Agrees_With_The_Closed_Form_Quantile()
+	{
+		// The quantile falls back to bisecting the support only when its closed-form estimate is off by more
+		// than the bounded correction allows, which no ordinary parameter provokes. Checked directly, so the
+		// fallback is known to land on the same outcome whenever it is needed.
+		foreach (double p in new[] { 0.25, 1e-6, 1e-17 })
+		{
+			GeometricDistributionProvider distribution = new(p);
+			foreach (double q in new[] { 0.0, 1e-9, 0.25, 0.5, 0.999 })
+			{
+				Assert.AreEqual(distribution.Quantile(q), distribution.Bisect(q), $"Geometric({p}) at {q}");
+			}
+		}
+	}
+
+	[TestMethod]
 	public void Categorical_Normalises_Its_Weights()
 	{
 		CategoricalDistributionProvider distribution = new([1.0, 3.0, 0.0, 6.0]);
