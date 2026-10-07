@@ -669,6 +669,50 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Poisson_Stays_Accurate_At_A_Large_Rate()
+	{
+		// The incomplete gamma expansions need a number of terms that grows with the square root of the
+		// shape, so a fixed iteration cap returned a truncated sum here: 0.671 for the first value and
+		// 0.882 for the third. The references sum the mass function in log space outside this codebase.
+		PoissonDistributionProvider large = new(1e5);
+		Assert.AreEqual(0.5008410431110859, large.Cdf(100_000), 1e-9);
+		Assert.AreEqual(1.0 - 0.5008410431110859, large.SurvivalFunction(100_000), 1e-9);
+
+		PoissonDistributionProvider huge = new(1e6);
+		Assert.AreEqual(0.5002659612859388, huge.Cdf(1_000_000), 1e-8);
+		Assert.AreEqual(0.4998670190390555, huge.Cdf(999_999), 1e-8);
+		Assert.AreEqual(1_000_000, ((IDiscreteDistribution)huge).Median);
+	}
+
+	[TestMethod]
+	public void Poisson_Samples_Are_Unbiased_At_A_Large_Rate()
+	{
+		// Above the direct sampling limit the sampler inverts the CDF, so a truncated CDF biased every draw
+		// low: at this rate the sample mean sat about 260 below it.
+		IDiscreteDistribution distribution = new PoissonDistributionProvider(1e6);
+		IRandomProvider random = SeededRandom();
+
+		const int count = 2000;
+		int[] draws = distribution.Sample(random, count);
+		double mean = draws.Average();
+		double standardError = Math.Sqrt(1e6 / count);
+
+		Assert.AreEqual(1e6, mean, 4.0 * standardError, $"sample mean {mean}");
+	}
+
+	[TestMethod]
+	public void Binomial_Stays_Accurate_With_Many_Trials()
+	{
+		// The incomplete beta continued fraction needs more terms than a fixed cap allowed once the shape
+		// parameters reach the millions. The references sum the mass function in log space outside this
+		// codebase.
+		BinomialDistributionProvider distribution = new(10_000_000, 0.5);
+		Assert.AreEqual(0.5001261557552122, distribution.Cdf(5_000_000), 1e-8);
+		Assert.AreEqual(0.49987384251225325, distribution.Cdf(4_999_999), 1e-8);
+		Assert.AreEqual(5_000_000, ((IDiscreteDistribution)distribution).Median);
+	}
+
+	[TestMethod]
 	public void Geometric_Matches_Its_Closed_Form()
 	{
 		GeometricDistributionProvider distribution = new(0.25);
