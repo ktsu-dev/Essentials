@@ -11,6 +11,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using ktsu.Essentials;
+using ktsu.Essentials.CommandExecutors.Native;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -318,6 +319,86 @@ public class CommandExecutorTests
 			asyncResult.StandardOutput,
 			syncResult.StandardOutput,
 			$"{providerName} should return the same standard output from both paths");
+	}
+
+	/// <summary>
+	/// POSIX commands that carry backslashes next to quotes, with what <c>sh -c</c> prints for each. Up to
+	/// issue #54 the executor escaped only the quotes, and the backslashes the command already had combined
+	/// with the inserted escapes, so the shell received a mangled command.
+	/// </summary>
+	/// <remarks>
+	/// The command that ends in backslashes ends in an even run of them. A lone trailing backslash is left to
+	/// the shell to interpret, and the shells disagree: dash keeps it, while the bash behind macOS's
+	/// <c>/bin/sh</c> drops it as a line continuation.
+	/// </remarks>
+	public static IEnumerable<object[]> PosixCommandsWithBackslashes =>
+	[
+		["echo \"say \\\"hi\\\"\"", "say \"hi\"\n"],
+		["printf '%s\\n' trailing\\\\\\\\", "trailing\\\\\n"],
+		["printf '%s' 'a\\\\\"b'", "a\\\\\"b"],
+	];
+
+	/// <summary>
+	/// Regression test for issue #54: the shell receives the command exactly as written, through both the
+	/// synchronous and the asynchronous path.
+	/// </summary>
+	/// <param name="command">The command to run.</param>
+	/// <param name="expected">What the shell prints for it.</param>
+	[TestMethod]
+	[OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+	[DynamicData(nameof(PosixCommandsWithBackslashes))]
+	public void NativeCommandExecutor_Passes_Backslashes_And_Quotes_To_The_Shell_Verbatim(string command, string expected)
+	{
+		ICommandExecutor executor = new NativeCommandExecutor();
+
+		CommandResult syncResult = executor.Execute(command, cancellationToken: TestContext.CancellationToken);
+		CommandResult asyncResult = executor.ExecuteAsync(command, cancellationToken: TestContext.CancellationToken).Result;
+
+		Assert.AreEqual(expected, syncResult.StandardOutput, $"sync should run the command as written (stderr: {syncResult.StandardError})");
+		Assert.AreEqual(expected, asyncResult.StandardOutput, $"async should run the command as written (stderr: {asyncResult.StandardError})");
+	}
+
+	/// <summary>
+	/// Arguments whose backslashes the MSVCRT rules treat specially: before a quote, at the end, and in runs.
+	/// </summary>
+	public static IEnumerable<object[]> ArgumentsToQuote =>
+	[
+		[""],
+		["plain"],
+		["two words"],
+		["say \\\"hi\\\""],
+		["trailing\\"],
+		["trailing\\\\"],
+		["a\\\\\"b"],
+		["\\\"\""],
+		["c:\\path\\to\\file"],
+	];
+
+	/// <summary>
+	/// <see cref="NativeCommandExecutor.QuoteArgument"/> is what the netstandard2.1 build passes to the shell,
+	/// which the tests cannot run. Splitting is the same on every target, so passing the quoted text through
+	/// <see cref="ProcessStartInfo.Arguments"/> here proves the round trip that build depends on.
+	/// </summary>
+	/// <param name="argument">The argument to quote.</param>
+	[TestMethod]
+	[OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+	[DynamicData(nameof(ArgumentsToQuote))]
+	public void NativeCommandExecutor_QuoteArgument_Round_Trips_Through_Arguments(string argument)
+	{
+		using Process process = new();
+		process.StartInfo = new ProcessStartInfo
+		{
+			FileName = "printf",
+			Arguments = $"%s {NativeCommandExecutor.QuoteArgument(argument)}",
+			RedirectStandardOutput = true,
+			UseShellExecute = false,
+		};
+
+		process.Start();
+		string output = process.StandardOutput.ReadToEnd();
+		process.WaitForExit();
+
+		Assert.AreEqual(argument, output, "the child should receive the argument unchanged");
 	}
 
 	/// <summary>

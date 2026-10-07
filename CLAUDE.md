@@ -124,6 +124,8 @@ so no pool thread is held; declaring that one member converts all three synchron
 The reader threads read raw rather than going through the line-splitting `OutputDataReceived` callbacks, so the
 synchronous path returns byte-for-byte what the child wrote — the same text `ExecuteAsync` returns — instead of
 rewriting the terminators and adding one of its own. See issue #23.
+On Unix the command reaches `/bin/sh -c` as one argument, byte for byte: through `ProcessStartInfo.ArgumentList` on
+netcoreapp2.1+, and through the MSVCRT-correct `QuoteArgument` on netstandard2.1, which has no `ArgumentList`. See issue #54.
 
 Common patterns are centralized in `ProviderHelpers.cs`:
 

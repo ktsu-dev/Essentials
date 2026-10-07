@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -183,13 +184,29 @@ public class NativeCommandExecutor : ICommandExecutor
 		ProcessStartInfo startInfo = new()
 		{
 			FileName = isWindows ? "cmd.exe" : "/bin/sh",
-			Arguments = isWindows ? $"/c {command}" : $"-c \"{command.Replace("\"", "\\\"")}\"",
 			WorkingDirectory = workingDirectory ?? string.Empty,
 			RedirectStandardOutput = true,
 			RedirectStandardError = true,
 			UseShellExecute = false,
 			CreateNoWindow = true,
 		};
+
+		if (isWindows)
+		{
+			startInfo.Arguments = $"/c {command}";
+		}
+		else
+		{
+			// The shell has to receive the command as one argument, byte for byte. ArgumentList hands it over
+			// without any quoting at all; where it does not exist the argument string is split by the MSVCRT
+			// rules, so the command is quoted for exactly those rules. See issue #54.
+#if NETCOREAPP2_1_OR_GREATER
+			startInfo.ArgumentList.Add("-c");
+			startInfo.ArgumentList.Add(command);
+#else
+			startInfo.Arguments = $"-c {QuoteArgument(command)}";
+#endif
+		}
 
 		if (environmentVariables is not null)
 		{
@@ -225,6 +242,48 @@ public class NativeCommandExecutor : ICommandExecutor
 	/// <returns>A failed <see cref="CommandResult"/> describing the cancellation.</returns>
 	private static CommandResult Cancelled() =>
 		new(-1, string.Empty, "Operation was cancelled.");
+
+	/// <summary>
+	/// Quotes <paramref name="argument"/> so that splitting a command line by the MSVCRT rules, which
+	/// <see cref="ProcessStartInfo.Arguments"/> uses on every platform, yields it back unchanged.
+	/// </summary>
+	/// <remarks>
+	/// Backslashes are literal except in a run that ends at a quote: there each one is doubled and the quote is
+	/// escaped, and a run at the very end is doubled so it cannot escape the closing quote.
+	/// </remarks>
+	/// <param name="argument">The argument to quote.</param>
+	/// <returns><paramref name="argument"/> as a single quoted command-line argument.</returns>
+	internal static string QuoteArgument(string argument)
+	{
+		StringBuilder quoted = new(argument.Length + 2);
+		quoted.Append('"');
+
+		int backslashes = 0;
+		foreach (char c in argument)
+		{
+			if (c == '\\')
+			{
+				backslashes++;
+				continue;
+			}
+
+			if (c == '"')
+			{
+				quoted.Append('\\', (backslashes * 2) + 1);
+			}
+			else
+			{
+				quoted.Append('\\', backslashes);
+			}
+
+			backslashes = 0;
+			quoted.Append(c);
+		}
+
+		quoted.Append('\\', backslashes * 2);
+		quoted.Append('"');
+		return quoted.ToString();
+	}
 
 	/// <summary>
 	/// Reads one redirected stream to the end on a thread of its own.
