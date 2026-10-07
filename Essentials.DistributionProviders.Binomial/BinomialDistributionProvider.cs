@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.DistributionProviders.Binomial;
 
@@ -116,6 +116,21 @@ public sealed class BinomialDistributionProvider : IDiscreteDistribution
 		return value >= Trials
 			? 1.0
 			: SpecialFunctions.RegularizedIncompleteBeta(Trials - value, value + 1.0, failureProbability);
+	}
+
+	/// <inheritdoc />
+	public double SurvivalFunction(int value)
+	{
+		if (value < 0)
+		{
+			return 1.0;
+		}
+
+		// The upper tail is P(X > k) = I(p; k + 1, n - k). Taking it as one minus the CDF would round
+		// every tail below about 1e-16 to zero, and those small tails are usually the reason to ask.
+		return value >= Trials
+			? 0.0
+			: SpecialFunctions.RegularizedIncompleteBeta(value + 1.0, Trials - value, Probability);
 	}
 
 	/// <inheritdoc />

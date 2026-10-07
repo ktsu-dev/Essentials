@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.Tests;
 
@@ -620,6 +620,23 @@ public class DistributionProviderTests
 
 		// The distribution is symmetric about 1000, so the two tails and the peak account for all of it.
 		Assert.AreEqual(1.0, (2.0 * distribution.Cdf(999)) + distribution.Pmf(1000), 1e-11);
+	}
+
+	[TestMethod]
+	public void Binomial_Keeps_Its_Precision_Far_Out_In_The_Upper_Tail()
+	{
+		// Both values were computed exactly, as rationals, outside this codebase. One minus the CDF rounds
+		// the first to zero and keeps only eight digits of the second.
+		IDiscreteDistribution distribution = new BinomialDistributionProvider(100, 0.01);
+		Assert.AreEqual(9.576655593219767e-22, distribution.SurvivalFunction(20), 9.576655593219767e-22 * 1e-12);
+		Assert.AreEqual(6.255518382834089e-09, distribution.SurvivalFunction(10), 6.255518382834089e-09 * 1e-12);
+
+		Assert.AreEqual(1.0, distribution.SurvivalFunction(-1), Tight);
+		Assert.AreEqual(0.0, distribution.SurvivalFunction(100), Tight);
+		IDiscreteDistribution never = new BinomialDistributionProvider(5, 0.0);
+		Assert.AreEqual(0.0, never.SurvivalFunction(0), Tight);
+		IDiscreteDistribution always = new BinomialDistributionProvider(5, 1.0);
+		Assert.AreEqual(1.0, always.SurvivalFunction(4), Tight);
 	}
 
 	[TestMethod]
