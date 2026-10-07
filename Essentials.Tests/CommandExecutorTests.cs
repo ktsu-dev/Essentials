@@ -249,22 +249,37 @@ public class CommandExecutorTests
 		string asyncMarker = Path.Join(Path.GetTempPath(), $"ktsu-cancel-async-{Guid.NewGuid():N}");
 		string syncMarker = Path.Join(Path.GetTempPath(), $"ktsu-cancel-sync-{Guid.NewGuid():N}");
 
+		TimeSpan sideEffectDelay = TimeSpan.FromSeconds(SideEffectDelaySeconds);
+
 		try
 		{
+			Stopwatch asyncRun = Stopwatch.StartNew();
 			using (CancellationTokenSource cts = new(CancellationDelay))
 			{
 				CommandResult result = executor.ExecuteAsync(SleepThenTouchCommand(asyncMarker), cancellationToken: cts.Token).Result;
 				Assert.IsFalse(result.Success, $"{providerName} async should report the cancellation");
 			}
 
+			// A run that took as long as the command's own wait proves nothing either way: the command may
+			// have finished before the cancellation was even observed.
+			Assert.IsLessThan(sideEffectDelay, asyncRun.Elapsed, $"{providerName} async should observe the cancellation before the command's side effect is due");
+
+			Stopwatch syncRun = Stopwatch.StartNew();
 			using (CancellationTokenSource cts = new(CancellationDelay))
 			{
 				CommandResult result = executor.Execute(SleepThenTouchCommand(syncMarker), cancellationToken: cts.Token);
 				Assert.IsFalse(result.Success, $"{providerName} sync should report the cancellation");
 			}
 
-			// Outlast the command's own sleep, so a child that survived has had time to write its marker.
-			Thread.Sleep(TimeSpan.FromSeconds(SideEffectDelaySeconds + 2));
+			Assert.IsLessThan(sideEffectDelay, syncRun.Elapsed, $"{providerName} sync should observe the cancellation before the command's side effect is due");
+
+			// Outlast both commands' own waits, counted from when the later one started, so a child that
+			// survived has had time to write its marker.
+			TimeSpan remaining = sideEffectDelay + TimeSpan.FromSeconds(2) - syncRun.Elapsed;
+			if (remaining > TimeSpan.Zero)
+			{
+				Thread.Sleep(remaining);
+			}
 
 			Assert.IsFalse(File.Exists(asyncMarker), $"{providerName} async should kill a cancelled command before it reaches its side effect");
 			Assert.IsFalse(File.Exists(syncMarker), $"{providerName} sync should kill a cancelled command before it reaches its side effect");
@@ -278,9 +293,11 @@ public class CommandExecutorTests
 
 	/// <summary>
 	/// How long the command in <see cref="CommandExecutor_Cancellation_Stops_The_Command"/> waits before
-	/// creating its marker. It has to be well past <see cref="CancellationDelay"/>.
+	/// creating its marker. It has to be far past <see cref="CancellationDelay"/>, with room for a loaded CI
+	/// runner to be slow to deliver the cancellation: at two seconds a Windows runner once observed it only
+	/// as the command finished.
 	/// </summary>
-	private const int SideEffectDelaySeconds = 2;
+	private const int SideEffectDelaySeconds = 10;
 
 	/// <summary>
 	/// Builds a command that waits <see cref="SideEffectDelaySeconds"/> and then creates <paramref name="marker"/>.
