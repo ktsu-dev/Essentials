@@ -236,6 +236,63 @@ public class CommandExecutorTests
 	}
 
 	/// <summary>
+	/// Regression test for issue #53: cancelling <c>ExecuteAsync</c> reported "cancelled" but left the child
+	/// running, so a command whose side effect came after the cancellation still performed it. Both paths
+	/// must stop the command, not just stop waiting for it.
+	/// </summary>
+	/// <param name="executor">The executor under test.</param>
+	/// <param name="providerName">The name of the executor, for assertion messages.</param>
+	[TestMethod]
+	[DynamicData(nameof(CommandExecutors))]
+	public void CommandExecutor_Cancellation_Stops_The_Command(ICommandExecutor executor, string providerName)
+	{
+		string asyncMarker = Path.Join(Path.GetTempPath(), $"ktsu-cancel-async-{Guid.NewGuid():N}");
+		string syncMarker = Path.Join(Path.GetTempPath(), $"ktsu-cancel-sync-{Guid.NewGuid():N}");
+
+		try
+		{
+			using (CancellationTokenSource cts = new(CancellationDelay))
+			{
+				CommandResult result = executor.ExecuteAsync(SleepThenTouchCommand(asyncMarker), cancellationToken: cts.Token).Result;
+				Assert.IsFalse(result.Success, $"{providerName} async should report the cancellation");
+			}
+
+			using (CancellationTokenSource cts = new(CancellationDelay))
+			{
+				CommandResult result = executor.Execute(SleepThenTouchCommand(syncMarker), cancellationToken: cts.Token);
+				Assert.IsFalse(result.Success, $"{providerName} sync should report the cancellation");
+			}
+
+			// Outlast the command's own sleep, so a child that survived has had time to write its marker.
+			Thread.Sleep(TimeSpan.FromSeconds(SideEffectDelaySeconds + 2));
+
+			Assert.IsFalse(File.Exists(asyncMarker), $"{providerName} async should kill a cancelled command before it reaches its side effect");
+			Assert.IsFalse(File.Exists(syncMarker), $"{providerName} sync should kill a cancelled command before it reaches its side effect");
+		}
+		finally
+		{
+			File.Delete(asyncMarker);
+			File.Delete(syncMarker);
+		}
+	}
+
+	/// <summary>
+	/// How long the command in <see cref="CommandExecutor_Cancellation_Stops_The_Command"/> waits before
+	/// creating its marker. It has to be well past <see cref="CancellationDelay"/>.
+	/// </summary>
+	private const int SideEffectDelaySeconds = 2;
+
+	/// <summary>
+	/// Builds a command that waits <see cref="SideEffectDelaySeconds"/> and then creates <paramref name="marker"/>.
+	/// </summary>
+	/// <param name="marker">The file the command creates once its wait is over.</param>
+	/// <returns>The platform's command.</returns>
+	private static string SleepThenTouchCommand(string marker) =>
+		RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+			? $"{SleepCommand(SideEffectDelaySeconds)} & type nul > \"{marker}\""
+			: $"{SleepCommand(SideEffectDelaySeconds)}; touch '{marker}'";
+
+	/// <summary>
 	/// Tests that a working directory that does not exist is reported as a failed result rather than
 	/// escaping as an exception from either path.
 	/// </summary>
