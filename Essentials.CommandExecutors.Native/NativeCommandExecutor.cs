@@ -220,6 +220,30 @@ public class NativeCommandExecutor : ICommandExecutor
 	}
 
 	/// <summary>
+	/// Kills a process that is being abandoned because the operation was cancelled, ignoring the races
+	/// where it has already exited or was never started.
+	/// </summary>
+	/// <param name="process">The process to kill.</param>
+	private static void TryKill(Process process)
+	{
+		try
+		{
+			process.Kill();
+		}
+		catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+		{
+			// The process exited between the wait timing out and this call, or could not be terminated.
+		}
+	}
+
+	/// <summary>
+	/// Builds the result returned when an operation is cancelled.
+	/// </summary>
+	/// <returns>A failed <see cref="CommandResult"/> describing the cancellation.</returns>
+	private static CommandResult Cancelled() =>
+		new(-1, string.Empty, "Operation was cancelled.");
+
+	/// <summary>
 	/// Quotes <paramref name="argument"/> so that splitting a command line by the MSVCRT rules, which
 	/// <see cref="ProcessStartInfo.Arguments"/> uses on every platform, yields it back unchanged.
 	/// </summary>
@@ -260,30 +284,6 @@ public class NativeCommandExecutor : ICommandExecutor
 		quoted.Append('"');
 		return quoted.ToString();
 	}
-
-	/// <summary>
-	/// Kills a process that is being abandoned because the operation was cancelled, ignoring the races
-	/// where it has already exited or was never started.
-	/// </summary>
-	/// <param name="process">The process to kill.</param>
-	private static void TryKill(Process process)
-	{
-		try
-		{
-			process.Kill();
-		}
-		catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
-		{
-			// The process exited between the wait timing out and this call, or could not be terminated.
-		}
-	}
-
-	/// <summary>
-	/// Builds the result returned when an operation is cancelled.
-	/// </summary>
-	/// <returns>A failed <see cref="CommandResult"/> describing the cancellation.</returns>
-	private static CommandResult Cancelled() =>
-		new(-1, string.Empty, "Operation was cancelled.");
 
 	/// <summary>
 	/// Reads one redirected stream to the end on a thread of its own.
