@@ -407,6 +407,17 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Normal_Cdf_Of_NaN_Is_NaN()
+	{
+		// A NaN never converges, so it has to be answered before the incomplete gamma expansions rather
+		// than reported by them as a convergence failure.
+		NormalDistributionProvider standard = new();
+
+		Assert.IsTrue(double.IsNaN(standard.Cdf(double.NaN)));
+		Assert.IsTrue(double.IsNaN(standard.SurvivalFunction(double.NaN)));
+	}
+
+	[TestMethod]
 	public void Normal_Quantile_Stays_Refined_Deep_Into_The_Tail()
 	{
 		// The quantile is a rational approximation good to about nine digits, refined by one Halley step

@@ -229,11 +229,6 @@ internal static class SpecialFunctions
 	/// <returns>A value in the range [0, 1].</returns>
 	internal static double RegularizedGammaP(double shape, double value)
 	{
-		if (double.IsNaN(value))
-		{
-			return double.NaN;
-		}
-
 		if (double.IsPositiveInfinity(value))
 		{
 			return 1.0;
@@ -257,6 +252,8 @@ internal static class SpecialFunctions
 	/// <returns>A value in the range [0, 1].</returns>
 	internal static double RegularizedGammaQ(double shape, double value)
 	{
+		// A NaN reaches here from a normal CDF evaluated at NaN, through Erfc. It never converges, so it
+		// is answered before the expansions rather than reported as a convergence failure.
 		if (double.IsNaN(value))
 		{
 			return double.NaN;
@@ -360,11 +357,6 @@ internal static class SpecialFunctions
 	/// <returns>A value in the range [0, 1].</returns>
 	internal static double RegularizedIncompleteBeta(double a, double b, double value)
 	{
-		if (double.IsNaN(value))
-		{
-			return double.NaN;
-		}
-
 		if (value <= 0.0)
 		{
 			return 0.0;
@@ -443,18 +435,17 @@ internal static class SpecialFunctions
 		double sum = term;
 		double denominator = shape;
 		int limit = IterationLimit(Math.Max(shape, value));
-		for (int i = 0; i < limit; i++)
+		bool converged = false;
+		for (int i = 0; i < limit && !converged; i++)
 		{
 			denominator += 1.0;
 			term *= value / denominator;
 			sum += term;
-			if (Math.Abs(term) < Math.Abs(sum) * Epsilon)
-			{
-				return sum * Math.Exp(-value + (shape * Math.Log(value)) - LogGamma(shape));
-			}
+			converged = Math.Abs(term) < Math.Abs(sum) * Epsilon;
 		}
 
-		throw NotConverged(nameof(GammaSeries), limit);
+		EnsureConverged(converged, nameof(GammaSeries), limit);
+		return sum * Math.Exp(-value + (shape * Math.Log(value)) - LogGamma(shape));
 	}
 
 	/// <summary>
@@ -472,7 +463,8 @@ internal static class SpecialFunctions
 		double d = 1.0 / b;
 		double result = d;
 		int limit = IterationLimit(Math.Max(shape, value));
-		for (int i = 1; i <= limit; i++)
+		bool converged = false;
+		for (int i = 1; i <= limit && !converged; i++)
 		{
 			double a = -i * (i - shape);
 			b += 2.0;
@@ -491,13 +483,11 @@ internal static class SpecialFunctions
 			d = 1.0 / d;
 			double delta = d * c;
 			result *= delta;
-			if (Math.Abs(delta - 1.0) <= Epsilon)
-			{
-				return Math.Exp(-value + (shape * Math.Log(value)) - LogGamma(shape)) * result;
-			}
+			converged = Math.Abs(delta - 1.0) <= Epsilon;
 		}
 
-		throw NotConverged(nameof(GammaContinuedFraction), limit);
+		EnsureConverged(converged, nameof(GammaContinuedFraction), limit);
+		return Math.Exp(-value + (shape * Math.Log(value)) - LogGamma(shape)) * result;
 	}
 
 	/// <summary>
@@ -523,7 +513,8 @@ internal static class SpecialFunctions
 		d = 1.0 / d;
 		double result = d;
 		int limit = IterationLimit(Math.Max(a, b));
-		for (int i = 1; i <= limit; i++)
+		bool converged = false;
+		for (int i = 1; i <= limit && !converged; i++)
 		{
 			int even = 2 * i;
 
@@ -559,13 +550,11 @@ internal static class SpecialFunctions
 			d = 1.0 / d;
 			double delta = d * c;
 			result *= delta;
-			if (Math.Abs(delta - 1.0) <= Epsilon)
-			{
-				return result;
-			}
+			converged = Math.Abs(delta - 1.0) <= Epsilon;
 		}
 
-		throw NotConverged(nameof(BetaContinuedFraction), limit);
+		EnsureConverged(converged, nameof(BetaContinuedFraction), limit);
+		return result;
 	}
 
 	/// <summary>
@@ -574,18 +563,21 @@ internal static class SpecialFunctions
 	/// <param name="scale">The largest parameter the expansion is evaluated at.</param>
 	/// <returns>The number of iterations the expansion may take before it is reported as not converging.</returns>
 	private static int IterationLimit(double scale)
-	{
-		double limit = MinIterations + (IterationsPerRootParameter * Math.Sqrt(Math.Max(scale, 0.0)));
-		return limit < MaxIterationCeiling ? (int)limit : MaxIterationCeiling;
-	}
+		=> (int)Math.Min(MaxIterationCeiling, MinIterations + (IterationsPerRootParameter * Math.Sqrt(Math.Max(scale, 0.0))));
 
 	/// <summary>
-	/// Builds the exception an expansion throws when it uses up its budget without converging.
+	/// Throws when an expansion used up its iteration budget without converging.
 	/// </summary>
 	/// <remarks>Thrown rather than returning the partial sum, which would be a wrong answer with nothing to say so.</remarks>
-	/// <param name="expansion">The name of the expansion that failed to converge.</param>
+	/// <param name="converged">Whether the expansion converged.</param>
+	/// <param name="expansion">The name of the expansion.</param>
 	/// <param name="iterations">The number of iterations it was allowed.</param>
-	/// <returns>The exception to throw.</returns>
-	private static ArithmeticException NotConverged(string expansion, int iterations)
-		=> new($"{expansion} did not converge within {iterations} iterations; its parameters are too large to evaluate accurately.");
+	/// <exception cref="ArithmeticException">The expansion did not converge.</exception>
+	private static void EnsureConverged(bool converged, string expansion, int iterations)
+	{
+		if (!converged)
+		{
+			throw new ArithmeticException($"{expansion} did not converge within {iterations} iterations; its parameters are too large to evaluate accurately.");
+		}
+	}
 }
