@@ -92,10 +92,6 @@ public class NativeCommandExecutor : ICommandExecutor
 				return Cancelled();
 			}
 		}
-		catch (OperationCanceledException)
-		{
-			return Cancelled();
-		}
 		catch (InvalidOperationException ex)
 		{
 			return new CommandResult(-1, string.Empty, ex.Message);
