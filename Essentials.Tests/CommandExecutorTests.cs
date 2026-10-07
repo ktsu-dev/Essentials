@@ -326,10 +326,15 @@ public class CommandExecutorTests
 	/// issue #54 the executor escaped only the quotes, and the backslashes the command already had combined
 	/// with the inserted escapes, so the shell received a mangled command.
 	/// </summary>
+	/// <remarks>
+	/// The command that ends in backslashes ends in an even run of them. A lone trailing backslash is left to
+	/// the shell to interpret, and the shells disagree: dash keeps it, while the bash behind macOS's
+	/// <c>/bin/sh</c> drops it as a line continuation.
+	/// </remarks>
 	public static IEnumerable<object[]> PosixCommandsWithBackslashes =>
 	[
 		["echo \"say \\\"hi\\\"\"", "say \"hi\"\n"],
-		["echo trailing\\", "trailing\\\n"],
+		["printf '%s\\n' trailing\\\\\\\\", "trailing\\\\\n"],
 		["printf '%s' 'a\\\\\"b'", "a\\\\\"b"],
 	];
 
