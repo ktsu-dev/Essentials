@@ -36,8 +36,19 @@ internal static class SpecialFunctions
 	/// <summary>A number near the smallest representable double, used to keep a continued fraction off zero.</summary>
 	private const double Tiny = 1e-300;
 
-	/// <summary>The iteration cap. Both expansions converge well inside it over the range they are used on.</summary>
-	private const int MaxIterations = 300;
+	/// <summary>The iteration budget every expansion gets, however small its parameters.</summary>
+	private const int MinIterations = 300;
+
+	/// <summary>The further iterations allowed per unit of the square root of the largest parameter.</summary>
+	/// <remarks>
+	/// Near the crossover the series and continued fractions need a number of terms proportional to the
+	/// square root of the shape: the gamma series terms fall off like <c>exp(-n²/2a)</c>, so reaching
+	/// <see cref="Epsilon"/> takes about <c>8.6√a</c> of them. Twenty per root leaves room on top of that.
+	/// </remarks>
+	private const double IterationsPerRootParameter = 20.0;
+
+	/// <summary>The most iterations any expansion is allowed, so a parameter too large to evaluate fails rather than spinning.</summary>
+	private const int MaxIterationCeiling = 100_000_000;
 
 	/// <summary>The probability at which the quantile approximation switches from its central branch to a tail branch.</summary>
 	private const double TailBoundary = 0.02425;
@@ -241,6 +252,13 @@ internal static class SpecialFunctions
 	/// <returns>A value in the range [0, 1].</returns>
 	internal static double RegularizedGammaQ(double shape, double value)
 	{
+		// A NaN reaches here from a normal CDF evaluated at NaN, through Erfc. It never converges, so it
+		// is answered before the expansions rather than reported as a convergence failure.
+		if (double.IsNaN(value))
+		{
+			return double.NaN;
+		}
+
 		if (double.IsPositiveInfinity(value))
 		{
 			return 0.0;
@@ -416,17 +434,17 @@ internal static class SpecialFunctions
 		double term = 1.0 / shape;
 		double sum = term;
 		double denominator = shape;
-		for (int i = 0; i < MaxIterations; i++)
+		int limit = IterationLimit(Math.Max(shape, value));
+		bool converged = false;
+		for (int i = 0; i < limit && !converged; i++)
 		{
 			denominator += 1.0;
 			term *= value / denominator;
 			sum += term;
-			if (Math.Abs(term) < Math.Abs(sum) * Epsilon)
-			{
-				break;
-			}
+			converged = Math.Abs(term) < Math.Abs(sum) * Epsilon;
 		}
 
+		EnsureConverged(converged, nameof(GammaSeries), limit);
 		return sum * Math.Exp(-value + (shape * Math.Log(value)) - LogGamma(shape));
 	}
 
@@ -444,7 +462,9 @@ internal static class SpecialFunctions
 		double c = 1.0 / Tiny;
 		double d = 1.0 / b;
 		double result = d;
-		for (int i = 1; i <= MaxIterations; i++)
+		int limit = IterationLimit(Math.Max(shape, value));
+		bool converged = false;
+		for (int i = 1; i <= limit && !converged; i++)
 		{
 			double a = -i * (i - shape);
 			b += 2.0;
@@ -463,12 +483,10 @@ internal static class SpecialFunctions
 			d = 1.0 / d;
 			double delta = d * c;
 			result *= delta;
-			if (Math.Abs(delta - 1.0) <= Epsilon)
-			{
-				break;
-			}
+			converged = Math.Abs(delta - 1.0) <= Epsilon;
 		}
 
+		EnsureConverged(converged, nameof(GammaContinuedFraction), limit);
 		return Math.Exp(-value + (shape * Math.Log(value)) - LogGamma(shape)) * result;
 	}
 
@@ -494,7 +512,9 @@ internal static class SpecialFunctions
 
 		d = 1.0 / d;
 		double result = d;
-		for (int i = 1; i <= MaxIterations; i++)
+		int limit = IterationLimit(Math.Max(a, b));
+		bool converged = false;
+		for (int i = 1; i <= limit && !converged; i++)
 		{
 			int even = 2 * i;
 
@@ -530,12 +550,34 @@ internal static class SpecialFunctions
 			d = 1.0 / d;
 			double delta = d * c;
 			result *= delta;
-			if (Math.Abs(delta - 1.0) <= Epsilon)
-			{
-				break;
-			}
+			converged = Math.Abs(delta - 1.0) <= Epsilon;
 		}
 
+		EnsureConverged(converged, nameof(BetaContinuedFraction), limit);
 		return result;
+	}
+
+	/// <summary>
+	/// Sizes the iteration budget of an expansion from its largest parameter.
+	/// </summary>
+	/// <param name="scale">The largest parameter the expansion is evaluated at.</param>
+	/// <returns>The number of iterations the expansion may take before it is reported as not converging.</returns>
+	private static int IterationLimit(double scale)
+		=> (int)Math.Min(MaxIterationCeiling, MinIterations + (IterationsPerRootParameter * Math.Sqrt(Math.Max(scale, 0.0))));
+
+	/// <summary>
+	/// Throws when an expansion used up its iteration budget without converging.
+	/// </summary>
+	/// <remarks>Thrown rather than returning the partial sum, which would be a wrong answer with nothing to say so.</remarks>
+	/// <param name="converged">Whether the expansion converged.</param>
+	/// <param name="expansion">The name of the expansion.</param>
+	/// <param name="iterations">The number of iterations it was allowed.</param>
+	/// <exception cref="ArithmeticException">The expansion did not converge.</exception>
+	private static void EnsureConverged(bool converged, string expansion, int iterations)
+	{
+		if (!converged)
+		{
+			throw new ArithmeticException($"{expansion} did not converge within {iterations} iterations; its parameters are too large to evaluate accurately.");
+		}
 	}
 }
