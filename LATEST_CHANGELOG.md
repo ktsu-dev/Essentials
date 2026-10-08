@@ -1,7 +1,4 @@
-## v2.10.6 (patch)
+## v2.10.6
 
-Changes since v2.10.5:
-
-- Report non-convergence from one place, and cover the NaN path ([@Claude](https://github.com/Claude))
-- Scale the special-function iteration cap with the parameters [patch] ([@Claude](https://github.com/Claude))
+No significant changes detected since v2.10.6.
 
