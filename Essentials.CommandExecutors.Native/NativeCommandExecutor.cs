@@ -63,28 +63,35 @@ public class NativeCommandExecutor : ICommandExecutor
 
 			process.Start();
 
+			try
+			{
 #if NET7_0_OR_GREATER
-			Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-			Task<string> stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+				Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+				Task<string> stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
 #else
-			Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
-			Task<string> stderrTask = process.StandardError.ReadToEndAsync();
+				Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
+				Task<string> stderrTask = process.StandardError.ReadToEndAsync();
 #endif
 
 #if NET5_0_OR_GREATER
-			await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+				await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
 #else
-			await Task.Run(process.WaitForExit, cancellationToken).ConfigureAwait(false);
+				await Task.Run(process.WaitForExit, cancellationToken).ConfigureAwait(false);
 #endif
 
-			string stdout = await stdoutTask.ConfigureAwait(false);
-			string stderr = await stderrTask.ConfigureAwait(false);
+				string stdout = await stdoutTask.ConfigureAwait(false);
+				string stderr = await stderrTask.ConfigureAwait(false);
 
-			return new CommandResult(process.ExitCode, stdout, stderr);
-		}
-		catch (OperationCanceledException)
-		{
-			return Cancelled();
+				return new CommandResult(process.ExitCode, stdout, stderr);
+			}
+			catch (OperationCanceledException)
+			{
+				// Disposing the process does not end the child, so a cancelled command would otherwise run on
+				// to completion, side effects and all, after the caller was told it had been cancelled. The
+				// synchronous path kills it too. See issue #53.
+				TryKill(process);
+				return Cancelled();
+			}
 		}
 		catch (InvalidOperationException ex)
 		{
@@ -220,15 +227,20 @@ public class NativeCommandExecutor : ICommandExecutor
 	}
 
 	/// <summary>
-	/// Kills a process that is being abandoned because the operation was cancelled, ignoring the races
-	/// where it has already exited or was never started.
+	/// Kills a process that is being abandoned because the operation was cancelled, along with the
+	/// commands the shell started where the platform can reach them, ignoring the races where it has
+	/// already exited or was never started.
 	/// </summary>
 	/// <param name="process">The process to kill.</param>
 	private static void TryKill(Process process)
 	{
 		try
 		{
+#if NETCOREAPP3_0_OR_GREATER
+			process.Kill(entireProcessTree: true);
+#else
 			process.Kill();
+#endif
 		}
 		catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
 		{
