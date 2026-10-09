@@ -15,9 +15,9 @@
     <PackageVersion Include="System.IO.Hashing" Version="9.0.3" />
     <PackageVersion Include="System.Memory" Version="4.6.3" />
     <PackageVersion Include="System.Text.Json" Version="10.0.2" />
-    <PackageVersion Include="Testably.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Testably.Abstractions" Version="10.4.0" />
     <PackageVersion Include="Tomlyn" Version="0.19.0" />
     <PackageVersion Include="YamlDotNet" Version="16.3.0" />
-    <PackageVersion Include="Testably.Abstractions.FileSystem.Interface" Version="10.0.0" />
+    <PackageVersion Include="Testably.Abstractions.FileSystem.Interface" Version="10.4.0" />
   </ItemGroup>
 </Project>

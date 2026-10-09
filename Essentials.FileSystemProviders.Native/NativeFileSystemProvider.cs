@@ -62,4 +62,16 @@ public class NativeFileSystemProvider : IFileSystemProvider
 	/// Gets the file version info factory.
 	/// </summary>
 	public IFileVersionInfoFactory FileVersionInfo => fileSystem.FileVersionInfo;
+
+#if NET6_0_OR_GREATER
+	/// <summary>
+	/// Gets the random access operations.
+	/// </summary>
+	/// <remarks>
+	/// <see cref="System.IO.RandomAccess"/> exists from .NET 6 onward, and Testably.Abstractions
+	/// declares <see cref="IFileSystem.RandomAccess"/> only on those target frameworks, so this
+	/// member is absent from the netstandard2.1 build.
+	/// </remarks>
+	public IRandomAccess RandomAccess => fileSystem.RandomAccess;
+#endif
 }
