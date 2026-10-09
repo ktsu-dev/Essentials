@@ -1,6 +1,8 @@
-## v2.10.6
+## v2.10.7 (patch)
 
-No significant changes detected since v2.10.6.
+Changes since v2.10.6:
+
+- Support Testably.Abstractions 10.4 by forwarding IFileSystem.RandomAccess ([@Claude](https://github.com/Claude))
 
 ## v2.10.6 (patch)
 
