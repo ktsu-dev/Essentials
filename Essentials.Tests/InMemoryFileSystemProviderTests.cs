@@ -22,7 +22,7 @@ public class InMemoryFileSystemProviderTests
 	{
 		InMemoryFileSystemProvider memory = new();
 		NativeFileSystemProvider disk = new();
-		string path = Path.Combine(Path.GetTempPath(), "ktsu-inmemory-" + Guid.NewGuid().ToString("N") + ".txt");
+		string path = Path.Join(Path.GetTempPath(), "ktsu-inmemory-" + Guid.NewGuid().ToString("N") + ".txt");
 
 		memory.Directory.CreateDirectory(Path.GetTempPath());
 		memory.File.WriteAllText(path, "only in memory");

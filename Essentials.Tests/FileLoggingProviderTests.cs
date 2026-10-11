@@ -116,7 +116,7 @@ public class FileLoggingProviderTests
 	public void Rolled_Files_Number_Before_The_Extension()
 	{
 		FileLoggingProvider logger = Create(new InMemoryFileSystemProvider(), fileName: "imagegui.log");
-		Assert.AreEqual(System.IO.Path.Combine(LogDirectory, "imagegui.2.log"), logger.GetRolledFilePath(2));
+		Assert.AreEqual(System.IO.Path.Join(LogDirectory, "imagegui.2.log"), logger.GetRolledFilePath(2));
 	}
 
 	[TestMethod]

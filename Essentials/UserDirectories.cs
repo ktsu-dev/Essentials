@@ -45,7 +45,7 @@ public static class UserDirectories
 	/// </summary>
 	/// <returns><c>$XDG_DATA_HOME</c> when set to an absolute path, otherwise <c>~/.local/share</c>.</returns>
 	public static string GetDataHome()
-		=> ResolveBase(DataHomeVariable, Path.Combine(".local", "share"));
+		=> ResolveBase(DataHomeVariable, Path.Join(".local", "share"));
 
 	/// <summary>
 	/// Gets the base directory for user-specific configuration files.
@@ -59,7 +59,7 @@ public static class UserDirectories
 	/// </summary>
 	/// <returns><c>$XDG_STATE_HOME</c> when set to an absolute path, otherwise <c>~/.local/state</c>.</returns>
 	public static string GetStateHome()
-		=> ResolveBase(StateHomeVariable, Path.Combine(".local", "state"));
+		=> ResolveBase(StateHomeVariable, Path.Join(".local", "state"));
 
 	/// <summary>
 	/// Gets the base directory for user-specific cache files, which may be deleted at any time.

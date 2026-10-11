@@ -18,32 +18,32 @@ public class UserDirectoriesTests
 	[TestMethod]
 	public void StateHome_Defaults_To_LocalState()
 		=> WithVariable(UserDirectories.StateHomeVariable, null, () =>
-			Assert.AreEqual(Path.Combine(UserDirectories.GetHomeDirectory(), ".local", "state"), UserDirectories.GetStateHome()));
+			Assert.AreEqual(Path.Join(UserDirectories.GetHomeDirectory(), ".local", "state"), UserDirectories.GetStateHome()));
 
 	[TestMethod]
 	public void CacheHome_Defaults_To_DotCache()
 		=> WithVariable(UserDirectories.CacheHomeVariable, null, () =>
-			Assert.AreEqual(Path.Combine(UserDirectories.GetHomeDirectory(), ".cache"), UserDirectories.GetCacheHome()));
+			Assert.AreEqual(Path.Join(UserDirectories.GetHomeDirectory(), ".cache"), UserDirectories.GetCacheHome()));
 
 	[TestMethod]
 	public void StateHome_Honours_Absolute_Override()
 	{
-		string overridden = Path.Combine(Path.GetTempPath(), "xdg_state_" + Guid.NewGuid().ToString("N")[..8]);
+		string overridden = Path.Join(Path.GetTempPath(), "xdg_state_" + Guid.NewGuid().ToString("N")[..8]);
 		WithVariable(UserDirectories.StateHomeVariable, overridden, () =>
 		{
 			Assert.AreEqual(overridden, UserDirectories.GetStateHome());
-			Assert.AreEqual(Path.Combine(overridden, "MyApp", "logs"), UserDirectories.GetApplicationStateDirectory("MyApp", "logs"));
+			Assert.AreEqual(Path.Join(overridden, "MyApp", "logs"), UserDirectories.GetApplicationStateDirectory("MyApp", "logs"));
 		});
 	}
 
 	[TestMethod]
 	public void CacheHome_Honours_Absolute_Override()
 	{
-		string overridden = Path.Combine(Path.GetTempPath(), "xdg_cache_" + Guid.NewGuid().ToString("N")[..8]);
+		string overridden = Path.Join(Path.GetTempPath(), "xdg_cache_" + Guid.NewGuid().ToString("N")[..8]);
 		WithVariable(UserDirectories.CacheHomeVariable, overridden, () =>
 		{
 			Assert.AreEqual(overridden, UserDirectories.GetCacheHome());
-			Assert.AreEqual(Path.Combine(overridden, "MyApp"), UserDirectories.GetApplicationCacheDirectory("MyApp"));
+			Assert.AreEqual(Path.Join(overridden, "MyApp"), UserDirectories.GetApplicationCacheDirectory("MyApp"));
 		});
 	}
 
@@ -51,9 +51,9 @@ public class UserDirectoriesTests
 	public void StateAndCache_Ignore_Relative_Overrides()
 	{
 		WithVariable(UserDirectories.StateHomeVariable, "relative/state", () =>
-			Assert.AreEqual(Path.Combine(UserDirectories.GetHomeDirectory(), ".local", "state"), UserDirectories.GetStateHome()));
+			Assert.AreEqual(Path.Join(UserDirectories.GetHomeDirectory(), ".local", "state"), UserDirectories.GetStateHome()));
 		WithVariable(UserDirectories.CacheHomeVariable, "relative/cache", () =>
-			Assert.AreEqual(Path.Combine(UserDirectories.GetHomeDirectory(), ".cache"), UserDirectories.GetCacheHome()));
+			Assert.AreEqual(Path.Join(UserDirectories.GetHomeDirectory(), ".cache"), UserDirectories.GetCacheHome()));
 	}
 
 	[TestMethod]
