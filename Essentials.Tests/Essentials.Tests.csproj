@@ -31,6 +31,7 @@
     <ProjectReference Include="..\Essentials.ObfuscationProviders.Hex\Essentials.ObfuscationProviders.Hex.csproj" />
     <ProjectReference Include="..\Essentials.ObfuscationProviders.Reverse\Essentials.ObfuscationProviders.Reverse.csproj" />
     <ProjectReference Include="..\Essentials.ObfuscationProviders.Xor\Essentials.ObfuscationProviders.Xor.csproj" />
+    <ProjectReference Include="..\Essentials.FileSystemProviders.InMemory\Essentials.FileSystemProviders.InMemory.csproj" />
     <ProjectReference Include="..\Essentials.FileSystemProviders.Native\Essentials.FileSystemProviders.Native.csproj" />
     <ProjectReference Include="..\Essentials.HashProviders.MD5\Essentials.HashProviders.MD5.csproj" />
     <ProjectReference Include="..\Essentials.HashProviders.SHA1\Essentials.HashProviders.SHA1.csproj" />
@@ -61,6 +62,7 @@
     <ProjectReference Include="..\Essentials.SerializationProviders.Toml\Essentials.SerializationProviders.Toml.csproj" />
     <ProjectReference Include="..\Essentials.CommandExecutors.Native\Essentials.CommandExecutors.Native.csproj" />
     <ProjectReference Include="..\Essentials.LoggingProviders.Console\Essentials.LoggingProviders.Console.csproj" />
+    <ProjectReference Include="..\Essentials.LoggingProviders.File\Essentials.LoggingProviders.File.csproj" />
     <ProjectReference Include="..\Essentials.CacheProviders.InMemory\Essentials.CacheProviders.InMemory.csproj" />
     <ProjectReference Include="..\Essentials.NavigationProviders.InMemory\Essentials.NavigationProviders.InMemory.csproj" />
     <ProjectReference Include="..\Essentials.PersistenceProviders.ConfigHome\Essentials.PersistenceProviders.ConfigHome.csproj" />

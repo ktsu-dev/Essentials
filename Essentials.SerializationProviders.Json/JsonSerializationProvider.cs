@@ -12,15 +12,39 @@ using System.Text.Json;
 /// </summary>
 public class JsonSerializationProvider : ISerializationProvider
 {
+	private readonly JsonSerializerOptions options;
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="JsonSerializationProvider"/> class with the default
+	/// options: System.Text.Json's defaults, with indented output.
+	/// </summary>
+	public JsonSerializationProvider()
+		: this(new JsonSerializerOptions { WriteIndented = true })
+	{
+	}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="JsonSerializationProvider"/> class with the given
+	/// serializer options, for naming policies, converters, enum handling, comments or a source-generated
+	/// type resolver.
+	/// </summary>
+	/// <remarks>
+	/// The options are copied, so changing <paramref name="options"/> afterwards does not change how this
+	/// provider serializes. Nothing is added to the copy: pass <see cref="JsonSerializerOptions.WriteIndented"/>
+	/// yourself if you want indented output, which the parameterless constructor turns on.
+	/// </remarks>
+	/// <param name="options">The serializer options to use.</param>
+	/// <exception cref="ArgumentNullException"><paramref name="options"/> is null.</exception>
+	public JsonSerializationProvider(JsonSerializerOptions options)
+	{
+		Ensure.NotNull(options);
+		this.options = new JsonSerializerOptions(options);
+	}
+
 	/// <summary>
 	/// Gets the conventional file extension for JSON, including the leading dot.
 	/// </summary>
 	public string FileExtension => ".json";
-
-	private readonly JsonSerializerOptions options = new()
-	{
-		WriteIndented = true,
-	};
 
 	/// <summary>
 	/// Tries to serialize the specified object into the writer.

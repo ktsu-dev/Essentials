@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="ktsu.Sdk" />
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net9.0;net8.0;net7.0;net6.0;netstandard2.1</TargetFrameworks>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <!--
+      New in this release, so there is no published version to compare against: the 2.5.2 baseline
+      Directory.Build.targets names does not exist for this package and would fail restore. Remove
+      this once the package has shipped and the baseline moves past its first version.
+    -->
+    <DisablePackageBaselineValidation>true</DisablePackageBaselineValidation>
+    <Description>An in-memory IFileSystemProvider for tests, backed by Testably.Abstractions.Testing's MockFileSystem.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Essentials\Essentials.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Testably.Abstractions.Testing" />
+    <PackageReference Include="Testably.Abstractions.FileSystem.Interface" />
+    <PackageReference Include="Polyfill" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ktsu.Essentials.Tests" />
+  </ItemGroup>
+
+</Project>

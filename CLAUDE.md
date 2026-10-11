@@ -54,6 +54,7 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 - `Essentials/IPersistenceProvider.cs` - Object persistence interface with pluggable backends
 - `Essentials/IValidationProvider.cs` - Validation interface with structured results
 - `Essentials/ILoggingProvider.cs` - Logging interface with six severity levels
+- `Essentials/UserDirectories.cs` - Public XDG base directory helpers: data, config, state and cache homes, each with an application-directory variant. The persistence providers use the first two
 - `Essentials/INavigationProvider.cs` - Browser-like back/forward navigation interface
 - `Essentials/ICommandExecutor.cs` - Shell command execution interface; `Execute(command, environmentVariables, workingDirectory, cancellationToken)` is the synchronous primitive that every other synchronous member composes over
 - `Essentials/IFileSystemProvider.cs` - Filesystem abstraction extending Testably.Abstractions
@@ -73,10 +74,10 @@ Each provider implementation ships as its own project/package named `Essentials.
 - **KeyedHashProviders**: HmacSha256, HmacSha384, HmacSha512
 - **RandomProviders**: Native (System.Random), Crypto (RandomNumberGenerator), Xoshiro (xoshiro256**), Pcg (PCG-XSH-RR). Xoshiro and Pcg write the algorithm out, so a seed replays identically across platforms and framework versions, which `System.Random` does not promise. The three stateful providers register as transients because they are not thread-safe; Crypto is stateless and registers as a singleton
 - **DistributionProviders**: Uniform, Normal, Exponential, LogNormal, Triangular (continuous); Bernoulli, Binomial, Poisson, Geometric, Categorical (discrete). Triangular, Binomial and Categorical need parameters with no standard default and are excluded from `AddEssentials()`, like the composite obfuscator
-- **SerializationProviders**: Json (System.Text.Json), NewtonsoftJson, Yaml, Toml
-- **FileSystemProviders**: Native
+- **SerializationProviders**: Json (System.Text.Json; takes a `JsonSerializerOptions`, copied, or defaults to indented output), NewtonsoftJson, Yaml, Toml
+- **FileSystemProviders**: Native, InMemory (Testably.Abstractions.Testing's `MockFileSystem`; excluded from `AddEssentials()` because resolving one `IFileSystemProvider` returns the last registered, and an app that silently wrote to memory would lose its data)
 - **CommandExecutors**: Native
-- **LoggingProviders**: Console
+- **LoggingProviders**: Console, File (rolling, one line per entry, through `IFileSystemProvider`; excluded from `AddEssentials()` because it needs a directory). See [The file logger](#the-file-logger)
 - **CacheProviders**: InMemory
 - **NavigationProviders**: InMemory
 - **PersistenceProviders**: DataHome, ConfigHome, FileSystem, InMemory, Temp (DataHome and ConfigHome resolve XDG paths — `$XDG_DATA_HOME` else `~/.local/share/<app>`, `$XDG_CONFIG_HOME` else `~/.config/<app>` — with the same layout on every platform; `~` is `%USERPROFILE%` on Windows. Both delegate storage to `FileSystemPersistenceProvider`.)
@@ -134,6 +135,31 @@ Common patterns are centralized in `ProviderHelpers.cs`:
 - `SpanToStreamBridge()` - Bridges Span input to Stream-based operations
 - `Utf8Transform()` - Applies byte operations to UTF8 strings
 
+### The file logger
+
+`FileLoggingProvider` opens, appends to and closes the file for each entry rather than holding it open. That
+costs a little per entry and buys three things: another program can read or delete the log while the app
+runs, nothing needs disposing, and an I/O failure on one entry cannot leave a broken handle for the next.
+Failures (`IOException`, `UnauthorizedAccessException`) are swallowed and counted in `DroppedEntryCount`,
+because a logger that throws when the disk fills turns a warning into a crash. Entries are serialized by a
+lock within one instance; rolling is not coordinated across processes.
+
+Every entry is one line: the message and exception text escape `\`, `\r`, `\n`, U+0085, U+2028 and U+2029.
+Write those escapes in C# source as `'\u2028'`, never as the literal character: a raw U+2028 in source ends
+the line, including inside a `///` comment, which is how the doc comment broke while this was written.
+
+Rolling happens before an entry that would push a non-empty file past `MaxFileSizeBytes`, so no file exceeds
+the limit unless a single entry does, and such an entry is written whole to a fresh file. `MaxFileCount`
+counts the current file, so 1 means a full file is deleted and started again.
+
+### New packages and the validation baseline
+
+`Directory.Build.targets` names a `PackageValidationBaselineVersion` for every project, and a package that
+has never shipped has no such version on nuget.org, so its restore fails with `NU1101`. A new provider
+project sets `DisablePackageBaselineValidation` in its own csproj, with a comment, and drops it once the
+baseline version moves past its first release. `Essentials.FileSystemProviders.InMemory` and
+`Essentials.LoggingProviders.File` carry it today.
+
 ### Multi-Framework Considerations
 
 The codebase uses `[SuppressMessage]` attributes for APIs not available in netstandard2.1 (e.g., CA1510 for `ArgumentNullException` throw helpers). The `Polyfill` package backports newer APIs where possible. When adding new code, verify availability in netstandard2.1 and use `#if` directives if needed.
@@ -152,7 +178,11 @@ Tests use **MSTest.Sdk** targeting net10.0 only. The test project (`Essentials.T
 - `EncodingProviderTests.cs` - Tests Base64 and Hex encoding
 - `ObfuscationProviderTests.cs` - Tests all obfuscation providers via round-trip (obfuscate → deobfuscate)
 - `FileSystemProviderTests.cs` - Tests filesystem operations
-- `LoggingProviderTests.cs` - Tests logging provider
+- `LoggingProviderTests.cs` - Tests the console logging provider through `AddEssentials()`
+- `FileLoggingProviderTests.cs` - Tests the rolling file logger against `InMemoryFileSystemProvider`: line format and escaping, rolling and retention, concurrency, dropped writes, DI
+- `InMemoryFileSystemProviderTests.cs` - Isolation from disk and between instances; the shared contract in `FileSystemProviderTests.cs` runs over it too
+- `JsonSerializationOptionsTests.cs` - The `JsonSerializerOptions` constructor and DI overload
+- `UserDirectoriesTests.cs` - State and cache homes (data and config are covered in `PersistenceProviderTests.cs`)
 - `NavigationProviderTests.cs` - Tests navigation stack behavior, including a nullable destination type where null is a legitimate step in the history rather than an unset current destination
 - `PersistenceProviderTests.cs` - Tests all persistence backends
 - `SerializationProviderTests.cs` - Tests serialization provider implementations

@@ -23,16 +23,16 @@
 - **Encryption**: `IEncryptionProvider` with AES implementation including key and IV generation. Provides confidentiality only, not tamper detection
 - **Hashing**: `IHashProvider` with 15 implementations (MD5, SHA1/256/384/512, FNV1/FNV1a 32/64-bit, CRC32/64, XxHash32/64/3/128)
 - **Keyed Hashing**: `IKeyedHashProvider` with HMAC-SHA256/384/512 implementations for authenticating data, plus `Verify` for fixed-time tag checking
-- **Serialization**: `ISerializationProvider` with System.Text.Json, Newtonsoft.Json, YAML, and TOML implementations plus configurable `ISerializationOptions`
+- **Serialization**: `ISerializationProvider` with System.Text.Json, Newtonsoft.Json, YAML, and TOML implementations plus configurable `ISerializationOptions`. The System.Text.Json provider also takes your own `JsonSerializerOptions`
 - **Caching**: `ICacheProvider<TKey, TValue>` with in-memory implementation supporting expiration and get-or-add semantics
 - **Persistence**: `IPersistenceProvider<TKey>` with DataHome, ConfigHome, FileSystem, InMemory, and Temp implementations. `DataHome` and `ConfigHome` follow the XDG Base Directory layout on every platform — `$XDG_DATA_HOME` or `~/.local/share/<app>` for application state, `$XDG_CONFIG_HOME` or `~/.config/<app>` for user settings — with `~` resolving to `%USERPROFILE%` on Windows
 - **Validation**: `IValidationProvider<T>` with structured results, error codes, and throw-on-failure support
-- **Logging**: `ILoggingProvider` with console implementation supporting six severity levels
+- **Logging**: `ILoggingProvider` with six severity levels and two implementations: console, and a rolling file log with size and count limits that writes one line per entry through `IFileSystemProvider`
 - **Navigation**: `INavigationProvider<T>` with in-memory implementation for browser-like back/forward navigation
 - **Randomness**: `IRandomProvider` with four implementations — `Native` over `System.Random`, `Crypto` over the OS cryptographic generator, and `Xoshiro` (xoshiro256\*\*) and `Pcg` (PCG-XSH-RR), whose seeded sequences are fixed by the package rather than by the framework and so replay identically on any machine or runtime. One primitive to implement; range-limited draws are free of modulo bias, and shuffling, weighted choice and sampling without replacement come with it
 - **Probability Distributions**: `IContinuousDistribution` and `IDiscreteDistribution` with CDF, quantile, survival function, density or mass, moments and sampling. Ten implementations — uniform, normal, exponential, log-normal and triangular; Bernoulli, binomial, Poisson, geometric and categorical. Where a CDF has no closed form it is evaluated through the incomplete gamma and incomplete beta functions rather than by summation, so the cost does not grow with the value asked about
 - **Command Execution**: `ICommandExecutor` with native implementation for running shell commands and capturing output
-- **Filesystem**: `IFileSystemProvider` extending Testably.Abstractions for testable filesystem access
+- **Filesystem**: `IFileSystemProvider` extending Testably.Abstractions for testable filesystem access, with a native implementation and an in-memory one for tests
 - **Explicit Buffer Contract**: every span operation is `bool TryX(source, destination, out int bytesWritten)` and each category exposes a `GetMax…Length` bound, so callers can size a buffer up front and know exactly how much was written. Encoding, hashing and obfuscation run allocation-free on the span path; compression and encryption still buffer internally, because the underlying BCL APIs for those are stream-only
 - **Minimal Implementation Burden**: Default interface implementations reduce boilerplate — implement only the core `Try*` methods
 - **Async Support**: Operations expose async variants with `CancellationToken` support. Stream hashing, keyed hash stream hashing, and the stream paths of the compression, AES encryption and encoding providers, are genuinely asynchronous — they read and write with `ReadAsync`/`WriteAsync` and hold no thread. The obfuscation, serialization and in-memory variants are convenience wrappers that run synchronous work on the thread pool; span-destination operations have no async form, because an `out` parameter cannot cross an await boundary
@@ -174,12 +174,78 @@ services.AddDataHomePersistenceProvider<string>("MyApp");
 ```
 
 Both use the same layout on every platform, with `~` resolving to `%USERPROFILE%` on Windows. If you need
-the paths without a persistence provider, `UserDirectories` exposes them directly:
+the paths without a persistence provider, `UserDirectories` exposes them directly, along with the state and
+cache homes that no persistence provider uses:
 
 ```csharp
-string dataDir = UserDirectories.GetApplicationDataDirectory("MyApp");
-string configDir = UserDirectories.GetApplicationConfigDirectory("MyApp");
+string dataDir = UserDirectories.GetApplicationDataDirectory("MyApp");     // $XDG_DATA_HOME or ~/.local/share
+string configDir = UserDirectories.GetApplicationConfigDirectory("MyApp"); // $XDG_CONFIG_HOME or ~/.config
+string logDir = UserDirectories.GetApplicationStateDirectory("MyApp", "logs"); // $XDG_STATE_HOME or ~/.local/state
+string cacheDir = UserDirectories.GetApplicationCacheDirectory("MyApp");   // $XDG_CACHE_HOME or ~/.cache
 ```
+
+### Logging to a file
+
+The file logger writes through the registered `IFileSystemProvider`, so register one of those too. It is not
+part of `AddEssentials()`, because where the log goes is the application's decision:
+
+```csharp
+using ktsu.Essentials.LoggingProviders.File;
+
+services
+    .AddNativeFileSystemProvider()
+    .AddConsoleLoggingProvider()
+    .AddFileLoggingProvider(new FileLoggingOptions
+    {
+        Directory = UserDirectories.GetApplicationStateDirectory("MyApp", "logs"),
+        FileName = "myapp.log",          // rolls to myapp.1.log, myapp.2.log, ...
+        MaxFileSizeBytes = 1024 * 1024,  // start a new file past 1 MiB
+        MaxFileCount = 5,                // keep five files, counting the current one
+        MinimumLevel = LogLevel.Information,
+    });
+
+// Resolve every logger to write to the console and the file at once.
+foreach (ILoggingProvider logger in provider.GetServices<ILoggingProvider>())
+{
+    logger.LogWarning("Disk is nearly full");
+}
+```
+
+Each entry is one line, `2026-10-11T15:02:37.123Z WARN Disk is nearly full`, timestamped in UTC. Line breaks
+inside a message or an exception are escaped as `\n`, so a line is always one entry. The file is opened per
+entry and never held, so another program can read it while the application runs, and a write that fails
+(a full disk, a locked file) is dropped and counted in `DroppedEntryCount` rather than thrown.
+
+### JSON options
+
+```csharp
+using System.Text.Json;
+using ktsu.Essentials.SerializationProviders.Json;
+
+JsonSerializerOptions options = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+ISerializationProvider serializer = new JsonSerializationProvider(options);
+
+// Or in a container. Register it before AddEssentials(), which would otherwise register the default one first.
+services.AddJsonSerializationProvider(options);
+```
+
+The options are copied when the provider is built. The parameterless constructor keeps its old behaviour,
+System.Text.Json's defaults with indented output.
+
+### Testing against an in-memory file system
+
+```csharp
+using ktsu.Essentials.FileSystemProviders.InMemory;
+
+IFileSystemProvider fileSystem = new InMemoryFileSystemProvider();
+fileSystem.Directory.CreateDirectory("/data");
+fileSystem.File.WriteAllText("/data/settings.json", "{}"); // never touches the disk
+```
+
+It is Testably.Abstractions.Testing's `MockFileSystem` behind the interface, so missing directories, sharing
+violations and timestamps behave as they do on disk, and `MockFileSystem` is exposed for its test helpers.
+Each instance is its own empty file system. It is not part of `AddEssentials()`: register it with
+`AddInMemoryFileSystemProvider()` in a test's container instead of the native provider.
 
 ### Keyed Hashing
 
@@ -501,6 +567,9 @@ Write structured log messages at various severity levels.
 | `IsEnabled(LogLevel)` | `bool` | Check if a log level is enabled |
 | `LogTrace(string)` through `LogCritical(string)` | `void` | Level-specific convenience methods |
 
+Implementations: `ConsoleLoggingProvider` (warnings and above to standard error) and `FileLoggingProvider`
+(a rolling file, configured by `FileLoggingOptions`).
+
 ### `INavigationProvider<T>`
 
 Browser-like back/forward navigation. Exposes `Current`, `CanGoBack`, and `CanGoForward` properties.
@@ -524,7 +593,8 @@ Run shell commands and capture output.
 
 ### `IFileSystemProvider`
 
-Extends `Testably.Abstractions.IFileSystem` for testable filesystem operations.
+Extends `Testably.Abstractions.IFileSystem` for testable filesystem operations. Implementations:
+`NativeFileSystemProvider` over the real disk, and `InMemoryFileSystemProvider` over a `MockFileSystem`.
 
 ### `IRandomProvider`
 
