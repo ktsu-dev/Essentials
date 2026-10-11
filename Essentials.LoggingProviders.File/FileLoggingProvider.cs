@@ -1,0 +1,278 @@
+// Copyright (c) 2023-2026 ktsu-dev contributors
+
+namespace ktsu.Essentials.LoggingProviders.File;
+
+using System;
+using System.Globalization;
+using System.IO;
+using System.Text;
+using ktsu.Essentials;
+
+/// <summary>
+/// A logging provider that appends one line per entry to a file, rolling to a new file when it grows
+/// past a size limit and keeping a bounded number of old files.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Every entry is one line, <c>2026-10-11T15:02:37.123Z WARN message</c>, with the timestamp in UTC.
+/// Line breaks, backslashes and other line terminators inside a message or exception are escaped
+/// (<c>\n</c>, <c>\r</c> and <c>\\</c>, and the Unicode line and paragraph separators by code
+/// point), so a line is always exactly one entry and a reader can split the file on newlines. An exception follows the message after <c> | </c>.
+/// </para>
+/// <para>
+/// All file access goes through the <see cref="IFileSystemProvider"/> it is given, so a test can log
+/// to an in-memory file system. The file is opened for each entry and closed again, which means no
+/// handle is held between entries: another program can read, copy or delete the log while the
+/// application runs, and nothing needs disposing. Entries are serialized within the provider, so it
+/// is safe to call from any thread. Rolling is not coordinated between processes, so give each
+/// process its own file.
+/// </para>
+/// <para>
+/// Logging never throws for an I/O failure. An entry that cannot be written, because the disk is
+/// full or the file is locked, is dropped and counted in <see cref="DroppedEntryCount"/>.
+/// </para>
+/// </remarks>
+public class FileLoggingProvider : ILoggingProvider
+{
+	private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
+
+	private readonly IFileSystemProvider fileSystem;
+	private readonly long maxFileSizeBytes;
+	private readonly int maxFileCount;
+	private readonly string baseName;
+	private readonly string extension;
+	private readonly System.Threading.Lock writeLock = new();
+	private long droppedEntryCount;
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="FileLoggingProvider"/> class.
+	/// </summary>
+	/// <param name="fileSystem">The file system the log is written through.</param>
+	/// <param name="options">Where to write and when to roll. The values are copied.</param>
+	/// <exception cref="ArgumentNullException"><paramref name="fileSystem"/> or <paramref name="options"/> is null.</exception>
+	/// <exception cref="ArgumentException">
+	/// The directory is empty, the file name is empty or contains a directory separator, the size limit is
+	/// not positive, or the file count is less than one.
+	/// </exception>
+	public FileLoggingProvider(IFileSystemProvider fileSystem, FileLoggingOptions options)
+	{
+		Ensure.NotNull(fileSystem);
+		Ensure.NotNull(options);
+
+		if (string.IsNullOrWhiteSpace(options.Directory))
+		{
+			throw new ArgumentException("The log directory cannot be null or whitespace.", nameof(options));
+		}
+
+		if (string.IsNullOrWhiteSpace(options.FileName)
+			|| options.FileName.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]) >= 0)
+		{
+			throw new ArgumentException("The log file name must be a file name, without a directory.", nameof(options));
+		}
+
+		if (options.MaxFileSizeBytes <= 0)
+		{
+			throw new ArgumentException("The maximum file size must be positive.", nameof(options));
+		}
+
+		if (options.MaxFileCount < 1)
+		{
+			throw new ArgumentException("At least one log file must be kept.", nameof(options));
+		}
+
+		this.fileSystem = fileSystem;
+		maxFileSizeBytes = options.MaxFileSizeBytes;
+		maxFileCount = options.MaxFileCount;
+		MinimumLevel = options.MinimumLevel;
+		Directory = options.Directory;
+		FilePath = fileSystem.Path.Combine(options.Directory, options.FileName);
+		baseName = fileSystem.Path.GetFileNameWithoutExtension(options.FileName);
+		extension = fileSystem.Path.GetExtension(options.FileName);
+	}
+
+	/// <summary>
+	/// Gets the directory the log files are written to.
+	/// </summary>
+	public string Directory { get; }
+
+	/// <summary>
+	/// Gets the path of the file currently being written.
+	/// </summary>
+	public string FilePath { get; }
+
+	/// <summary>
+	/// Gets or sets the minimum log level. Entries below this level are ignored.
+	/// </summary>
+	public LogLevel MinimumLevel { get; set; }
+
+	/// <summary>
+	/// Gets the number of entries that could not be written because of an I/O failure.
+	/// </summary>
+	public long DroppedEntryCount => System.Threading.Interlocked.Read(ref droppedEntryCount);
+
+	/// <summary>
+	/// Gets the path of an older file, where 1 is the most recent one rolled away.
+	/// </summary>
+	/// <param name="index">The file's position, from 1 to one less than the number of files kept.</param>
+	/// <returns>The path of that file, whether or not it exists.</returns>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is less than 1.</exception>
+	public string GetRolledFilePath(int index)
+	{
+		if (index < 1)
+		{
+			throw new ArgumentOutOfRangeException(nameof(index), index, "Rolled files are numbered from 1.");
+		}
+
+		return fileSystem.Path.Combine(Directory, string.Format(CultureInfo.InvariantCulture, "{0}.{1}{2}", baseName, index, extension));
+	}
+
+	/// <summary>
+	/// Writes a log entry at the specified level.
+	/// </summary>
+	/// <param name="level">The severity level of the log entry.</param>
+	/// <param name="message">The log message.</param>
+	public void Log(LogLevel level, string message)
+	{
+		if (IsEnabled(level))
+		{
+			Write(FormatEntry(DateTimeOffset.UtcNow, level, message, exception: null));
+		}
+	}
+
+	/// <summary>
+	/// Writes a log entry at the specified level with an associated exception.
+	/// </summary>
+	/// <param name="level">The severity level of the log entry.</param>
+	/// <param name="exception">The exception associated with this log entry.</param>
+	/// <param name="message">The log message.</param>
+	public void Log(LogLevel level, Exception exception, string message)
+	{
+		if (IsEnabled(level))
+		{
+			Write(FormatEntry(DateTimeOffset.UtcNow, level, message, exception));
+		}
+	}
+
+	/// <summary>
+	/// Checks if the given log level is enabled.
+	/// </summary>
+	/// <param name="level">The log level to check.</param>
+	/// <returns>True if the log level is enabled, false otherwise.</returns>
+	public bool IsEnabled(LogLevel level) => level >= MinimumLevel && level != LogLevel.None;
+
+	internal static string FormatEntry(DateTimeOffset timestamp, LogLevel level, string? message, Exception? exception)
+	{
+		StringBuilder builder = new();
+		builder.Append(timestamp.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture));
+		builder.Append(' ');
+		builder.Append(LevelName(level));
+		builder.Append(' ');
+		AppendEscaped(builder, message);
+
+		if (exception is not null)
+		{
+			builder.Append(" | ");
+			AppendEscaped(builder, exception.ToString());
+		}
+
+		return builder.ToString();
+	}
+
+	private static string LevelName(LogLevel level) => level switch
+	{
+		LogLevel.Trace => "TRACE",
+		LogLevel.Debug => "DEBUG",
+		LogLevel.Information => "INFO",
+		LogLevel.Warning => "WARN",
+		LogLevel.Error => "ERROR",
+		LogLevel.Critical => "CRIT",
+		_ => level.ToString().ToUpperInvariant(),
+	};
+
+	private static void AppendEscaped(StringBuilder builder, string? text)
+	{
+		if (text is null)
+		{
+			return;
+		}
+
+		foreach (char c in text)
+		{
+			switch (c)
+			{
+				case '\\':
+					builder.Append(@"\\");
+					break;
+				case '\n':
+					builder.Append(@"\n");
+					break;
+				case '\r':
+					builder.Append(@"\r");
+					break;
+				case '\u0085':
+				case '\u2028':
+				case '\u2029':
+					builder.Append(@"\u").Append(((int)c).ToString("x4", CultureInfo.InvariantCulture));
+					break;
+				default:
+					builder.Append(c);
+					break;
+			}
+		}
+	}
+
+	private void Write(string entry)
+	{
+		byte[] bytes = Utf8.GetBytes(entry + Environment.NewLine);
+
+		lock (writeLock)
+		{
+			try
+			{
+				fileSystem.Directory.CreateDirectory(Directory);
+				long length = fileSystem.File.Exists(FilePath) ? fileSystem.FileInfo.New(FilePath).Length : 0;
+				if (length > 0 && length + bytes.Length > maxFileSizeBytes)
+				{
+					Roll();
+				}
+
+				using Stream stream = fileSystem.FileStream.New(FilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+				stream.Write(bytes, 0, bytes.Length);
+			}
+			catch (IOException)
+			{
+				System.Threading.Interlocked.Increment(ref droppedEntryCount);
+			}
+			catch (UnauthorizedAccessException)
+			{
+				System.Threading.Interlocked.Increment(ref droppedEntryCount);
+			}
+		}
+	}
+
+	private void Roll()
+	{
+		if (maxFileCount == 1)
+		{
+			fileSystem.File.Delete(FilePath);
+			return;
+		}
+
+		string oldest = GetRolledFilePath(maxFileCount - 1);
+		if (fileSystem.File.Exists(oldest))
+		{
+			fileSystem.File.Delete(oldest);
+		}
+
+		for (int index = maxFileCount - 2; index >= 1; index--)
+		{
+			string source = GetRolledFilePath(index);
+			if (fileSystem.File.Exists(source))
+			{
+				fileSystem.File.Move(source, GetRolledFilePath(index + 1));
+			}
+		}
+
+		fileSystem.File.Move(FilePath, GetRolledFilePath(1));
+	}
+}

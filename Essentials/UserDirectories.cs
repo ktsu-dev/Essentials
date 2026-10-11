@@ -17,6 +17,10 @@ using System.IO;
 /// <list type="bullet">
 /// <item><description>Data: <c>$XDG_DATA_HOME</c> if set, otherwise <c>~/.local/share</c>.</description></item>
 /// <item><description>Config: <c>$XDG_CONFIG_HOME</c> if set, otherwise <c>~/.config</c>.</description></item>
+/// <item><description>State: <c>$XDG_STATE_HOME</c> if set, otherwise <c>~/.local/state</c>. For data that should
+/// survive a restart but is not worth backing up, such as logs, history and window layout.</description></item>
+/// <item><description>Cache: <c>$XDG_CACHE_HOME</c> if set, otherwise <c>~/.cache</c>. For data that can be
+/// deleted at any time and rebuilt.</description></item>
 /// </list>
 /// <para>
 /// Per the specification, a relative or empty <c>XDG_*</c> value is ignored and the default is used.
@@ -29,6 +33,12 @@ public static class UserDirectories
 
 	/// <summary>The environment variable that overrides the user configuration directory.</summary>
 	public const string ConfigHomeVariable = "XDG_CONFIG_HOME";
+
+	/// <summary>The environment variable that overrides the user state directory.</summary>
+	public const string StateHomeVariable = "XDG_STATE_HOME";
+
+	/// <summary>The environment variable that overrides the user cache directory.</summary>
+	public const string CacheHomeVariable = "XDG_CACHE_HOME";
 
 	/// <summary>
 	/// Gets the base directory for user-specific data files.
@@ -43,6 +53,20 @@ public static class UserDirectories
 	/// <returns><c>$XDG_CONFIG_HOME</c> when set to an absolute path, otherwise <c>~/.config</c>.</returns>
 	public static string GetConfigHome()
 		=> ResolveBase(ConfigHomeVariable, ".config");
+
+	/// <summary>
+	/// Gets the base directory for user-specific state files, such as logs and history.
+	/// </summary>
+	/// <returns><c>$XDG_STATE_HOME</c> when set to an absolute path, otherwise <c>~/.local/state</c>.</returns>
+	public static string GetStateHome()
+		=> ResolveBase(StateHomeVariable, Path.Combine(".local", "state"));
+
+	/// <summary>
+	/// Gets the base directory for user-specific cache files, which may be deleted at any time.
+	/// </summary>
+	/// <returns><c>$XDG_CACHE_HOME</c> when set to an absolute path, otherwise <c>~/.cache</c>.</returns>
+	public static string GetCacheHome()
+		=> ResolveBase(CacheHomeVariable, ".cache");
 
 	/// <summary>
 	/// Gets the data directory for a specific application.
@@ -65,6 +89,26 @@ public static class UserDirectories
 		=> CombineApplication(GetConfigHome(), applicationName, subdirectory);
 
 	/// <summary>
+	/// Gets the state directory for a specific application.
+	/// </summary>
+	/// <param name="applicationName">The application name used to namespace the directory.</param>
+	/// <param name="subdirectory">An optional subdirectory beneath the application directory.</param>
+	/// <returns>The resolved application state directory.</returns>
+	/// <exception cref="ArgumentException"><paramref name="applicationName"/> is null, empty, or whitespace.</exception>
+	public static string GetApplicationStateDirectory(string applicationName, string? subdirectory = null)
+		=> CombineApplication(GetStateHome(), applicationName, subdirectory);
+
+	/// <summary>
+	/// Gets the cache directory for a specific application.
+	/// </summary>
+	/// <param name="applicationName">The application name used to namespace the directory.</param>
+	/// <param name="subdirectory">An optional subdirectory beneath the application directory.</param>
+	/// <returns>The resolved application cache directory.</returns>
+	/// <exception cref="ArgumentException"><paramref name="applicationName"/> is null, empty, or whitespace.</exception>
+	public static string GetApplicationCacheDirectory(string applicationName, string? subdirectory = null)
+		=> CombineApplication(GetCacheHome(), applicationName, subdirectory);
+
+	/// <summary>
 	/// Gets the current user's home directory.
 	/// </summary>
 	/// <returns><c>%USERPROFILE%</c> on Windows, <c>$HOME</c> on other platforms.</returns>
@@ -85,7 +129,7 @@ public static class UserDirectories
 		return string.IsNullOrEmpty(home)
 			? throw new InvalidOperationException(
 				"Unable to determine the user's home directory. Set USERPROFILE (Windows) or HOME, " +
-				$"or set {DataHomeVariable}/{ConfigHomeVariable} to an absolute path.")
+				$"or set the {DataHomeVariable}, {ConfigHomeVariable}, {StateHomeVariable} or {CacheHomeVariable} variable to an absolute path.")
 			: home;
 	}
 

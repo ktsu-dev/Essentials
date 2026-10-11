@@ -5,6 +5,7 @@ namespace ktsu.Essentials.Tests;
 using System.Collections.Generic;
 using ktsu.Essentials;
 using ktsu.Essentials.All;
+using ktsu.Essentials.FileSystemProviders.InMemory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -14,7 +15,7 @@ public class FileSystemProviderTests
 	private static ServiceProvider BuildProvider()
 	{
 		ServiceCollection services = new();
-		services.AddFileSystemProviders();
+		services.AddFileSystemProviders().AddInMemoryFileSystemProvider();
 		return services.BuildServiceProvider();
 	}
 

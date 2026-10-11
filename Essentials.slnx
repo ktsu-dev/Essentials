@@ -46,6 +46,7 @@
   </Folder>
   <Folder Name="/Essentials/" />
   <Folder Name="/FileSystemProviders/">
+    <Project Path="Essentials.FileSystemProviders.InMemory/Essentials.FileSystemProviders.InMemory.csproj" />
     <Project Path="Essentials.FileSystemProviders.Native/Essentials.FileSystemProviders.Native.csproj" />
   </Folder>
   <Folder Name="/HashProviders/">
@@ -72,6 +73,7 @@
   </Folder>
   <Folder Name="/LoggingProviders/">
     <Project Path="Essentials.LoggingProviders.Console/Essentials.LoggingProviders.Console.csproj" />
+    <Project Path="Essentials.LoggingProviders.File/Essentials.LoggingProviders.File.csproj" />
   </Folder>
   <Folder Name="/NavigationProviders/">
     <Project Path="Essentials.NavigationProviders.InMemory/Essentials.NavigationProviders.InMemory.csproj" />

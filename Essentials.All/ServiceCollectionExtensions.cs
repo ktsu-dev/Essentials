@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.All;
 
@@ -65,9 +65,10 @@ using ktsu.Essentials.CompressionProviders.ZLib;
 /// <remarks>
 /// Each method delegates to the registration extension shipped by the individual provider package, so
 /// the behaviour is identical to registering them one at a time. Providers that need configuration —
-/// the composite obfuscator, the filesystem, temp, data-home, and config-home persistence providers, and
-/// the triangular, binomial, and categorical distributions — are not included here; register those
-/// explicitly from their own packages.
+/// the composite obfuscator, the filesystem, temp, data-home, and config-home persistence providers, the
+/// file logger, and the triangular, binomial, and categorical distributions — are not included here;
+/// register those explicitly from their own packages. The in-memory file system is left out too, because
+/// it is for tests and must replace the native one rather than sit beside it.
 /// </remarks>
 public static class ServiceCollectionExtensions
 {
