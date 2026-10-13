@@ -111,8 +111,8 @@ generator or an evaluation of a CDF is a handful of arithmetic instructions over
 
 Where a distribution's tail is small, `SurvivalFunction` is **declared rather than inherited**. The default
 subtracts the CDF from one, which discards the tail to cancellation: the normal survival function at 8
-sigma is 6.2e-16, and `1 - 0.9999999999999994` keeps about one digit of it. Normal, LogNormal, Exponential,
-Poisson and Geometric each compute the tail directly, and the tests assert the difference.
+sigma is 6.2e-16, and `1 - 0.9999999999999994` keeps about one digit of it. All ten
+providers compute the tail directly, and the tests assert the difference.
 
 `ICommandExecutor` is the one interface with the mirror-image concern: synchronous methods layered over an
 asynchronous one. It declares a synchronous primitive, `Execute(string, IReadOnlyDictionary<string, string>?,
