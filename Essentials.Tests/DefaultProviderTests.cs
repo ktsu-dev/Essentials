@@ -72,7 +72,7 @@ public class DefaultProviderTests
 	[TestMethod]
 	public async Task AddEssentials_FileSystem_Persistence_Writes_Json_And_Keeps_Lists()
 	{
-		string directory = Path.Combine(Path.GetTempPath(), $"{nameof(DefaultProviderTests)}_{Guid.NewGuid():N}");
+		string directory = Path.Join(Path.GetTempPath(), $"{nameof(DefaultProviderTests)}_{Guid.NewGuid():N}");
 		try
 		{
 			ServiceCollection services = new();
@@ -84,7 +84,7 @@ public class DefaultProviderTests
 			await persistence.StoreAsync("settings", new Settings { Value = 7, Items = ["a", "b"] }, TestContext.CancellationToken).ConfigureAwait(false);
 			Settings? loaded = await persistence.RetrieveAsync<Settings>("settings", TestContext.CancellationToken).ConfigureAwait(false);
 
-			Assert.IsTrue(File.Exists(Path.Combine(directory, "settings.json")), "The default serializer should write a .json file");
+			Assert.IsTrue(File.Exists(Path.Join(directory, "settings.json")), "The default serializer should write a .json file");
 			Assert.IsNotNull(loaded);
 			Assert.AreEqual(7, loaded.Value);
 			Assert.HasCount(2, loaded.Items);
