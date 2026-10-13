@@ -1,29 +1,6 @@
-## v2.11.0 (minor)
+## v2.11.1 (patch)
 
-Changes since v2.10.0:
+Changes since v2.11.0:
 
-- Use Path.Join for literal path segments flagged by code quality ([@Claude](https://github.com/Claude))
-- [minor] Add a rolling file logger, an in-memory file system, XDG state/cache homes and JSON options ([@Claude](https://github.com/Claude))
-- Support Testably.Abstractions 10.4 by forwarding IFileSystem.RandomAccess ([@Claude](https://github.com/Claude))
-- Report non-convergence from one place, and cover the NaN path ([@Claude](https://github.com/Claude))
-- Scale the special-function iteration cap with the parameters [patch] ([@Claude](https://github.com/Claude))
-- Wait on the test's cancellation token instead of Thread.Sleep ([@Claude](https://github.com/Claude))
-- Give the cancellation test room for a slow runner to deliver the token ([@Claude](https://github.com/Claude))
-- Drop the outer cancellation catch that the inner one made unreachable ([@Claude](https://github.com/Claude))
-- Make the trailing-backslash test case shell-independent ([@Claude](https://github.com/Claude))
-- Bound persistence file names in UTF-8 bytes as well as characters [patch] ([@Claude](https://github.com/Claude))
-- Move the quoting helper and its notes away from the cancellation code ([@Claude](https://github.com/Claude))
-- Kill the child when ExecuteAsync is cancelled, as Execute does [patch] ([@Claude](https://github.com/Claude))
-- Pass Unix commands to sh verbatim instead of escaping only quotes [patch] ([@Claude](https://github.com/Claude))
-- Split the geometric mass function's nested conditional into statements ([@Claude](https://github.com/Claude))
-- Cover the geometric quantile's bisection fallback directly ([@Claude](https://github.com/Claude))
-- Keep the geometric CDF and quantile precise for a rare success [patch] ([@Claude](https://github.com/Claude))
-- Keep the binomial upper tail precise instead of rounding it to zero [patch] ([@Claude](https://github.com/Claude))
-- Move the IConvertible fallback into the key-parsing helper too ([@Claude](https://github.com/Claude))
-- Move non-IConvertible key parsing into its own helper ([@Claude](https://github.com/Claude))
-- Detect zero in NextDown from its bits instead of a float comparison ([@Claude](https://github.com/Claude))
-- List enum, TimeSpan and other non-IConvertible persistence keys [patch] ([@Claude](https://github.com/Claude))
-- Keep NextDouble(min, max) below max and finite for wide bounds [patch] ([@Claude](https://github.com/Claude))
-- Keep NextDoubleExclusive strictly below 1 at the top draw [patch] ([@Claude](https://github.com/Claude))
-- Move CI onto the shared ci-shared.yml pipeline ([@Claude](https://github.com/Claude))
+- Declare SurvivalFunction on Triangular, Uniform, Bernoulli and Categorical [patch] ([@Claude](https://github.com/Claude))
 
