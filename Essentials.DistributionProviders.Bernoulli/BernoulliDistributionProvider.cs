@@ -63,6 +63,25 @@ public sealed class BernoulliDistributionProvider(double probability) : IDiscret
 		return value == 0 ? 1.0 - Probability : 1.0;
 	}
 
+	/// <summary>
+	/// Evaluates the survival function, the probability of an outcome greater than <paramref name="value"/>.
+	/// </summary>
+	/// <remarks>
+	/// Declared rather than left to subtract the CDF from one: above zero the tail is the success
+	/// probability itself, which one minus the failure probability would round away when it is small.
+	/// </remarks>
+	/// <param name="value">The outcome to evaluate at.</param>
+	/// <returns>A probability in the range [0, 1].</returns>
+	public double SurvivalFunction(int value)
+	{
+		if (value < 0)
+		{
+			return 1.0;
+		}
+
+		return value == 0 ? Probability : 0.0;
+	}
+
 	/// <inheritdoc />
 	public int Quantile(double probability)
 	{

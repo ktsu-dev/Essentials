@@ -117,6 +117,35 @@ public sealed class TriangularDistributionProvider : IContinuousDistribution
 			: 1.0 - ((Maximum - value) * (Maximum - value) / (width * upperWidth));
 	}
 
+	/// <summary>
+	/// Evaluates the survival function, the probability of a value greater than <paramref name="value"/>.
+	/// </summary>
+	/// <remarks>
+	/// Declared rather than left to subtract the CDF from one: above the mode the tail is the closed form
+	/// <c>(max - v)² / (width × upper width)</c>, which subtraction would round to zero near the upper
+	/// bound. Below the mode the tail is at least the upper side's share of the mass, so one minus the CDF
+	/// is well conditioned there.
+	/// </remarks>
+	/// <param name="value">The value to evaluate at.</param>
+	/// <returns>A probability in the range [0, 1].</returns>
+	public double SurvivalFunction(double value)
+	{
+		if (value <= Minimum)
+		{
+			return 1.0;
+		}
+
+		if (value >= Maximum)
+		{
+			return 0.0;
+		}
+
+		// The same branch test as Cdf, which keeps a zero-width side out of the denominator.
+		return value <= Mode
+			? 1.0 - ((value - Minimum) * (value - Minimum) / (width * lowerWidth))
+			: (Maximum - value) * (Maximum - value) / (width * upperWidth);
+	}
+
 	/// <inheritdoc />
 	public double Quantile(double probability)
 	{

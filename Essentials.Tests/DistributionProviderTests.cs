@@ -651,6 +651,52 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Closed_Form_Tails_Keep_Their_Precision_Near_The_Upper_Bound()
+	{
+		// Each of these tails is far smaller than the rounding step of a CDF near one, so subtracting the
+		// CDF from one returns zero, or a value with only a few digits left. The expected values are the
+		// closed forms written out by hand.
+		IContinuousDistribution triangular = new TriangularDistributionProvider(0.0, 0.0, 1.0);
+		double nearTop = 0.999999999;
+		double tail = (1.0 - nearTop) * (1.0 - nearTop);
+		Assert.AreEqual(tail, triangular.SurvivalFunction(nearTop), tail * 1e-12);
+		Assert.AreEqual(1e-18, triangular.SurvivalFunction(nearTop), 1e-18 * 1e-6);
+		Assert.AreEqual(1e-14, triangular.SurvivalFunction(0.9999999), 1e-14 * 1e-8);
+
+		// Below the mode the tail is most of the mass, and the complement is the accurate route.
+		IContinuousDistribution skewed = new TriangularDistributionProvider(1.0, 2.0, 6.0);
+		Assert.AreEqual(1.0 - (0.25 / 5.0), skewed.SurvivalFunction(1.5), Tight);
+		Assert.AreEqual(1.0, skewed.SurvivalFunction(1.0), Tight);
+		Assert.AreEqual(0.0, skewed.SurvivalFunction(6.0), Tight);
+		IContinuousDistribution rightAngled = new TriangularDistributionProvider(0.0, 4.0, 4.0);
+		Assert.AreEqual(1.0 - (9.0 / 16.0), rightAngled.SurvivalFunction(3.0), Tight);
+
+		IContinuousDistribution uniform = new UniformDistributionProvider(-1.0, 1.0);
+		Assert.AreEqual(5.551115123125783e-17, uniform.SurvivalFunction(0.9999999999999999), 5.551115123125783e-17 * 1e-12);
+		Assert.AreEqual(1.0, uniform.SurvivalFunction(-1.0), Tight);
+		Assert.AreEqual(0.0, uniform.SurvivalFunction(1.0), Tight);
+		IContinuousDistribution huge = new UniformDistributionProvider(-double.MaxValue, double.MaxValue);
+		Assert.AreEqual(0.25, huge.SurvivalFunction(double.MaxValue / 2.0), Tight);
+
+		IDiscreteDistribution rare = new BernoulliDistributionProvider(1e-20);
+		Assert.AreEqual(1e-20, rare.SurvivalFunction(0), 1e-20 * 1e-12);
+		IDiscreteDistribution bernoulli = new BernoulliDistributionProvider(0.1);
+		Assert.AreEqual(0.1, bernoulli.SurvivalFunction(0));
+		Assert.AreEqual(1.0, bernoulli.SurvivalFunction(-1), Tight);
+		Assert.AreEqual(0.0, bernoulli.SurvivalFunction(1), Tight);
+
+		IDiscreteDistribution categorical = new CategoricalDistributionProvider([1.0, 1e-20]);
+		Assert.AreEqual(1e-20, categorical.SurvivalFunction(0), 1e-20 * 1e-12);
+		Assert.AreEqual(1.0, categorical.SurvivalFunction(-1), Tight);
+		Assert.AreEqual(0.0, categorical.SurvivalFunction(1), Tight);
+		IDiscreteDistribution loaded = new CategoricalDistributionProvider([1.0, 2.0, 3.0, 4.0]);
+		Assert.AreEqual(0.9, loaded.SurvivalFunction(0), Tight);
+		Assert.AreEqual(0.7, loaded.SurvivalFunction(1), Tight);
+		Assert.AreEqual(0.4, loaded.SurvivalFunction(2), Tight);
+		Assert.AreEqual(0.0, loaded.SurvivalFunction(3), Tight);
+	}
+
+	[TestMethod]
 	public void Poisson_Matches_Values_Summed_Independently()
 	{
 		PoissonDistributionProvider distribution = new(4.5);

@@ -79,6 +79,31 @@ public sealed class UniformDistributionProvider : IContinuousDistribution
 		return double.IsInfinity(width) ? ((value / 2.0) - (Minimum / 2.0)) / halfWidth : (value - Minimum) / width;
 	}
 
+	/// <summary>
+	/// Evaluates the survival function, the probability of a value greater than <paramref name="value"/>.
+	/// </summary>
+	/// <remarks>
+	/// Declared rather than left to subtract the CDF from one: the tail is the distance to the upper bound
+	/// over the width, which keeps its digits however close <paramref name="value"/> gets to the bound.
+	/// </remarks>
+	/// <param name="value">The value to evaluate at.</param>
+	/// <returns>A probability in the range [0, 1].</returns>
+	public double SurvivalFunction(double value)
+	{
+		if (value <= Minimum)
+		{
+			return 1.0;
+		}
+
+		if (value >= Maximum)
+		{
+			return 0.0;
+		}
+
+		// Halved on both sides when the width overflows, for the same reason as in Cdf.
+		return double.IsInfinity(width) ? ((Maximum / 2.0) - (value / 2.0)) / halfWidth : (Maximum - value) / width;
+	}
+
 	/// <inheritdoc />
 	public double Quantile(double probability)
 	{

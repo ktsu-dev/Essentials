@@ -26,6 +26,9 @@ public sealed class CategoricalDistributionProvider : IDiscreteDistribution
 	private readonly double[] probabilities;
 	private readonly double[] cumulative;
 
+	/// <summary>The mass above each outcome, summed from the top down so a small tail keeps its digits.</summary>
+	private readonly double[] upper;
+
 	/// <summary>
 	/// Initializes a categorical distribution from a set of relative weights.
 	/// </summary>
@@ -78,6 +81,15 @@ public sealed class CategoricalDistributionProvider : IDiscreteDistribution
 		// The running total lands a rounding step either side of one; pinning the last entry keeps the
 		// CDF from ever reporting a value below one at the top of the support.
 		cumulative[^1] = 1.0;
+
+		upper = new double[weights.Count];
+		double above = 0.0;
+		for (int i = probabilities.Length - 1; i >= 0; i--)
+		{
+			upper[i] = above;
+			above += probabilities[i];
+		}
+
 		Mean = mean;
 		Variance = Math.Max(0.0, secondMoment - (mean * mean));
 	}
@@ -111,6 +123,25 @@ public sealed class CategoricalDistributionProvider : IDiscreteDistribution
 		}
 
 		return value >= Maximum ? 1.0 : cumulative[value];
+	}
+
+	/// <summary>
+	/// Evaluates the survival function, the probability of an outcome greater than <paramref name="value"/>.
+	/// </summary>
+	/// <remarks>
+	/// Declared rather than left to subtract the CDF from one: the tail is looked up in sums taken from the
+	/// last outcome down, so rare outcomes at the top keep their digits instead of vanishing next to one.
+	/// </remarks>
+	/// <param name="value">The outcome to evaluate at.</param>
+	/// <returns>A probability in the range [0, 1].</returns>
+	public double SurvivalFunction(int value)
+	{
+		if (value < 0)
+		{
+			return 1.0;
+		}
+
+		return value >= Maximum ? 0.0 : upper[value];
 	}
 
 	/// <inheritdoc />
