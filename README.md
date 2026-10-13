@@ -85,6 +85,10 @@ SHA256HashProvider sha256 = provider.GetRequiredService<SHA256HashProvider>();
 // ...or every registered implementation of an interface
 IEnumerable<IHashProvider> allHashProviders = provider.GetServices<IHashProvider>();
 
+// ...or the category's default, which AddEssentials() registers last so that it is what a
+// single interface resolves to (SHA-256 here)
+IHashProvider defaultHashProvider = provider.GetRequiredService<IHashProvider>();
+
 IHashProvider hashProvider = sha256;
 
 // Convenience method (auto-allocates buffer)
@@ -114,6 +118,22 @@ await foreach (ReadOnlyMemory<byte> chunk in source)
 
 byte[] digest = incremental.GetHashAndReset();
 ```
+
+When a category bundles several implementations, `AddEssentials()` registers a default last, so resolving the interface alone returns it. Every implementation is still listed once by `GetServices<T>()`.
+
+| Interface | Default after `AddEssentials()` |
+|---|---|
+| `ISerializationProvider` | `JsonSerializationProvider` (System.Text.Json) |
+| `IHashProvider` | `SHA256HashProvider` |
+| `IKeyedHashProvider` | `HmacSha256KeyedHashProvider` |
+| `ICompressionProvider` | `GzipCompressionProvider` |
+| `IEncodingProvider` | `Base64EncodingProvider` |
+| `IObfuscationProvider` | `XorObfuscationProvider` |
+| `IRandomProvider` | `CryptoRandomProvider` |
+| `IContinuousDistribution` | `NormalDistributionProvider` |
+| `IDiscreteDistribution` | `PoissonDistributionProvider` |
+
+The file-backed persistence providers resolve their serializer by interface, so after `AddEssentials()` they read and write JSON.
 
 ### Compression
 

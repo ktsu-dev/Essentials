@@ -69,6 +69,16 @@ using ktsu.Essentials.CompressionProviders.ZLib;
 /// file logger, and the triangular, binomial, and categorical distributions — are not included here;
 /// register those explicitly from their own packages. The in-memory file system is left out too, because
 /// it is for tests and must replace the native one rather than sit beside it.
+/// <para>
+/// Every category that bundles more than one implementation registers its default last, because
+/// resolving a single service returns the last registration for it. Resolving by interface therefore
+/// gives a deliberate choice rather than whichever package happens to be listed last: JSON
+/// (System.Text.Json) for serialization, SHA-256 for hashing, HMAC-SHA256 for keyed hashing, Gzip for
+/// compression, Base64 for encoding, XOR for obfuscation, the cryptographic generator for randomness,
+/// and the normal and Poisson distributions. Every implementation is still listed once by
+/// <c>GetServices&lt;T&gt;()</c>. The file-backed persistence providers resolve their serializer by
+/// interface, so this is also what fixes their file format.
+/// </para>
 /// </remarks>
 public static class ServiceCollectionExtensions
 {
@@ -102,7 +112,10 @@ public static class ServiceCollectionExtensions
 	/// <summary>
 	/// Registers every bundled compression provider.
 	/// </summary>
-	/// <remarks>ZLib is unavailable on netstandard2.1 and is skipped on that target.</remarks>
+	/// <remarks>
+	/// ZLib is unavailable on netstandard2.1 and is skipped on that target. Gzip is the default and is
+	/// registered last.
+	/// </remarks>
 	/// <param name="services">The service collection to add the providers to.</param>
 	/// <returns>The same service collection, to allow chaining.</returns>
 	public static IServiceCollection AddCompressionProviders(this IServiceCollection services)
@@ -110,7 +123,6 @@ public static class ServiceCollectionExtensions
 		Ensure.NotNull(services);
 
 		services
-			.AddGzipCompressionProvider()
 			.AddBrotliCompressionProvider()
 			.AddDeflateCompressionProvider();
 
@@ -118,7 +130,8 @@ public static class ServiceCollectionExtensions
 		services.AddZLibCompressionProvider();
 #endif
 
-		return services;
+		// Registered last so that it is the provider an ICompressionProvider resolves to.
+		return services.AddGzipCompressionProvider();
 	}
 
 	/// <summary>
@@ -140,11 +153,13 @@ public static class ServiceCollectionExtensions
 
 		return services
 			.AddUniformDistributionProvider()
-			.AddNormalDistributionProvider()
 			.AddLogNormalDistributionProvider()
 			.AddExponentialDistributionProvider()
 			.AddBernoulliDistributionProvider()
 			.AddGeometricDistributionProvider()
+			// The defaults go last, so that a single IContinuousDistribution or IDiscreteDistribution
+			// resolves to the normal or Poisson distribution respectively.
+			.AddNormalDistributionProvider()
 			.AddPoissonDistributionProvider();
 	}
 
@@ -165,9 +180,10 @@ public static class ServiceCollectionExtensions
 
 		return services
 			.AddNativeRandomProvider()
-			.AddCryptoRandomProvider()
 			.AddXoshiroRandomProvider()
-			.AddPcgRandomProvider();
+			.AddPcgRandomProvider()
+			// Registered last so that it is the provider an IRandomProvider resolves to.
+			.AddCryptoRandomProvider();
 	}
 
 	/// <summary>
@@ -180,8 +196,9 @@ public static class ServiceCollectionExtensions
 		Ensure.NotNull(services);
 
 		return services
-			.AddBase64EncodingProvider()
-			.AddHexEncodingProvider();
+			.AddHexEncodingProvider()
+			// Registered last so that it is the provider an IEncodingProvider resolves to.
+			.AddBase64EncodingProvider();
 	}
 
 	/// <summary>
@@ -207,7 +224,6 @@ public static class ServiceCollectionExtensions
 
 		return services
 			.AddSHA1HashProvider()
-			.AddSHA256HashProvider()
 			.AddSHA384HashProvider()
 			.AddSHA512HashProvider()
 			.AddMD5HashProvider()
@@ -220,7 +236,9 @@ public static class ServiceCollectionExtensions
 			.AddXxHash32HashProvider()
 			.AddXxHash64HashProvider()
 			.AddXxHash3HashProvider()
-			.AddXxHash128HashProvider();
+			.AddXxHash128HashProvider()
+			// Registered last so that it is the provider an IHashProvider resolves to.
+			.AddSHA256HashProvider();
 	}
 
 	/// <summary>
@@ -233,9 +251,10 @@ public static class ServiceCollectionExtensions
 		Ensure.NotNull(services);
 
 		return services
-			.AddHmacSha256KeyedHashProvider()
 			.AddHmacSha384KeyedHashProvider()
-			.AddHmacSha512KeyedHashProvider();
+			.AddHmacSha512KeyedHashProvider()
+			// Registered last so that it is the provider an IKeyedHashProvider resolves to.
+			.AddHmacSha256KeyedHashProvider();
 	}
 
 	/// <summary>
@@ -252,12 +271,13 @@ public static class ServiceCollectionExtensions
 		Ensure.NotNull(services);
 
 		return services
-			.AddXorObfuscationProvider()
 			.AddCaesarObfuscationProvider()
 			.AddReverseObfuscationProvider()
 			.AddBitRotateObfuscationProvider()
 			.AddBase64ObfuscationProvider()
-			.AddHexObfuscationProvider();
+			.AddHexObfuscationProvider()
+			// Registered last so that it is the provider an IObfuscationProvider resolves to.
+			.AddXorObfuscationProvider();
 	}
 
 	/// <summary>
@@ -270,10 +290,12 @@ public static class ServiceCollectionExtensions
 		Ensure.NotNull(services);
 
 		return services
-			.AddJsonSerializationProvider()
 			.AddNewtonsoftJsonSerializationProvider()
 			.AddYamlSerializationProvider()
-			.AddTomlSerializationProvider();
+			.AddTomlSerializationProvider()
+			// Registered last so that it is the provider an ISerializationProvider resolves to, which
+			// also makes it the format the file-backed persistence providers write.
+			.AddJsonSerializationProvider();
 	}
 
 	/// <summary>
