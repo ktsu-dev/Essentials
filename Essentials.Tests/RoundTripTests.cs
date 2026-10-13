@@ -230,11 +230,33 @@ public class RoundTripTests
 		Assert.AreEqual(original.Value, deserialized.Value, $"{providerName} async should preserve Value property");
 	}
 
+	[TestMethod]
+	[DynamicData(nameof(SerializationProviders))]
+	public void Serialization_Ignores_Members_The_Target_Type_Lacks(ISerializationProvider serializer, string providerName)
+	{
+		// The same record after Legacy was removed from the type: a document written before the change must still load.
+		WiderTestObject original = new() { Name = $"Schema evolution with {providerName}", Value = 42, Legacy = "x" };
+
+		string serialized = serializer.Serialize(original);
+		TestObject? deserialized = serializer.Deserialize<TestObject>(serialized);
+
+		Assert.IsNotNull(deserialized, $"{providerName} should ignore a member the target type lacks rather than reject the document");
+		Assert.AreEqual(original.Name, deserialized.Name, $"{providerName} should populate Name");
+		Assert.AreEqual(original.Value, deserialized.Value, $"{providerName} should populate Value");
+	}
+
 	#endregion
 
 	private sealed class TestObject
 	{
 		public string Name { get; set; } = string.Empty;
 		public int Value { get; set; }
+	}
+
+	private sealed class WiderTestObject
+	{
+		public string Name { get; set; } = string.Empty;
+		public int Value { get; set; }
+		public string Legacy { get; set; } = string.Empty;
 	}
 }

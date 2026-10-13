@@ -20,8 +20,11 @@ public class YamlSerializationProvider : ISerializationProvider
 	/// </summary>
 	public string FileExtension => ".yaml";
 
+	// Unmatched keys are ignored, as the JSON providers do, so a record written before a property was
+	// removed or renamed still loads instead of reading back as default.
 	private readonly IDeserializer deserializer = new DeserializerBuilder()
 		.WithNamingConvention(CamelCaseNamingConvention.Instance)
+		.IgnoreUnmatchedProperties()
 		.Build();
 
 	private readonly ISerializer serializer = new SerializerBuilder()
