@@ -35,9 +35,11 @@ public class NewtonsoftJsonSerializationProvider : ISerializationProvider
 
 		try
 		{
-			using JsonTextWriter jsonWriter = new(writer);
+			// The caller owns the writer, so disposing the JSON writer must not close it.
+			using JsonTextWriter jsonWriter = new(writer) { CloseOutput = false };
 			JsonSerializer serializer = JsonSerializer.Create(settings);
 			serializer.Serialize(jsonWriter, obj);
+			jsonWriter.Flush();
 			return true;
 		}
 		catch (JsonSerializationException)
@@ -45,6 +47,14 @@ public class NewtonsoftJsonSerializationProvider : ISerializationProvider
 			return false;
 		}
 		catch (JsonWriterException)
+		{
+			return false;
+		}
+		catch (IOException)
+		{
+			return false;
+		}
+		catch (ObjectDisposedException)
 		{
 			return false;
 		}
@@ -69,6 +79,10 @@ public class NewtonsoftJsonSerializationProvider : ISerializationProvider
 			return JsonConvert.DeserializeObject<T>(jsonString, settings);
 		}
 		catch (JsonReaderException)
+		{
+			return default;
+		}
+		catch (JsonSerializationException)
 		{
 			return default;
 		}
