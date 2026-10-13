@@ -4,6 +4,7 @@ namespace ktsu.Essentials.LoggingProviders.Console;
 
 using ktsu.Essentials;
 using System;
+using System.Globalization;
 
 /// <summary>
 /// A logging provider that writes log messages to the console.
@@ -72,7 +73,7 @@ public class ConsoleLoggingProvider : ILoggingProvider
 	/// <returns>True if the log level is enabled, false otherwise.</returns>
 	public bool IsEnabled(LogLevel level) => level >= MinimumLevel && level != LogLevel.None;
 
-	private static string FormatMessage(LogLevel level, string message)
+	internal static string FormatMessage(LogLevel level, string message)
 	{
 		string levelString = level switch
 		{
@@ -85,6 +86,8 @@ public class ConsoleLoggingProvider : ILoggingProvider
 			_ => level.ToString().ToUpperInvariant(),
 		};
 
-		return $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] [{levelString}] {message}";
+		// Formatted with the invariant culture so the calendar and time separator don't follow the user's locale.
+		string timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
+		return $"[{timestamp}] [{levelString}] {message}";
 	}
 }
