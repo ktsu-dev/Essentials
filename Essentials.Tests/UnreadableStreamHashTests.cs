@@ -54,7 +54,7 @@ public class UnreadableStreamHashTests
 	private static FileStream CreateWriteOnlyStream(string path) =>
 		new(path, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.DeleteOnClose);
 
-	private string TempPath() => Path.Combine(Path.GetTempPath(), $"{nameof(UnreadableStreamHashTests)}_{TestContext.TestName}_{Guid.NewGuid():N}.bin");
+	private static string TempPath() => Path.Combine(Path.GetTempPath(), $"{nameof(UnreadableStreamHashTests)}_{Guid.NewGuid():N}.bin");
 
 	[TestMethod]
 	[DynamicData(nameof(HashProviders))]
