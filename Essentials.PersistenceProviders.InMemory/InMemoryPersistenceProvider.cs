@@ -28,17 +28,30 @@ public class InMemoryPersistenceProvider<TKey> : IPersistenceProvider<TKey> wher
 	public bool IsPersistent => false;
 
 	/// <summary>
-	/// Stores an object using the specified key.
+	/// Stores an object using the specified key. Storing <see langword="null"/> removes the key, as the file-backed providers do.
 	/// </summary>
+	/// <remarks>
+	/// The provider keeps a reference to <paramref name="obj"/> rather than a snapshot, so later changes to the object
+	/// are visible to <see cref="RetrieveAsync{T}"/> without storing it again. A file-backed provider returns what was written.
+	/// </remarks>
 	/// <typeparam name="T">The type of object to store.</typeparam>
 	/// <param name="key">The unique key to identify the stored object.</param>
-	/// <param name="obj">The object to store.</param>
+	/// <param name="obj">The object to store, or <see langword="null"/> to remove the key.</param>
 	/// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
 	/// <returns>A task that represents the asynchronous storage operation.</returns>
 	public Task StoreAsync<T>(TKey key, T obj, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-		store[key] = obj;
+
+		if (obj is null)
+		{
+			store.TryRemove(key, out _);
+		}
+		else
+		{
+			store[key] = obj;
+		}
+
 		return Task.CompletedTask;
 	}
 

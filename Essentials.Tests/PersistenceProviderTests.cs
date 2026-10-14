@@ -597,6 +597,45 @@ public class PersistenceProviderTests
 		}
 	}
 
+	[TestMethod]
+	public async Task Store_Null_Removes_The_Key_On_Every_Provider()
+	{
+		// The file-backed providers treat a null store as a remove; InMemory kept the key with a null value,
+		// so ExistsAsync and GetAllKeysAsync disagreed between the test double and production.
+		string fileSystemDir = Path.Join(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+		using TempPersistenceProvider<string> temp = new(fs, serializer, "PersistenceTests_Temp_" + Guid.NewGuid().ToString("N")[..8]);
+
+		try
+		{
+			IPersistenceProvider<string>[] providers =
+			[
+				CreatePersistence(),
+				new FileSystemPersistenceProvider<string>(fs, serializer, fileSystemDir),
+				temp,
+			];
+
+			foreach (IPersistenceProvider<string> persistence in providers)
+			{
+				string name = persistence.ProviderName;
+
+				await persistence.StoreAsync("cleared", new TestData { Name = "before" }, TestContext.CancellationToken).ConfigureAwait(false);
+				await persistence.StoreAsync<TestData?>("cleared", null, TestContext.CancellationToken).ConfigureAwait(false);
+
+				Assert.IsFalse(await persistence.ExistsAsync("cleared", TestContext.CancellationToken).ConfigureAwait(false), $"{name} kept a key stored as null");
+				IEnumerable<string> keys = await persistence.GetAllKeysAsync(TestContext.CancellationToken).ConfigureAwait(false);
+				Assert.IsFalse(keys.Contains("cleared"), $"{name} listed a key stored as null");
+				Assert.IsNull(await persistence.RetrieveAsync<TestData>("cleared", TestContext.CancellationToken).ConfigureAwait(false), $"{name} returned a value for a key stored as null");
+			}
+		}
+		finally
+		{
+			CleanupDirectory(fileSystemDir);
+			temp.CleanupDirectory();
+		}
+	}
+
 	public record struct ValueData()
 	{
 		public int Value { get; set; } = 50;
