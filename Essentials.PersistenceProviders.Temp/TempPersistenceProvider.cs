@@ -65,7 +65,7 @@ public sealed class TempPersistenceProvider<TKey>(
 				_fileSystemProvider.Directory.CreateDirectory(directory);
 			}
 
-			await AtomicFileWrite.WriteAllTextAsync(_fileSystemProvider, filePath, serializedData, cancellationToken).ConfigureAwait(false);
+			await AtomicFile.WriteAllTextAsync(_fileSystemProvider, filePath, serializedData, cancellationToken).ConfigureAwait(false);
 		}
 		catch (Exception ex)
 		{
@@ -90,7 +90,7 @@ public sealed class TempPersistenceProvider<TKey>(
 				return default;
 			}
 
-			string serializedData = await _fileSystemProvider.File.ReadAllTextAsync(filePath, cancellationToken).ConfigureAwait(false);
+			string serializedData = await AtomicFile.ReadAllTextAsync(_fileSystemProvider, filePath, cancellationToken).ConfigureAwait(false);
 
 			if (string.IsNullOrEmpty(serializedData))
 			{

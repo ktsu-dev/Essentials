@@ -9,7 +9,8 @@ using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
-/// Replaces a file's content in one step, so a reader sees either the old content or the new, never neither.
+/// Replaces a file's content in one step, so a reader sees either the old content or the new, never neither,
+/// and reads it back without tripping over a replace in progress.
 /// </summary>
 /// <remarks>
 /// Linked into the FileSystem and Temp providers rather than placed in the interfaces package, following
@@ -17,9 +18,13 @@ using System.Threading.Tasks;
 /// writers to one key cannot move each other's file away, and publishes it with an overwriting move rather
 /// than a delete followed by a move, so the target never disappears in between (issue #66).
 /// </remarks>
-internal static class AtomicFileWrite
+internal static class AtomicFile
 {
-	private const int MaxMoveAttempts = 50;
+	private const int MaxAttempts = 50;
+
+	// Win32 ERROR_SHARING_VIOLATION and ERROR_LOCK_VIOLATION, carried in the low word of IOException.HResult.
+	private const int SharingViolation = 32;
+	private const int LockViolation = 33;
 
 	/// <summary>
 	/// Writes <paramref name="content"/> to <paramref name="filePath"/>, replacing any existing file atomically.
@@ -64,11 +69,11 @@ internal static class AtomicFileWrite
 #endif
 					return;
 				}
-				catch (Exception ex) when (attempt < MaxMoveAttempts && ex is IOException or UnauthorizedAccessException)
+				catch (Exception ex) when (attempt < MaxAttempts && ex is IOException or UnauthorizedAccessException)
 				{
 					// Windows refuses to replace a file another handle has open without delete sharing, which
 					// a concurrent reader or a second writer's replace holds for a moment. Give it that moment.
-					await Task.Delay(Math.Min(attempt * 2, 20), cancellationToken).ConfigureAwait(false);
+					await Task.Delay(Backoff(attempt), cancellationToken).ConfigureAwait(false);
 				}
 			}
 		}
@@ -80,4 +85,33 @@ internal static class AtomicFileWrite
 			}
 		}
 	}
+
+	/// <summary>
+	/// Reads <paramref name="filePath"/>, waiting out a concurrent <see cref="WriteAllTextAsync"/> replacing it.
+	/// </summary>
+	/// <param name="fileSystem">The filesystem to read through.</param>
+	/// <param name="filePath">The file to read.</param>
+	/// <param name="cancellationToken">A token to cancel the operation.</param>
+	/// <returns>The file's content.</returns>
+	internal static async Task<string> ReadAllTextAsync(IFileSystem fileSystem, string filePath, CancellationToken cancellationToken)
+	{
+		for (int attempt = 1; ; attempt++)
+		{
+			try
+			{
+				return await fileSystem.File.ReadAllTextAsync(filePath, cancellationToken).ConfigureAwait(false);
+			}
+			catch (IOException ex) when (attempt < MaxAttempts && IsSharingViolation(ex))
+			{
+				// Windows holds the target exclusively for the instant an overwriting move swaps it, so a
+				// read that lands then is refused rather than served either version. Only that refusal is
+				// retried; a missing file and every other error surface at once.
+				await Task.Delay(Backoff(attempt), cancellationToken).ConfigureAwait(false);
+			}
+		}
+	}
+
+	private static bool IsSharingViolation(IOException ex) => (ex.HResult & 0xFFFF) is SharingViolation or LockViolation;
+
+	private static int Backoff(int attempt) => Math.Min(attempt * 2, 20);
 }
