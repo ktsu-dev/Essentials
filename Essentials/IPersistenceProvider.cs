@@ -25,11 +25,12 @@ public interface IPersistenceProvider<TKey> where TKey : notnull
 	public bool IsPersistent { get; }
 
 	/// <summary>
-	/// Stores an object using the specified key.
+	/// Stores an object using the specified key. Storing <see langword="null"/> removes the key, so
+	/// <see cref="ExistsAsync"/> then returns <see langword="false"/> and <see cref="GetAllKeysAsync"/> omits it.
 	/// </summary>
 	/// <typeparam name="T">The type of object to store.</typeparam>
 	/// <param name="key">The unique key to identify the stored object.</param>
-	/// <param name="obj">The object to store.</param>
+	/// <param name="obj">The object to store, or <see langword="null"/> to remove the key.</param>
 	/// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
 	/// <returns>A task that represents the asynchronous storage operation.</returns>
 	public Task StoreAsync<T>(TKey key, T obj, CancellationToken cancellationToken = default);
