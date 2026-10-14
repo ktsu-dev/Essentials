@@ -29,10 +29,22 @@ internal static class PersistenceDefaults
 		where TKey : notnull
 		where T : new()
 	{
-		T? existing = await provider.RetrieveAsync<T>(key, cancellationToken).ConfigureAwait(false);
-		if (existing is not null)
+		// A non-nullable value type comes back from RetrieveAsync as default(T) when the key is missing,
+		// which is never null, so presence has to be asked separately rather than read off the value.
+		if (default(T) is not null)
 		{
-			return existing;
+			if (await provider.ExistsAsync(key, cancellationToken).ConfigureAwait(false))
+			{
+				return (await provider.RetrieveAsync<T>(key, cancellationToken).ConfigureAwait(false))!;
+			}
+		}
+		else
+		{
+			T? existing = await provider.RetrieveAsync<T>(key, cancellationToken).ConfigureAwait(false);
+			if (existing is not null)
+			{
+				return existing;
+			}
 		}
 
 		// Stored before it is returned, as the interface documents: callers bootstrap a record with this,

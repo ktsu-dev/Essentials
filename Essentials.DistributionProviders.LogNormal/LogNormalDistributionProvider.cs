@@ -60,8 +60,10 @@ public sealed class LogNormalDistributionProvider(double logMean, double logStan
 	{
 		get
 		{
+			// ExpM1 rather than Exp(σ²) - 1, which cancels for a small σ and reaches exactly 0 below
+			// σ ≈ 1e-8 while the mean is still finite.
 			double logVariance = LogStandardDeviation * LogStandardDeviation;
-			return (Math.Exp(logVariance) - 1.0) * Math.Exp((2.0 * LogMean) + logVariance);
+			return SpecialFunctions.ExpM1(logVariance) * Math.Exp((2.0 * LogMean) + logVariance);
 		}
 	}
 

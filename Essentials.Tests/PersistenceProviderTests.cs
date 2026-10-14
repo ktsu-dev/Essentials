@@ -552,6 +552,56 @@ public class PersistenceProviderTests
 		}
 	}
 
+	[TestMethod]
+	public async Task RetrieveOrCreate_Constructs_And_Stores_A_Value_Type_On_Every_Provider()
+	{
+		// A missing value type comes back from RetrieveAsync as default(T), which is never null, so a null
+		// check took it for a stored value: the call returned default without running the constructor and
+		// never stored anything.
+		string fileSystemDir = Path.Join(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+		using TempPersistenceProvider<string> temp = new(fs, serializer, "PersistenceTests_Temp_" + Guid.NewGuid().ToString("N")[..8]);
+
+		try
+		{
+			IPersistenceProvider<string>[] providers =
+			[
+				CreatePersistence(),
+				new FileSystemPersistenceProvider<string>(fs, serializer, fileSystemDir),
+				temp,
+			];
+
+			foreach (IPersistenceProvider<string> persistence in providers)
+			{
+				string name = persistence.ProviderName;
+
+				ValueData created = await persistence.RetrieveOrCreateAsync<ValueData>("struct", TestContext.CancellationToken).ConfigureAwait(false);
+				Assert.AreEqual(50, created.Value, $"{name} skipped the constructor");
+				Assert.IsTrue(await persistence.ExistsAsync("struct", TestContext.CancellationToken).ConfigureAwait(false), $"{name} did not store the new struct");
+
+				int number = await persistence.RetrieveOrCreateAsync<int>("int", TestContext.CancellationToken).ConfigureAwait(false);
+				Assert.AreEqual(0, number);
+				Assert.IsTrue(await persistence.ExistsAsync("int", TestContext.CancellationToken).ConfigureAwait(false), $"{name} did not store the new int");
+
+				// A stored value, including one equal to default, is returned rather than replaced.
+				await persistence.StoreAsync("stored", new ValueData { Value = 0 }, TestContext.CancellationToken).ConfigureAwait(false);
+				ValueData stored = await persistence.RetrieveOrCreateAsync<ValueData>("stored", TestContext.CancellationToken).ConfigureAwait(false);
+				Assert.AreEqual(0, stored.Value, $"{name} replaced a stored struct");
+			}
+		}
+		finally
+		{
+			CleanupDirectory(fileSystemDir);
+			temp.CleanupDirectory();
+		}
+	}
+
+	public record struct ValueData()
+	{
+		public int Value { get; set; } = 50;
+	}
+
 	public sealed class TestData
 	{
 		public string Name { get; set; } = string.Empty;

@@ -52,10 +52,22 @@ public interface IPersistenceProvider<TKey> where TKey : notnull
 	/// <returns>A task that represents the asynchronous retrieval operation. Returns a new instance if the object is not found.</returns>
 	public async Task<T> RetrieveOrCreateAsync<T>(TKey key, CancellationToken cancellationToken = default) where T : new()
 	{
-		T? result = await RetrieveAsync<T>(key, cancellationToken).ConfigureAwait(false);
-		if (result is not null)
+		// A non-nullable value type comes back from RetrieveAsync as default(T) when the key is missing,
+		// which is never null, so presence has to be asked separately rather than read off the value.
+		if (default(T) is not null)
 		{
-			return result;
+			if (await ExistsAsync(key, cancellationToken).ConfigureAwait(false))
+			{
+				return (await RetrieveAsync<T>(key, cancellationToken).ConfigureAwait(false))!;
+			}
+		}
+		else
+		{
+			T? result = await RetrieveAsync<T>(key, cancellationToken).ConfigureAwait(false);
+			if (result is not null)
+			{
+				return result;
+			}
 		}
 
 		T newInstance = new();

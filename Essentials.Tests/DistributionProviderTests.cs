@@ -529,6 +529,19 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void LogNormal_Variance_Keeps_Its_Digits_For_A_Small_Log_Standard_Deviation()
+	{
+		// exp(σ²) - 1 cancelled for small σ²: the leading digits went wrong near σ = 1e-6, and below
+		// σ ≈ 1e-8 the variance was exactly 0 while the mean stayed finite.
+		Assert.AreEqual(1e-16, new LogNormalDistributionProvider(0.0, 1e-8).Variance, 1e-16 * 1e-12);
+		Assert.AreEqual(1.0000000000015e-12, new LogNormalDistributionProvider(0.0, 1e-6).Variance, 1e-12 * 1e-12);
+		Assert.IsGreaterThan(0.0, ((IContinuousDistribution)new LogNormalDistributionProvider(5.0, 1e-9)).StandardDeviation);
+
+		// The textbook value is unchanged where the expression never cancelled.
+		Assert.AreEqual((Math.E - 1.0) * Math.E, new LogNormalDistributionProvider().Variance, 1e-14);
+	}
+
+	[TestMethod]
 	public void Triangular_Matches_Its_Closed_Form()
 	{
 		TriangularDistributionProvider distribution = new(1.0, 2.0, 6.0);
