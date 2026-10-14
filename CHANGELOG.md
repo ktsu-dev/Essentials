@@ -2,454 +2,460 @@
 
 Changes since v2.11.0:
 
-- Declare SurvivalFunction on Triangular, Uniform, Bernoulli and Categorical [patch] ([@Claude](https://github.com/Claude))
+- Compute LogNormal variance with ExpM1 so a small sigma keeps its digits [patch] (Claude)
+- Build the persistence test's paths with Path.Join (Claude)
+- Register each category's default last in AddEssentials [patch] (Claude)
+- Drop the .gitignore the SDK build rewrote (Claude)
+- Ignore unmatched keys in the YAML serialization provider [patch] (Claude)
+- Construct and store a missing value type in RetrieveOrCreateAsync [patch] (Claude)
+- Declare SurvivalFunction on Triangular, Uniform, Bernoulli and Categorical [patch] (Claude)
 
 ## v2.11.0 (minor)
 
 Changes since v2.10.0:
 
-- Use Path.Join for literal path segments flagged by code quality ([@Claude](https://github.com/Claude))
-- [minor] Add a rolling file logger, an in-memory file system, XDG state/cache homes and JSON options ([@Claude](https://github.com/Claude))
-- Support Testably.Abstractions 10.4 by forwarding IFileSystem.RandomAccess ([@Claude](https://github.com/Claude))
-- Report non-convergence from one place, and cover the NaN path ([@Claude](https://github.com/Claude))
-- Scale the special-function iteration cap with the parameters [patch] ([@Claude](https://github.com/Claude))
-- Wait on the test's cancellation token instead of Thread.Sleep ([@Claude](https://github.com/Claude))
-- Give the cancellation test room for a slow runner to deliver the token ([@Claude](https://github.com/Claude))
-- Drop the outer cancellation catch that the inner one made unreachable ([@Claude](https://github.com/Claude))
-- Make the trailing-backslash test case shell-independent ([@Claude](https://github.com/Claude))
-- Bound persistence file names in UTF-8 bytes as well as characters [patch] ([@Claude](https://github.com/Claude))
-- Move the quoting helper and its notes away from the cancellation code ([@Claude](https://github.com/Claude))
-- Kill the child when ExecuteAsync is cancelled, as Execute does [patch] ([@Claude](https://github.com/Claude))
-- Pass Unix commands to sh verbatim instead of escaping only quotes [patch] ([@Claude](https://github.com/Claude))
-- Split the geometric mass function's nested conditional into statements ([@Claude](https://github.com/Claude))
-- Cover the geometric quantile's bisection fallback directly ([@Claude](https://github.com/Claude))
-- Keep the geometric CDF and quantile precise for a rare success [patch] ([@Claude](https://github.com/Claude))
-- Keep the binomial upper tail precise instead of rounding it to zero [patch] ([@Claude](https://github.com/Claude))
-- Move the IConvertible fallback into the key-parsing helper too ([@Claude](https://github.com/Claude))
-- Move non-IConvertible key parsing into its own helper ([@Claude](https://github.com/Claude))
-- Detect zero in NextDown from its bits instead of a float comparison ([@Claude](https://github.com/Claude))
-- List enum, TimeSpan and other non-IConvertible persistence keys [patch] ([@Claude](https://github.com/Claude))
-- Keep NextDouble(min, max) below max and finite for wide bounds [patch] ([@Claude](https://github.com/Claude))
-- Keep NextDoubleExclusive strictly below 1 at the top draw [patch] ([@Claude](https://github.com/Claude))
-- Move CI onto the shared ci-shared.yml pipeline ([@Claude](https://github.com/Claude))
+- Use Path.Join for literal path segments flagged by code quality (Claude)
+- [minor] Add a rolling file logger, an in-memory file system, XDG state/cache homes and JSON options (Claude)
+- Support Testably.Abstractions 10.4 by forwarding IFileSystem.RandomAccess (Claude)
+- Report non-convergence from one place, and cover the NaN path (Claude)
+- Scale the special-function iteration cap with the parameters [patch] (Claude)
+- Wait on the test's cancellation token instead of Thread.Sleep (Claude)
+- Give the cancellation test room for a slow runner to deliver the token (Claude)
+- Drop the outer cancellation catch that the inner one made unreachable (Claude)
+- Make the trailing-backslash test case shell-independent (Claude)
+- Bound persistence file names in UTF-8 bytes as well as characters [patch] (Claude)
+- Move the quoting helper and its notes away from the cancellation code (Claude)
+- Kill the child when ExecuteAsync is cancelled, as Execute does [patch] (Claude)
+- Pass Unix commands to sh verbatim instead of escaping only quotes [patch] (Claude)
+- Split the geometric mass function's nested conditional into statements (Claude)
+- Cover the geometric quantile's bisection fallback directly (Claude)
+- Keep the geometric CDF and quantile precise for a rare success [patch] (Claude)
+- Keep the binomial upper tail precise instead of rounding it to zero [patch] (Claude)
+- Move the IConvertible fallback into the key-parsing helper too (Claude)
+- Move non-IConvertible key parsing into its own helper (Claude)
+- Detect zero in NextDown from its bits instead of a float comparison (Claude)
+- List enum, TimeSpan and other non-IConvertible persistence keys [patch] (Claude)
+- Keep NextDouble(min, max) below max and finite for wide bounds [patch] (Claude)
+- Keep NextDoubleExclusive strictly below 1 at the top draw [patch] (Claude)
+- Move CI onto the shared ci-shared.yml pipeline (Claude)
 
 ## v2.10.7 (patch)
 
 Changes since v2.10.6:
 
-- Support Testably.Abstractions 10.4 by forwarding IFileSystem.RandomAccess ([@Claude](https://github.com/Claude))
+- Support Testably.Abstractions 10.4 by forwarding IFileSystem.RandomAccess (Claude)
 
 ## v2.10.6 (patch)
 
 Changes since v2.10.5:
 
-- Report non-convergence from one place, and cover the NaN path ([@Claude](https://github.com/Claude))
-- Scale the special-function iteration cap with the parameters [patch] ([@Claude](https://github.com/Claude))
+- Report non-convergence from one place, and cover the NaN path (Claude)
+- Scale the special-function iteration cap with the parameters [patch] (Claude)
 
 ## v2.10.5 (patch)
 
 Changes since v2.10.4:
 
-- Wait on the test's cancellation token instead of Thread.Sleep ([@Claude](https://github.com/Claude))
-- Give the cancellation test room for a slow runner to deliver the token ([@Claude](https://github.com/Claude))
-- Drop the outer cancellation catch that the inner one made unreachable ([@Claude](https://github.com/Claude))
-- Kill the child when ExecuteAsync is cancelled, as Execute does [patch] ([@Claude](https://github.com/Claude))
+- Wait on the test's cancellation token instead of Thread.Sleep (Claude)
+- Give the cancellation test room for a slow runner to deliver the token (Claude)
+- Drop the outer cancellation catch that the inner one made unreachable (Claude)
+- Kill the child when ExecuteAsync is cancelled, as Execute does [patch] (Claude)
 
 ## v2.10.4 (patch)
 
 Changes since v2.10.3:
 
-- Make the trailing-backslash test case shell-independent ([@Claude](https://github.com/Claude))
-- Bound persistence file names in UTF-8 bytes as well as characters [patch] ([@Claude](https://github.com/Claude))
-- Move the quoting helper and its notes away from the cancellation code ([@Claude](https://github.com/Claude))
-- Pass Unix commands to sh verbatim instead of escaping only quotes [patch] ([@Claude](https://github.com/Claude))
+- Make the trailing-backslash test case shell-independent (Claude)
+- Bound persistence file names in UTF-8 bytes as well as characters [patch] (Claude)
+- Move the quoting helper and its notes away from the cancellation code (Claude)
+- Pass Unix commands to sh verbatim instead of escaping only quotes [patch] (Claude)
 
 ## v2.10.3 (patch)
 
 Changes since v2.10.2:
 
-- Split the geometric mass function's nested conditional into statements ([@Claude](https://github.com/Claude))
-- Cover the geometric quantile's bisection fallback directly ([@Claude](https://github.com/Claude))
-- Keep the geometric CDF and quantile precise for a rare success [patch] ([@Claude](https://github.com/Claude))
-- Keep the binomial upper tail precise instead of rounding it to zero [patch] ([@Claude](https://github.com/Claude))
+- Split the geometric mass function's nested conditional into statements (Claude)
+- Cover the geometric quantile's bisection fallback directly (Claude)
+- Keep the geometric CDF and quantile precise for a rare success [patch] (Claude)
+- Keep the binomial upper tail precise instead of rounding it to zero [patch] (Claude)
 
 ## v2.10.2 (patch)
 
 Changes since v2.10.1:
 
-- Move the IConvertible fallback into the key-parsing helper too ([@Claude](https://github.com/Claude))
-- Move non-IConvertible key parsing into its own helper ([@Claude](https://github.com/Claude))
-- Detect zero in NextDown from its bits instead of a float comparison ([@Claude](https://github.com/Claude))
-- List enum, TimeSpan and other non-IConvertible persistence keys [patch] ([@Claude](https://github.com/Claude))
-- Keep NextDouble(min, max) below max and finite for wide bounds [patch] ([@Claude](https://github.com/Claude))
-- Keep NextDoubleExclusive strictly below 1 at the top draw [patch] ([@Claude](https://github.com/Claude))
+- Move the IConvertible fallback into the key-parsing helper too (Claude)
+- Move non-IConvertible key parsing into its own helper (Claude)
+- Detect zero in NextDown from its bits instead of a float comparison (Claude)
+- List enum, TimeSpan and other non-IConvertible persistence keys [patch] (Claude)
+- Keep NextDouble(min, max) below max and finite for wide bounds [patch] (Claude)
+- Keep NextDoubleExclusive strictly below 1 at the top draw [patch] (Claude)
 
 ## v2.10.1 (patch)
 
 Changes since v2.10.0:
 
-- Move CI onto the shared ci-shared.yml pipeline ([@Claude](https://github.com/Claude))
+- Move CI onto the shared ci-shared.yml pipeline (Claude)
 
 ## v2.10.0 (minor)
 
 Changes since v2.9.0:
 
-- Cover every FormatKey arm and the date parse paths ([@Claude](https://github.com/Claude))
-- Build the culture round-trip test's directories with Path.Join ([@Claude](https://github.com/Claude))
-- Format persistence keys with the invariant culture ([@Claude](https://github.com/Claude))
-- Remove only the expired cache entry TryGet observed, and saturate the TTL ([@Claude](https://github.com/Claude))
+- Cover every FormatKey arm and the date parse paths (Claude)
+- Build the culture round-trip test's directories with Path.Join (Claude)
+- Format persistence keys with the invariant culture (Claude)
+- Remove only the expired cache entry TryGet observed, and saturate the TTL (Claude)
 
 ## v2.9.0 (minor)
 
 Changes since v2.8.0:
 
-- Drop the byte-order marks the edit added ([@Claude](https://github.com/Claude))
-- Drop the byte-order marks the edit added ([@Claude](https://github.com/Claude))
-- Share one RetrieveOrCreateAsync body between FileSystem and Temp ([@Claude](https://github.com/Claude))
-- Build the contract test's temp directory with Path.Join ([@Claude](https://github.com/Claude))
-- Guard ExpM1 and Log1P on the argument instead of exact float equality ([@Claude](https://github.com/Claude))
-- Store the new instance in FileSystem and Temp RetrieveOrCreateAsync ([@Claude](https://github.com/Claude))
-- Keep the exponential CDF and quantile precise near zero ([@Claude](https://github.com/Claude))
-- Compute the triangular variance from the side widths ([@Claude](https://github.com/Claude))
+- Drop the byte-order marks the edit added (Claude)
+- Drop the byte-order marks the edit added (Claude)
+- Share one RetrieveOrCreateAsync body between FileSystem and Temp (Claude)
+- Build the contract test's temp directory with Path.Join (Claude)
+- Guard ExpM1 and Log1P on the argument instead of exact float equality (Claude)
+- Store the new instance in FileSystem and Temp RetrieveOrCreateAsync (Claude)
+- Keep the exponential CDF and quantile precise near zero (Claude)
+- Compute the triangular variance from the side widths (Claude)
 
 ## v2.8.0 (minor)
 
 Changes since v2.7.0:
 
-- Name each container's deflate overhead ([@Claude](https://github.com/Claude))
-- Share the deflate bound across the Deflate, Gzip and ZLib providers ([@Claude](https://github.com/Claude))
-- Create the tilde-key test's temp directory with CreateTempSubdirectory ([@Claude](https://github.com/Claude))
-- Size compression bounds for incompressible input past 280 KB ([@Claude](https://github.com/Claude))
-- List persisted keys that contain a tilde ([@Claude](https://github.com/Claude))
+- Name each container's deflate overhead (Claude)
+- Share the deflate bound across the Deflate, Gzip and ZLib providers (Claude)
+- Create the tilde-key test's temp directory with CreateTempSubdirectory (Claude)
+- Size compression bounds for incompressible input past 280 KB (Claude)
+- List persisted keys that contain a tilde (Claude)
 
 ## v2.7.0 (minor)
 
 Changes since v2.6.0:
 
-- Return false from the composite's Try methods when a stage fails ([@Claude](https://github.com/Claude))
-- Gate Dependabot auto-merge on CI actually being green ([@Claude](https://github.com/Claude))
-- fix: keep a legitimately-null destination in navigation history [patch] ([@Claude](https://github.com/Claude))
-- test: pass TestContext.CancellationToken in the new async cache tests ([@matt-edmondson](https://github.com/matt-edmondson))
-- fix: honour a legitimately cached null in ICacheProvider.Get and GetOrAdd [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- Return false from the composite's Try methods when a stage fails (Claude)
+- Gate Dependabot auto-merge on CI actually being green (Claude)
+- fix: keep a legitimately-null destination in navigation history [patch] (Claude)
+- test: pass TestContext.CancellationToken in the new async cache tests (matt-edmondson)
+- fix: honour a legitimately cached null in ICacheProvider.Get and GetOrAdd [patch] (matt-edmondson)
 
 ## v2.6.7 (patch)
 
 Changes since v2.6.6:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v2.6.6 (patch)
 
 Changes since v2.6.5:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v2.6.5 (patch)
 
 Changes since v2.6.4:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v2.6.4 (patch)
 
 Changes since v2.6.3:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v2.6.3 (patch)
 
 Changes since v2.6.2:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v2.6.2 (patch)
 
 Changes since v2.6.1:
 
-- Gate Dependabot auto-merge on CI actually being green ([@Claude](https://github.com/Claude))
+- Gate Dependabot auto-merge on CI actually being green (Claude)
 
 ## v2.6.1 (patch)
 
 Changes since v2.6.0:
 
-- fix: keep a legitimately-null destination in navigation history [patch] ([@Claude](https://github.com/Claude))
-- test: pass TestContext.CancellationToken in the new async cache tests ([@matt-edmondson](https://github.com/matt-edmondson))
-- fix: honour a legitimately cached null in ICacheProvider.Get and GetOrAdd [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- fix: keep a legitimately-null destination in navigation history [patch] (Claude)
+- test: pass TestContext.CancellationToken in the new async cache tests (matt-edmondson)
+- fix: honour a legitimately cached null in ICacheProvider.Get and GetOrAdd [patch] (matt-edmondson)
 
 ## v2.6.0 (minor)
 
 Changes since v2.5.0:
 
-- fix: restore the pre-v2.3.2 ICommandExecutor arities and baseline the API [minor] ([@Claude](https://github.com/Claude))
-- test: pass the test's cancellation token to the synchronous call [patch] ([@Claude](https://github.com/Claude))
-- fix: capture raw output in the synchronous command path [patch] ([@Claude](https://github.com/Claude))
-- ci: adopt the consolidated .NET workflow [patch] ([@Claude](https://github.com/Claude))
+- fix: restore the pre-v2.3.2 ICommandExecutor arities and baseline the API [minor] (Claude)
+- test: pass the test's cancellation token to the synchronous call [patch] (Claude)
+- fix: capture raw output in the synchronous command path [patch] (Claude)
+- ci: adopt the consolidated .NET workflow [patch] (Claude)
 
 ## v2.5.2 (patch)
 
 Changes since v2.5.1:
 
-- test: pass the test's cancellation token to the synchronous call [patch] ([@Claude](https://github.com/Claude))
-- fix: capture raw output in the synchronous command path [patch] ([@Claude](https://github.com/Claude))
+- test: pass the test's cancellation token to the synchronous call [patch] (Claude)
+- fix: capture raw output in the synchronous command path [patch] (Claude)
 
 ## v2.5.1 (patch)
 
 Changes since v2.5.0:
 
-- ci: adopt the consolidated .NET workflow [patch] ([@Claude](https://github.com/Claude))
+- ci: adopt the consolidated .NET workflow [patch] (Claude)
 
 ## v2.5.0 (minor)
 
 Changes since v2.4.0:
 
-- fix: suppress S2245 on the provider that exists to wrap System.Random [patch] ([@Claude](https://github.com/Claude))
-- fix: remove the float equality checks the code quality review found [patch] ([@Claude](https://github.com/Claude))
-- docs: document the randomness and probability providers [patch] ([@Claude](https://github.com/Claude))
-- feat: add randomness and probability providers [minor] ([@Claude](https://github.com/Claude))
+- fix: suppress S2245 on the provider that exists to wrap System.Random [patch] (Claude)
+- fix: remove the float equality checks the code quality review found [patch] (Claude)
+- docs: document the randomness and probability providers [patch] (Claude)
+- feat: add randomness and probability providers [minor] (Claude)
 
 ## v2.4.0 (minor)
 
 Changes since v2.3.0:
 
-- refactor: move the disposed-stream setup out of the test body [patch] ([@Claude](https://github.com/Claude))
-- fix: dispose the test's stream deterministically [patch] ([@Claude](https://github.com/Claude))
-- test: cover the encoding providers' async failure paths [patch] ([@Claude](https://github.com/Claude))
-- feat: make the encoding providers' stream paths genuinely async [minor] ([@Claude](https://github.com/Claude))
-- test: build the missing directory path with Path.Join [patch] ([@Claude](https://github.com/Claude))
-- test: cover the synchronous command paths SonarCloud found untested [patch] ([@Claude](https://github.com/Claude))
-- fix: suppress KTSU0001 rather than reference System.Memory [patch] ([@Claude](https://github.com/Claude))
-- fix: unbreak the build under ktsu.Sdk 2.28.0's analyzers [patch] ([@Claude](https://github.com/Claude))
-- fix: make ICommandExecutor's synchronous path a real primitive [patch] ([@Claude](https://github.com/Claude))
-- ci: make the SonarQube quality gate opt in [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- ci: adopt the unified dotnet workflow [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- refactor: move the disposed-stream setup out of the test body [patch] (Claude)
+- fix: dispose the test's stream deterministically [patch] (Claude)
+- test: cover the encoding providers' async failure paths [patch] (Claude)
+- feat: make the encoding providers' stream paths genuinely async [minor] (Claude)
+- test: build the missing directory path with Path.Join [patch] (Claude)
+- test: cover the synchronous command paths SonarCloud found untested [patch] (Claude)
+- fix: suppress KTSU0001 rather than reference System.Memory [patch] (Claude)
+- fix: unbreak the build under ktsu.Sdk 2.28.0's analyzers [patch] (Claude)
+- fix: make ICommandExecutor's synchronous path a real primitive [patch] (Claude)
+- ci: make the SonarQube quality gate opt in [patch] (matt-edmondson)
+- ci: adopt the unified dotnet workflow [patch] (matt-edmondson)
 
 ## v2.3.2 (patch)
 
 Changes since v2.3.1:
 
-- test: build the missing directory path with Path.Join [patch] ([@Claude](https://github.com/Claude))
-- test: cover the synchronous command paths SonarCloud found untested [patch] ([@Claude](https://github.com/Claude))
-- fix: suppress KTSU0001 rather than reference System.Memory [patch] ([@Claude](https://github.com/Claude))
-- fix: unbreak the build under ktsu.Sdk 2.28.0's analyzers [patch] ([@Claude](https://github.com/Claude))
-- fix: make ICommandExecutor's synchronous path a real primitive [patch] ([@Claude](https://github.com/Claude))
+- test: build the missing directory path with Path.Join [patch] (Claude)
+- test: cover the synchronous command paths SonarCloud found untested [patch] (Claude)
+- fix: suppress KTSU0001 rather than reference System.Memory [patch] (Claude)
+- fix: unbreak the build under ktsu.Sdk 2.28.0's analyzers [patch] (Claude)
+- fix: make ICommandExecutor's synchronous path a real primitive [patch] (Claude)
 
 ## v2.3.1 (patch)
 
 Changes since v2.3.0:
 
-- ci: make the SonarQube quality gate opt in [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- ci: adopt the unified dotnet workflow [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- ci: make the SonarQube quality gate opt in [patch] (matt-edmondson)
+- ci: adopt the unified dotnet workflow [patch] (matt-edmondson)
 
 ## v2.3.0 (minor)
 
 Changes since v2.2.0:
 
-- fix: address final review findings on keyed hash provider branch [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: authenticate the IV together with the ciphertext in the keyed hashing example [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: correct plan defects found during execution [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add keyed hash providers for message authentication [minor] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: authenticate the IV together with the ciphertext, not ciphertext alone [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: state that encryption providers give confidentiality only [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: use consistent bundled keyed hash provider wording [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: register keyed hash providers in Essentials.All [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add HMAC-SHA-384 and HMAC-SHA-512 keyed hash providers [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- fix: zero bytesWritten on length mismatch and drop unreachable CA1859 suppression [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add HMAC-SHA-256 keyed hash provider over a shared core [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add IKeyedHashProvider with buffering incremental default [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: add comment explaining CS1574 pragma suppression for forward reference [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add FixedTimeComparison for authentication tag comparison [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: add the keyed hash provider implementation plan [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: spec the keyed hash delivery, split from authenticated encryption [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- fix: suppress S4790 on the MD5 and SHA-1 hash providers [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: correct the decompress and decrypt cancellation remarks [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- fix: address final review findings on keyed hash provider branch [patch] (matt-edmondson)
+- docs: authenticate the IV together with the ciphertext in the keyed hashing example [patch] (matt-edmondson)
+- docs: correct plan defects found during execution [patch] (matt-edmondson)
+- feat: add keyed hash providers for message authentication [minor] (matt-edmondson)
+- docs: authenticate the IV together with the ciphertext, not ciphertext alone [patch] (matt-edmondson)
+- docs: state that encryption providers give confidentiality only [patch] (matt-edmondson)
+- docs: use consistent bundled keyed hash provider wording [patch] (matt-edmondson)
+- feat: register keyed hash providers in Essentials.All [patch] (matt-edmondson)
+- feat: add HMAC-SHA-384 and HMAC-SHA-512 keyed hash providers [patch] (matt-edmondson)
+- fix: zero bytesWritten on length mismatch and drop unreachable CA1859 suppression [patch] (matt-edmondson)
+- feat: add HMAC-SHA-256 keyed hash provider over a shared core [patch] (matt-edmondson)
+- feat: add IKeyedHashProvider with buffering incremental default [patch] (matt-edmondson)
+- docs: add comment explaining CS1574 pragma suppression for forward reference [patch] (matt-edmondson)
+- feat: add FixedTimeComparison for authentication tag comparison [patch] (matt-edmondson)
+- docs: add the keyed hash provider implementation plan [patch] (matt-edmondson)
+- docs: spec the keyed hash delivery, split from authenticated encryption [patch] (matt-edmondson)
+- fix: suppress S4790 on the MD5 and SHA-1 hash providers [patch] (matt-edmondson)
+- docs: correct the decompress and decrypt cancellation remarks [patch] (matt-edmondson)
 
 ## v2.2.2 (patch)
 
 Changes since v2.2.1:
 
-- fix: suppress S4790 on the MD5 and SHA-1 hash providers [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- fix: suppress S4790 on the MD5 and SHA-1 hash providers [patch] (matt-edmondson)
 
 ## v2.2.1 (patch)
 
 Changes since v2.2.0:
 
-- docs: correct the decompress and decrypt cancellation remarks [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- docs: correct the decompress and decrypt cancellation remarks [patch] (matt-edmondson)
 
 ## v2.2.0 (minor)
 
 Changes since v2.1.0:
 
-- test: cover the untested async stream defaults and document cancellation truncation [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: clarify async dispatch proof in AES test comment [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: record which async paths are genuine [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: make aes stream encryption genuinely asynchronous [minor] ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: make deflate, zlib and brotli stream compression genuinely asynchronous [minor] ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: compose derived compression async paths over the stream primitives [minor] ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: make gzip stream compression genuinely asynchronous [minor] ([@matt-edmondson](https://github.com/matt-edmondson))
-- test: add an async-only stream double [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: plan the genuine async stream I/O work [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: design the async surface rework [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- fix: scrub pooled buffers before returning them [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- test: cover the untested async stream defaults and document cancellation truncation [patch] (matt-edmondson)
+- docs: clarify async dispatch proof in AES test comment [patch] (matt-edmondson)
+- docs: record which async paths are genuine [patch] (matt-edmondson)
+- feat: make aes stream encryption genuinely asynchronous [minor] (matt-edmondson)
+- feat: make deflate, zlib and brotli stream compression genuinely asynchronous [minor] (matt-edmondson)
+- feat: compose derived compression async paths over the stream primitives [minor] (matt-edmondson)
+- feat: make gzip stream compression genuinely asynchronous [minor] (matt-edmondson)
+- test: add an async-only stream double [patch] (matt-edmondson)
+- docs: plan the genuine async stream I/O work [patch] (matt-edmondson)
+- docs: design the async surface rework [patch] (matt-edmondson)
+- fix: scrub pooled buffers before returning them [patch] (matt-edmondson)
 
 ## v2.1.1 (patch)
 
 Changes since v2.1.0:
 
-- fix: scrub pooled buffers before returning them [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- fix: scrub pooled buffers before returning them [patch] (matt-edmondson)
 
 ## v2.1.0 (minor)
 
 Changes since v2.0.0:
 
-- chore: store icon.png in LFS as .gitattributes declares ([@matt-edmondson](https://github.com/matt-edmondson))
-- [patch] Close review gaps in incremental/async hashing (#6) ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: scope build badge to the default branch ([@matt-edmondson](https://github.com/matt-edmondson))
-- Correct the async support claim in the package description ([@matt-edmondson](https://github.com/matt-edmondson))
-- Document incremental and async stream hashing ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add streaming incremental hashing to the FNV providers ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add streaming incremental hashing to the non-cryptographic providers ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add streaming incremental hashing to the cryptographic providers ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add genuinely async stream hashing to IHashProvider ([@matt-edmondson](https://github.com/matt-edmondson))
-- [minor] Add IIncrementalHash and IHashProvider.CreateIncremental ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add implementation plan for incremental and async hashing ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add design spec for incremental hashing and keyed hashing ([@matt-edmondson](https://github.com/matt-edmondson))
-- [patch] Raise the CI build timeout to 40 minutes ([@matt-edmondson](https://github.com/matt-edmondson))
+- chore: store icon.png in LFS as .gitattributes declares (matt-edmondson)
+- [patch] Close review gaps in incremental/async hashing (#6) (matt-edmondson)
+- docs: scope build badge to the default branch (matt-edmondson)
+- Correct the async support claim in the package description (matt-edmondson)
+- Document incremental and async stream hashing (matt-edmondson)
+- Add streaming incremental hashing to the FNV providers (matt-edmondson)
+- Add streaming incremental hashing to the non-cryptographic providers (matt-edmondson)
+- Add streaming incremental hashing to the cryptographic providers (matt-edmondson)
+- Add genuinely async stream hashing to IHashProvider (matt-edmondson)
+- [minor] Add IIncrementalHash and IHashProvider.CreateIncremental (matt-edmondson)
+- Add implementation plan for incremental and async hashing (matt-edmondson)
+- Add design spec for incremental hashing and keyed hashing (matt-edmondson)
+- [patch] Raise the CI build timeout to 40 minutes (matt-edmondson)
 
 ## v2.0.2 (patch)
 
 Changes since v2.0.1:
 
-- chore: store icon.png in LFS as .gitattributes declares ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: scope build badge to the default branch ([@matt-edmondson](https://github.com/matt-edmondson))
+- chore: store icon.png in LFS as .gitattributes declares (matt-edmondson)
+- docs: scope build badge to the default branch (matt-edmondson)
 
 ## v2.0.1 (patch)
 
 Changes since v2.0.0:
 
-- [patch] Raise the CI build timeout to 40 minutes ([@matt-edmondson](https://github.com/matt-edmondson))
+- [patch] Raise the CI build timeout to 40 minutes (matt-edmondson)
 
 ## v2.0.0 (major)
 
 Changes since v1.2.2:
 
-- feat!: report bytes written from span APIs, fix storage format, stop leaking Polyfill [major] ([@matt-edmondson](https://github.com/matt-edmondson))
-- fix: repair data-corrupting string overloads, make AES thread-safe, ship DI extensions [major] ([@matt-edmondson](https://github.com/matt-edmondson))
+- feat!: report bytes written from span APIs, fix storage format, stop leaking Polyfill [major] (matt-edmondson)
+- fix: repair data-corrupting string overloads, make AES thread-safe, ship DI extensions [major] (matt-edmondson)
 
 ## v1.2.2 (patch)
 
 Changes since v1.2.1:
 
-- chore: update ktsu.Sdk to 2.21.1 [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- chore: update ktsu.Sdk to 2.21.1 [patch] (matt-edmondson)
 
 ## v1.2.1 (patch)
 
 Changes since v1.2.0:
 
-- [patch] fix(packaging): re-enable package validation on ktsu.Sdk 2.13.2 ([@matt-edmondson](https://github.com/matt-edmondson))
+- [patch] fix(packaging): re-enable package validation on ktsu.Sdk 2.13.2 (matt-edmondson)
 
 ## v1.2.0 (minor)
 
 Changes since v1.1.0:
 
-- Merge origin/main into consolidate-into-essentials ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: document obfuscation, NewtonsoftJson, All meta-package, and new naming convention ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add ktsu.Essentials.All meta-package ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: port NewtonsoftJson serialization provider from Common ([@matt-edmondson](https://github.com/matt-edmondson))
-- refactor: conform all providers to SDK naming convention ([@matt-edmondson](https://github.com/matt-edmondson))
-- refactor: conform serialization providers to SDK naming convention ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add Composite obfuscation provider that pipelines a chain ([@matt-edmondson](https://github.com/matt-edmondson))
-- [patch] fix(core): disable strict ApiCompat package validation ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add Hex obfuscation provider composing the Hex encoder ([@matt-edmondson](https://github.com/matt-edmondson))
-- [patch] fix(providers): derive package ids and disable strict ApiCompat ([@matt-edmondson](https://github.com/matt-edmondson))
-- fix: keep Base64 obfuscator encoder ctor public; register via factory to avoid DI greedy-ctor ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add Base64 obfuscation provider composing the Base64 encoder ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add BitRotate obfuscation provider ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add Reverse obfuscation provider ([@matt-edmondson](https://github.com/matt-edmondson))
-- test: scope obfuscation string round-trip out of the shared byte-transform harness ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add Caesar obfuscation provider ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add Xor obfuscation provider and obfuscation test harness ([@matt-edmondson](https://github.com/matt-edmondson))
-- feat: add IObfuscationProvider interface to Essentials core ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: implementation plan for Essentials consolidation (Phase 1) ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: design spec for consolidating Abstractions + Common into Essentials ([@matt-edmondson](https://github.com/matt-edmondson))
-- [patch] Pin Testably.Abstractions.FileSystem.Interface to stable 10.0.0 ([@matt-edmondson](https://github.com/matt-edmondson))
-- chore: remove unused SourceLink package versions ([@matt-edmondson](https://github.com/matt-edmondson))
-- chore: simplify package references and drop redundant SourceLink deps ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove stale files ([@matt-edmondson](https://github.com/matt-edmondson))
+- Merge origin/main into consolidate-into-essentials (matt-edmondson)
+- docs: document obfuscation, NewtonsoftJson, All meta-package, and new naming convention (matt-edmondson)
+- feat: add ktsu.Essentials.All meta-package (matt-edmondson)
+- feat: port NewtonsoftJson serialization provider from Common (matt-edmondson)
+- refactor: conform all providers to SDK naming convention (matt-edmondson)
+- refactor: conform serialization providers to SDK naming convention (matt-edmondson)
+- feat: add Composite obfuscation provider that pipelines a chain (matt-edmondson)
+- [patch] fix(core): disable strict ApiCompat package validation (matt-edmondson)
+- feat: add Hex obfuscation provider composing the Hex encoder (matt-edmondson)
+- [patch] fix(providers): derive package ids and disable strict ApiCompat (matt-edmondson)
+- fix: keep Base64 obfuscator encoder ctor public; register via factory to avoid DI greedy-ctor (matt-edmondson)
+- feat: add Base64 obfuscation provider composing the Base64 encoder (matt-edmondson)
+- feat: add BitRotate obfuscation provider (matt-edmondson)
+- feat: add Reverse obfuscation provider (matt-edmondson)
+- test: scope obfuscation string round-trip out of the shared byte-transform harness (matt-edmondson)
+- feat: add Caesar obfuscation provider (matt-edmondson)
+- feat: add Xor obfuscation provider and obfuscation test harness (matt-edmondson)
+- feat: add IObfuscationProvider interface to Essentials core (matt-edmondson)
+- docs: implementation plan for Essentials consolidation (Phase 1) (matt-edmondson)
+- docs: design spec for consolidating Abstractions + Common into Essentials (matt-edmondson)
+- [patch] Pin Testably.Abstractions.FileSystem.Interface to stable 10.0.0 (matt-edmondson)
+- chore: remove unused SourceLink package versions (matt-edmondson)
+- chore: simplify package references and drop redundant SourceLink deps (matt-edmondson)
+- Remove stale files (matt-edmondson)
 
 ## v1.1.3 (patch)
 
 Changes since v1.1.2:
 
-- [patch] fix(core): disable strict ApiCompat package validation ([@matt-edmondson](https://github.com/matt-edmondson))
-- [patch] fix(providers): derive package ids and disable strict ApiCompat ([@matt-edmondson](https://github.com/matt-edmondson))
+- [patch] fix(core): disable strict ApiCompat package validation (matt-edmondson)
+- [patch] fix(providers): derive package ids and disable strict ApiCompat (matt-edmondson)
 
 ## v1.1.2 (patch)
 
 Changes since v1.1.1:
 
-- [patch] Pin Testably.Abstractions.FileSystem.Interface to stable 10.0.0 ([@matt-edmondson](https://github.com/matt-edmondson))
+- [patch] Pin Testably.Abstractions.FileSystem.Interface to stable 10.0.0 (matt-edmondson)
 
 ## v1.1.1 (patch)
 
 Changes since v1.1.0:
 
-- chore: remove unused SourceLink package versions ([@matt-edmondson](https://github.com/matt-edmondson))
-- chore: simplify package references and drop redundant SourceLink deps ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove stale files ([@matt-edmondson](https://github.com/matt-edmondson))
+- chore: remove unused SourceLink package versions (matt-edmondson)
+- chore: simplify package references and drop redundant SourceLink deps (matt-edmondson)
+- Remove stale files (matt-edmondson)
 
 ## v1.1.0 (major)
 
-- Update documentation to reflect changes in hash provider implementations ([@matt-edmondson](https://github.com/matt-edmondson))
-- Rename to Essentials ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add persistence providers: AppData, FileSystem, and Temp ([@matt-edmondson](https://github.com/matt-edmondson))
-- Consolidate shared functionality ([@matt-edmondson](https://github.com/matt-edmondson))
-- Rename tests project and convert to slnx ([@matt-edmondson](https://github.com/matt-edmondson))
-- Merge remote-tracking branch 'common/main' into merge-common-providers ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add configuration providers for JSON, TOML, and YAML formats ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add abstractions for command execution, configuration, encoding, logging, navigation, persistence, and validation ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add .gitignore and project.yml for Serena configuration ([@matt-edmondson](https://github.com/matt-edmondson))
-- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
-- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
-- Refactor permissions in dotnet.yml for least privilege; add SonarLint settings.json for project configuration ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove legacy build scripts ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove skipped_release logic from build steps in dotnet.yml ([@matt-edmondson](https://github.com/matt-edmondson))
-- api suppressions ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update KtsuBuild cloning method to retrieve the latest tag correctly ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update KtsuBuild cloning method to use latest tag ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add compression, hashing, and obfuscation providers ([@matt-edmondson](https://github.com/matt-edmondson))
-- Migrate to KtsuBuild dotnet build pipeline ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add .gitignore and project.yml for Serena configuration ([@matt-edmondson](https://github.com/matt-edmondson))
-- Refactor null checks in IObfuscationProvider and ISerializationProvider to use Ensure.NotNull method; update Polyfill package version to 9.8.0 ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove .github\workflows\project.yml ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove .github\workflows\project.yml ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update docs and api compatibility files ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add project references and update AssemblyInfo for testing and source linking ([@matt-edmondson](https://github.com/matt-edmondson))
-- Change project SDK from Microsoft.NET.Sdk to MSTest.Sdk ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update target framework to net10.0 and adjust assertions in tests ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update package versions in Directory.Packages.props ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add CLAUDE.md for project guidance and documentation ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add test project detection to Invoke-DotNetTest function ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update .NET version to 10.0 and adjust test coverage reporting ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update project configuration and add CLAUDE.md for documentation ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add .runsettings file for coverage configuration, update GitHub Actions workflow to handle skipped releases, and enhance PSBuild script for coverage file handling. Update winget manifest script to detect NuGet packages and refine project type checks. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Enhance project type detection in update-winget-manifests.ps1 by adding checks for generated NuGet packages and refining logic to distinguish between library, executable, test, and demo projects. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Enhance GitHub Actions workflow to set outputs based on pipeline results for skipped releases, ensuring fallback to build configuration values when necessary. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Refactor ISerializationOptions interface to unify member serialization policies and enhance clarity. Introduce new properties for serialization and deserialization policies, and update related enums for improved configurability. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add ISerializationOptions interface and related policies for serialization configuration ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add SHA384 and SHA512 hash providers, along with FNV1_32, FNV1a_32, FNV1_64, and FNV1a_64 implementations. Update Common.sln and add corresponding unit tests for all new providers. Enhance existing tests for dependency injection and serialization. Include necessary project files and suppressions for compatibility. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove .runsettings file, update project references in Common.sln, and add new providers for Gzip, Aes, Base64, MD5, SHA1, and SHA256 with corresponding project files. Update package versions in Directory.Packages.props and global.json. Add unit tests for dependency injection and functionality verification. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update global.json and Abstractions.csproj to use ktsu.Sdk version 1.60.0 and switch project SDK to Microsoft.NET.Sdk, improving compatibility with .NET 8.0. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add MD5HashProvider implementation and project files ([@matt-edmondson](https://github.com/matt-edmondson))
-- Initial commit ([@matt-edmondson](https://github.com/matt-edmondson))
-- Refactor ISerializationProvider interface to use generic type parameters for deserialization methods, enhancing type safety and usability. Update CompatibilitySuppressions.xml to remove obsolete suppressions related to nullable attributes, ensuring compatibility with .NET 8.0. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update CompatibilitySuppressions.xml to reflect changes in diagnostic IDs and target methods for the ktsu.Abstractions library, enhancing compatibility with .NET 8.0. This includes updates for compression, encryption, hashing, and obfuscation methods, ensuring accurate suppression of diagnostics across versions. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Enhance ktsu.Abstractions library by refining interface descriptions and adding zero-allocation Try methods for compression, encryption, hashing, obfuscation, and serialization. Update README to reflect these changes, emphasizing performance improvements and usage examples. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update README to reflect changes in target frameworks and provide an example implementation of a custom MD5 hash provider, enhancing clarity on usage and functionality. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Refactor interfaces in ktsu.Abstractions to use Try methods for compression, encryption, hashing, obfuscation, and serialization, enhancing performance by reducing allocations. Update README to reflect these changes and clarify usage. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add System.Memory package reference and enhance interfaces in ktsu.Abstractions for better async support. Update README for clarity on usage and installation. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove EnumOrderingAnalyzer project and related files from the solution, streamlining the project structure and eliminating unused analyzers. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove obsolete abstraction models for compression, encryption, hashing, obfuscation, and filesystem types, along with global usings. This cleanup streamlines the project structure. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Add detailed README for ktsu.Abstractions library, outlining interfaces for compression, encryption, hashing, obfuscation, serialization, and filesystem access. Include installation instructions, quickstart examples, and contributing guidelines. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove outdated files and update project references to reflect the new repository name 'Abstractions'. Set version to 1.0.0 and clean up changelog, README, and tags. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Initial commit ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update documentation to reflect changes in hash provider implementations (matt-edmondson)
+- Rename to Essentials (matt-edmondson)
+- Add persistence providers: AppData, FileSystem, and Temp (matt-edmondson)
+- Consolidate shared functionality (matt-edmondson)
+- Rename tests project and convert to slnx (matt-edmondson)
+- Merge remote-tracking branch 'common/main' into merge-common-providers (matt-edmondson)
+- Add configuration providers for JSON, TOML, and YAML formats (matt-edmondson)
+- Add abstractions for command execution, configuration, encoding, logging, navigation, persistence, and validation (matt-edmondson)
+- Add .gitignore and project.yml for Serena configuration (matt-edmondson)
+- Sync .github\workflows\dotnet.yml (KtsuTools)
+- Sync .github\workflows\dotnet.yml (KtsuTools)
+- Refactor permissions in dotnet.yml for least privilege; add SonarLint settings.json for project configuration (matt-edmondson)
+- Remove legacy build scripts (matt-edmondson)
+- Remove skipped_release logic from build steps in dotnet.yml (matt-edmondson)
+- api suppressions (matt-edmondson)
+- Update KtsuBuild cloning method to retrieve the latest tag correctly (matt-edmondson)
+- Update KtsuBuild cloning method to use latest tag (matt-edmondson)
+- Add compression, hashing, and obfuscation providers (matt-edmondson)
+- Migrate to KtsuBuild dotnet build pipeline (matt-edmondson)
+- Add .gitignore and project.yml for Serena configuration (matt-edmondson)
+- Refactor null checks in IObfuscationProvider and ISerializationProvider to use Ensure.NotNull method; update Polyfill package version to 9.8.0 (matt-edmondson)
+- Remove .github\workflows\project.yml (matt-edmondson)
+- Remove .github\workflows\project.yml (matt-edmondson)
+- Update docs and api compatibility files (matt-edmondson)
+- Add project references and update AssemblyInfo for testing and source linking (matt-edmondson)
+- Change project SDK from Microsoft.NET.Sdk to MSTest.Sdk (matt-edmondson)
+- Update target framework to net10.0 and adjust assertions in tests (matt-edmondson)
+- Update package versions in Directory.Packages.props (matt-edmondson)
+- Add CLAUDE.md for project guidance and documentation (matt-edmondson)
+- Add test project detection to Invoke-DotNetTest function (matt-edmondson)
+- Update .NET version to 10.0 and adjust test coverage reporting (matt-edmondson)
+- Update project configuration and add CLAUDE.md for documentation (matt-edmondson)
+- Add .runsettings file for coverage configuration, update GitHub Actions workflow to handle skipped releases, and enhance PSBuild script for coverage file handling. Update winget manifest script to detect NuGet packages and refine project type checks. (matt-edmondson)
+- Enhance project type detection in update-winget-manifests.ps1 by adding checks for generated NuGet packages and refining logic to distinguish between library, executable, test, and demo projects. (matt-edmondson)
+- Enhance GitHub Actions workflow to set outputs based on pipeline results for skipped releases, ensuring fallback to build configuration values when necessary. (matt-edmondson)
+- Refactor ISerializationOptions interface to unify member serialization policies and enhance clarity. Introduce new properties for serialization and deserialization policies, and update related enums for improved configurability. (matt-edmondson)
+- Add ISerializationOptions interface and related policies for serialization configuration (matt-edmondson)
+- Add SHA384 and SHA512 hash providers, along with FNV1_32, FNV1a_32, FNV1_64, and FNV1a_64 implementations. Update Common.sln and add corresponding unit tests for all new providers. Enhance existing tests for dependency injection and serialization. Include necessary project files and suppressions for compatibility. (matt-edmondson)
+- Remove .runsettings file, update project references in Common.sln, and add new providers for Gzip, Aes, Base64, MD5, SHA1, and SHA256 with corresponding project files. Update package versions in Directory.Packages.props and global.json. Add unit tests for dependency injection and functionality verification. (matt-edmondson)
+- Update global.json and Abstractions.csproj to use ktsu.Sdk version 1.60.0 and switch project SDK to Microsoft.NET.Sdk, improving compatibility with .NET 8.0. (matt-edmondson)
+- Add MD5HashProvider implementation and project files (matt-edmondson)
+- Initial commit (matt-edmondson)
+- Refactor ISerializationProvider interface to use generic type parameters for deserialization methods, enhancing type safety and usability. Update CompatibilitySuppressions.xml to remove obsolete suppressions related to nullable attributes, ensuring compatibility with .NET 8.0. (matt-edmondson)
+- Update CompatibilitySuppressions.xml to reflect changes in diagnostic IDs and target methods for the ktsu.Abstractions library, enhancing compatibility with .NET 8.0. This includes updates for compression, encryption, hashing, and obfuscation methods, ensuring accurate suppression of diagnostics across versions. (matt-edmondson)
+- Enhance ktsu.Abstractions library by refining interface descriptions and adding zero-allocation Try methods for compression, encryption, hashing, obfuscation, and serialization. Update README to reflect these changes, emphasizing performance improvements and usage examples. (matt-edmondson)
+- Update README to reflect changes in target frameworks and provide an example implementation of a custom MD5 hash provider, enhancing clarity on usage and functionality. (matt-edmondson)
+- Refactor interfaces in ktsu.Abstractions to use Try methods for compression, encryption, hashing, obfuscation, and serialization, enhancing performance by reducing allocations. Update README to reflect these changes and clarify usage. (matt-edmondson)
+- Add System.Memory package reference and enhance interfaces in ktsu.Abstractions for better async support. Update README for clarity on usage and installation. (matt-edmondson)
+- Remove EnumOrderingAnalyzer project and related files from the solution, streamlining the project structure and eliminating unused analyzers. (matt-edmondson)
+- Remove obsolete abstraction models for compression, encryption, hashing, obfuscation, and filesystem types, along with global usings. This cleanup streamlines the project structure. (matt-edmondson)
+- Add detailed README for ktsu.Abstractions library, outlining interfaces for compression, encryption, hashing, obfuscation, serialization, and filesystem access. Include installation instructions, quickstart examples, and contributing guidelines. (matt-edmondson)
+- Remove outdated files and update project references to reflect the new repository name 'Abstractions'. Set version to 1.0.0 and clean up changelog, README, and tags. (matt-edmondson)
+- Initial commit (matt-edmondson)
 
