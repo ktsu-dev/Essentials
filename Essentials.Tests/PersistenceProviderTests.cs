@@ -636,6 +636,56 @@ public class PersistenceProviderTests
 		}
 	}
 
+	[TestMethod]
+	public async Task Store_Of_An_Unserializable_Value_Throws_And_Keeps_The_Previous_Value()
+	{
+		// Serialize ignored TrySerialize's false and returned "", so the file-backed providers replaced the last
+		// good value with an empty file and StoreAsync reported success (issue #70).
+		string fileSystemDir = Path.Join(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+		using TempPersistenceProvider<string> temp = new(fs, serializer, "PersistenceTests_Temp_" + Guid.NewGuid().ToString("N")[..8]);
+
+		try
+		{
+			IPersistenceProvider<string>[] providers =
+			[
+				new FileSystemPersistenceProvider<string>(fs, serializer, fileSystemDir),
+				temp,
+			];
+
+			foreach (IPersistenceProvider<string> persistence in providers)
+			{
+				string name = persistence.ProviderName;
+
+				await persistence.StoreAsync("k", new CyclicNode { Name = "good" }, TestContext.CancellationToken).ConfigureAwait(false);
+
+				CyclicNode cyclic = new() { Name = "bad" };
+				cyclic.Next = cyclic;
+
+				await Assert.ThrowsExactlyAsync<PersistenceProviderException>(
+					() => persistence.StoreAsync("k", cyclic, TestContext.CancellationToken),
+					$"{name} reported success for a value it could not serialize").ConfigureAwait(false);
+
+				CyclicNode? retrieved = await persistence.RetrieveAsync<CyclicNode>("k", TestContext.CancellationToken).ConfigureAwait(false);
+				Assert.IsNotNull(retrieved, $"{name} lost the previous value");
+				Assert.AreEqual("good", retrieved.Name, $"{name} replaced the previous value");
+			}
+		}
+		finally
+		{
+			CleanupDirectory(fileSystemDir);
+			temp.CleanupDirectory();
+		}
+	}
+
+	public sealed class CyclicNode
+	{
+		public string Name { get; set; } = string.Empty;
+
+		public CyclicNode? Next { get; set; }
+	}
+
 	public record struct ValueData()
 	{
 		public int Value { get; set; } = 50;
