@@ -65,16 +65,7 @@ public sealed class TempPersistenceProvider<TKey>(
 				_fileSystemProvider.Directory.CreateDirectory(directory);
 			}
 
-			// Write to temporary file first, then move for atomic operation
-			string tempFilePath = filePath + ".tmp";
-			await _fileSystemProvider.File.WriteAllTextAsync(tempFilePath, serializedData, cancellationToken).ConfigureAwait(false);
-
-			// Atomic move
-			if (_fileSystemProvider.File.Exists(filePath))
-			{
-				_fileSystemProvider.File.Delete(filePath);
-			}
-			_fileSystemProvider.File.Move(tempFilePath, filePath);
+			await AtomicFileWrite.WriteAllTextAsync(_fileSystemProvider, filePath, serializedData, cancellationToken).ConfigureAwait(false);
 		}
 		catch (Exception ex)
 		{
