@@ -48,34 +48,23 @@ internal static class AtomicFile
 		{
 			await fileSystem.File.WriteAllTextAsync(tempFilePath, content, cancellationToken).ConfigureAwait(false);
 
-			for (int attempt = 1; ; attempt++)
+			// Every attempt but the last may be refused and retried; the last one's failure surfaces.
+			for (int attempt = 1; attempt < MaxAttempts; attempt++)
 			{
 				try
 				{
-#if NETSTANDARD2_1
-					// No overwriting Move here. Replace swaps an existing target in one step; a target that does
-					// not exist yet takes a plain Move, and one created by another writer in between makes that
-					// Move throw, so the retry takes the Replace path.
-					if (fileSystem.File.Exists(filePath))
-					{
-						fileSystem.File.Replace(tempFilePath, filePath, destinationBackupFileName: null);
-					}
-					else
-					{
-						fileSystem.File.Move(tempFilePath, filePath);
-					}
-#else
-					fileSystem.File.Move(tempFilePath, filePath, overwrite: true);
-#endif
+					Replace(fileSystem, tempFilePath, filePath);
 					return;
 				}
-				catch (Exception ex) when (attempt < MaxAttempts && ex is IOException or UnauthorizedAccessException)
+				catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 				{
 					// Windows refuses to replace a file another handle has open without delete sharing, which
 					// a concurrent reader or a second writer's replace holds for a moment. Give it that moment.
 					await Task.Delay(Backoff(attempt), cancellationToken).ConfigureAwait(false);
 				}
 			}
+
+			Replace(fileSystem, tempFilePath, filePath);
 		}
 		finally
 		{
@@ -95,13 +84,13 @@ internal static class AtomicFile
 	/// <returns>The file's content.</returns>
 	internal static async Task<string> ReadAllTextAsync(IFileSystem fileSystem, string filePath, CancellationToken cancellationToken)
 	{
-		for (int attempt = 1; ; attempt++)
+		for (int attempt = 1; attempt < MaxAttempts; attempt++)
 		{
 			try
 			{
 				return await fileSystem.File.ReadAllTextAsync(filePath, cancellationToken).ConfigureAwait(false);
 			}
-			catch (IOException ex) when (attempt < MaxAttempts && IsSharingViolation(ex))
+			catch (IOException ex) when (IsSharingViolation(ex))
 			{
 				// Windows holds the target exclusively for the instant an overwriting move swaps it, so a
 				// read that lands then is refused rather than served either version. Only that refusal is
@@ -109,7 +98,29 @@ internal static class AtomicFile
 				await Task.Delay(Backoff(attempt), cancellationToken).ConfigureAwait(false);
 			}
 		}
+
+		return await fileSystem.File.ReadAllTextAsync(filePath, cancellationToken).ConfigureAwait(false);
 	}
+
+#if NETSTANDARD2_1
+	private static void Replace(IFileSystem fileSystem, string tempFilePath, string filePath)
+	{
+		// No overwriting Move here. Replace swaps an existing target in one step; a target that does not exist
+		// yet takes a plain Move, and one created by another writer in between makes that Move throw, so the
+		// retry takes the Replace path.
+		if (fileSystem.File.Exists(filePath))
+		{
+			fileSystem.File.Replace(tempFilePath, filePath, destinationBackupFileName: null);
+		}
+		else
+		{
+			fileSystem.File.Move(tempFilePath, filePath);
+		}
+	}
+#else
+	private static void Replace(IFileSystem fileSystem, string tempFilePath, string filePath)
+		=> fileSystem.File.Move(tempFilePath, filePath, overwrite: true);
+#endif
 
 	private static bool IsSharingViolation(IOException ex) => (ex.HResult & 0xFFFF) is SharingViolation or LockViolation;
 

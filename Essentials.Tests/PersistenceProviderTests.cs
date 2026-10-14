@@ -694,7 +694,7 @@ public class PersistenceProviderTests
 
 				TestData? final = await persistence.RetrieveAsync<TestData>("k", TestContext.CancellationToken).ConfigureAwait(false);
 				Assert.IsNotNull(final);
-				CollectionAssert.Contains(Enumerable.Range(0, writers).Select(i => $"writer {i}").ToArray(), final.Name, $"{name} published a payload no writer stored");
+				Assert.Contains(final.Name, Enumerable.Range(0, writers).Select(i => $"writer {i}"), $"{name} published a payload no writer stored");
 
 				string[] keys = [.. await persistence.GetAllKeysAsync(TestContext.CancellationToken).ConfigureAwait(false)];
 				Assert.HasCount(1, keys, $"{name} listed a staging file as a key");
