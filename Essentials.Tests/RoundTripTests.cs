@@ -3,6 +3,8 @@
 namespace ktsu.Essentials.Tests;
 
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 using ktsu.Essentials;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +25,9 @@ public class RoundTripTests
 	public static IEnumerable<object[]> EncryptionProviders => BuildProvider().EnumerateProviders<IEncryptionProvider>();
 
 	public static IEnumerable<object[]> SerializationProviders => BuildProvider().EnumerateProviders<ISerializationProvider>();
+
+	public static IEnumerable<object[]> JsonSerializationProviders =>
+		SerializationProviders.Where(row => ((ISerializationProvider)row[0]).FileExtension == ".json");
 
 	public TestContext TestContext { get; set; } = null!;
 
@@ -228,6 +233,34 @@ public class RoundTripTests
 		Assert.IsNotNull(deserialized, $"{providerName} async should deserialize to non-null object");
 		Assert.AreEqual(original.Name, deserialized.Name, $"{providerName} async should preserve Name property");
 		Assert.AreEqual(original.Value, deserialized.Value, $"{providerName} async should preserve Value property");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(SerializationProviders))]
+	public void Serialization_TrySerialize_Twice_Into_One_StreamWriter_Leaves_It_Open(ISerializationProvider serializer, string providerName)
+	{
+		using MemoryStream stream = new();
+		using StreamWriter writer = new(stream);
+
+		bool first = serializer.TrySerialize(new TestObject { Name = "first", Value = 1 }, writer);
+		bool second = serializer.TrySerialize(new TestObject { Name = "second", Value = 2 }, writer);
+
+		Assert.IsTrue(first, $"{providerName} should serialize the first object");
+		Assert.IsTrue(second, $"{providerName} should serialize the second object into the same writer");
+		Assert.IsTrue(stream.CanWrite, $"{providerName} should leave the caller's stream open");
+		writer.Flush();
+		string written = Encoding.UTF8.GetString(stream.ToArray());
+		Assert.Contains("first", written, $"{providerName} should write the first object");
+		Assert.Contains("second", written, $"{providerName} should write the second object");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(JsonSerializationProviders))]
+	public void Serialization_Json_Deserialize_ShapeMismatch_Returns_Default(ISerializationProvider serializer, string providerName)
+	{
+		TestObject? result = serializer.Deserialize<TestObject>("[1,2]"u8);
+
+		Assert.IsNull(result, $"{providerName} should return default for JSON whose shape doesn't match the type");
 	}
 
 	[TestMethod]
