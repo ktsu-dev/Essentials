@@ -1,7 +1,8 @@
-## v2.11.1 (patch)
+## v2.12.0 (minor)
 
 Changes since v2.11.0:
 
+- Throw from Serialize when TrySerialize fails [minor] (Claude)
 - Remove the key when InMemory stores null, as the file providers do [patch] (Claude)
 - Merge main into fix/72-newtonsoft-leave-writer-open (Claude)
 - Compute LogNormal variance with ExpM1 so a small sigma keeps its digits [patch] (Claude)
