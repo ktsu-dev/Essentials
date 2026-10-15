@@ -44,6 +44,20 @@ public class ConfigurationProviderTests
 	}
 
 	[TestMethod]
+	public void Serialize_Throws_When_TrySerialize_Fails()
+	{
+		// Serialize discarded TrySerialize's false and returned an empty string (issue #70).
+		ISerializationProvider provider = new JsonSerializationProvider();
+		CyclicConfig cyclic = new();
+		cyclic.Self = cyclic;
+
+		Assert.ThrowsExactly<InvalidOperationException>(() => provider.Serialize(cyclic));
+
+		using StringWriter writer = new();
+		Assert.ThrowsExactly<InvalidOperationException>(() => provider.Serialize(cyclic, writer));
+	}
+
+	[TestMethod]
 	[DynamicData(nameof(ConfigurationProviders))]
 	public void Configuration_TrySerialize_And_Deserialize(ISerializationProvider configProvider, string providerName)
 	{
@@ -115,5 +129,10 @@ public class ConfigurationProviderTests
 		public string Name { get; set; } = string.Empty;
 		public int Count { get; set; }
 		public bool Enabled { get; set; }
+	}
+
+	public sealed class CyclicConfig
+	{
+		public CyclicConfig? Self { get; set; }
 	}
 }
