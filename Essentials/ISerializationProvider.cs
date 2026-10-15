@@ -116,10 +116,11 @@ public interface ISerializationProvider
 	/// </summary>
 	/// <param name="obj">The object to serialize.</param>
 	/// <returns>A string containing the serialized data.</returns>
+	/// <exception cref="InvalidOperationException">The object could not be serialized.</exception>
 	public string Serialize(object obj)
 	{
 		using StringWriter writer = new();
-		TrySerialize(obj, writer);
+		Serialize(obj, writer);
 		return writer.ToString();
 	}
 
@@ -128,8 +129,14 @@ public interface ISerializationProvider
 	/// </summary>
 	/// <param name="obj">The object to serialize.</param>
 	/// <param name="writer">The writer to write the serialized data to.</param>
+	/// <exception cref="InvalidOperationException">The object could not be serialized.</exception>
 	public void Serialize(object obj, TextWriter writer)
-		=> TrySerialize(obj, writer);
+	{
+		if (!TrySerialize(obj, writer))
+		{
+			throw new InvalidOperationException("The object could not be serialized.");
+		}
+	}
 
 	/// <summary>
 	/// Serializes the specified object asynchronously.
@@ -137,6 +144,7 @@ public interface ISerializationProvider
 	/// <param name="obj">The object to serialize.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>A string containing the serialized data.</returns>
+	/// <exception cref="InvalidOperationException">The object could not be serialized.</exception>
 	public Task<string> SerializeAsync(object obj, CancellationToken cancellationToken = default)
 		=> ProviderHelpers.RunAsync(() => Serialize(obj), cancellationToken);
 }
