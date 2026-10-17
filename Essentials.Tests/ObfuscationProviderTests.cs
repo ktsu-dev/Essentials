@@ -98,6 +98,39 @@ public class ObfuscationProviderTests
 		Assert.AreEqual(original, restored);
 	}
 
+	[TestMethod]
+	public void Obfuscation_Xor_ZeroingTheKeyAfterConstruction_DoesNotChangeTheTransform()
+	{
+		byte[] key = [0x13, 0x37, 0xC0, 0xDE];
+		IObfuscationProvider provider = new XorObfuscationProvider(key);
+		byte[] original = Encoding.UTF8.GetBytes("xor key hygiene");
+		byte[] obfuscated = provider.Obfuscate(original);
+
+		Array.Clear(key, 0, key.Length);
+
+		CollectionAssert.AreEqual(obfuscated, provider.Obfuscate(original), "Zeroing the caller's key should not change the output");
+		CollectionAssert.AreEqual(original, provider.Deobfuscate(obfuscated), "Zeroing the caller's key should not stop deobfuscation");
+	}
+
+	[TestMethod]
+	public void Obfuscation_Composite_EditingTheStageListAfterConstruction_DoesNotChangeThePipeline()
+	{
+		List<IObfuscationProvider> stages = [new XorObfuscationProvider(), new Base64ObfuscationProvider()];
+		IObfuscationProvider provider = new CompositeObfuscationProvider(stages);
+		byte[] original = Encoding.UTF8.GetBytes("composite stage list");
+		byte[] obfuscated = provider.Obfuscate(original);
+
+		stages.Reverse();
+		stages.Add(new HexObfuscationProvider());
+
+		CollectionAssert.AreEqual(obfuscated, provider.Obfuscate(original), "Editing the caller's list should not change the output");
+		CollectionAssert.AreEqual(original, provider.Deobfuscate(obfuscated), "Editing the caller's list should not stop deobfuscation");
+	}
+
+	[TestMethod]
+	public void Obfuscation_Composite_NullStage_Throws()
+		=> Assert.ThrowsExactly<ArgumentException>(() => new CompositeObfuscationProvider([new XorObfuscationProvider(), null!]));
+
 	private static IObfuscationProvider CompositeWithFallibleStage()
 		=> new CompositeObfuscationProvider([new XorObfuscationProvider(), new Base64ObfuscationProvider()]);
 
