@@ -3,6 +3,7 @@
 namespace ktsu.Essentials.Tests;
 
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Text;
 using ktsu.Essentials;
 using ktsu.Essentials.SerializationProviders.Json;
@@ -122,6 +123,40 @@ public class ConfigurationProviderTests
 		TestConfig config = new() { Name = "test" };
 		bool saveOk = configProvider.TrySerialize(config, null!);
 		Assert.IsFalse(saveOk, $"{providerName} should return false for null writer");
+	}
+
+	[TestMethod]
+	public void Yaml_Roundtrip_Preserves_Strings_That_Look_Like_Null()
+	{
+		// YAML reads an unquoted null, Null, NULL or ~ as null, so writing these strings bare loses them
+		// on the way back (issue #130).
+		ISerializationProvider configProvider = new YamlSerializationProvider();
+		const string providerName = nameof(YamlSerializationProvider);
+		foreach (string value in new[] { "null", "Null", "NULL", "~" })
+		{
+			StringsConfig original = new()
+			{
+				Name = value,
+				Tags = [value],
+				Map = new() { ["k"] = value },
+			};
+
+			string serialized = configProvider.Serialize(original);
+			StringsConfig? loaded = configProvider.Deserialize<StringsConfig>(serialized);
+
+			Assert.IsNotNull(loaded, $"{providerName} should deserialize {value}");
+			Assert.AreEqual(value, loaded.Name, $"{providerName} should preserve {value} as a property value");
+			Assert.HasCount(1, loaded.Tags, $"{providerName} should preserve the list");
+			Assert.AreEqual(value, loaded.Tags[0], $"{providerName} should preserve {value} as a list element");
+			Assert.AreEqual(value, loaded.Map["k"], $"{providerName} should preserve {value} as a dictionary value");
+		}
+	}
+
+	public sealed class StringsConfig
+	{
+		public string? Name { get; set; }
+		public Collection<string?> Tags { get; init; } = [];
+		public Dictionary<string, string?> Map { get; init; } = [];
 	}
 
 	public sealed class TestConfig
