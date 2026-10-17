@@ -28,10 +28,10 @@ public class ReverseObfuscationProvider : IObfuscationProvider
 			return false;
 		}
 
-		for (int i = 0; i < data.Length; i++)
-		{
-			destination[i] = data[data.Length - 1 - i];
-		}
+		// CopyTo handles a destination that is, or overlaps, the source; reversing in place afterwards
+		// never reads a byte it has already overwritten.
+		data.CopyTo(destination);
+		destination[..data.Length].Reverse();
 
 		bytesWritten = data.Length;
 		return true;
