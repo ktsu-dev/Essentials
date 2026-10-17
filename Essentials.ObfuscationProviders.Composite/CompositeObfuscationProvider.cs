@@ -25,7 +25,15 @@ public class CompositeObfuscationProvider : IObfuscationProvider
 			throw new ArgumentException("At least one stage is required.", nameof(stages));
 		}
 
-		_stages = stages;
+		// Copied so a caller that later edits the list it passed in cannot change the pipeline.
+		_stages = [.. stages];
+		foreach (IObfuscationProvider stage in _stages)
+		{
+			if (stage is null)
+			{
+				throw new ArgumentException("Stages must not contain null.", nameof(stages));
+			}
+		}
 	}
 
 	/// <inheritdoc/>
