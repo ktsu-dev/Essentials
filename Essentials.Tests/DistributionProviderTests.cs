@@ -836,9 +836,46 @@ public class DistributionProviderTests
 			GeometricDistributionProvider distribution = new(p);
 			foreach (double q in new[] { 0.0, 1e-9, 0.25, 0.5, 0.999 })
 			{
+				// Past the mass an int can hold, the closed form refuses rather than agreeing on a saturated value.
+				if (distribution.Cdf(int.MaxValue) < q)
+				{
+					Assert.ThrowsExactly<OverflowException>(() => distribution.Quantile(q), $"Geometric({p}) at {q}");
+					continue;
+				}
+
 				Assert.AreEqual(distribution.Quantile(q), distribution.Bisect(q), $"Geometric({p}) at {q}");
 			}
 		}
+	}
+
+	[TestMethod]
+	public void Quantiles_Beyond_The_Int_Support_Throw_Instead_Of_Saturating()
+	{
+		// With a mean past int.MaxValue most of the mass lies outside the support, and the quantile used to
+		// return int.MaxValue for all of it: the median, every quantile and every draw were the same number.
+		PoissonDistributionProvider poisson = new(1e10);
+		IDiscreteDistribution poissonDistribution = poisson;
+		Assert.AreEqual(0.0, poisson.Cdf(int.MaxValue), Tight);
+		Assert.ThrowsExactly<OverflowException>(() => poissonDistribution.Quantile(0.01));
+		Assert.ThrowsExactly<OverflowException>(() => poissonDistribution.Quantile(1.0));
+		Assert.ThrowsExactly<OverflowException>(() => poissonDistribution.Median);
+		Assert.ThrowsExactly<OverflowException>(() => poissonDistribution.Sample(SeededRandom()));
+		Assert.ThrowsExactly<OverflowException>(() => ((IDiscreteDistribution)new PoissonDistributionProvider(3e9)).Median);
+
+		// A rate inside the support still inverts to the end of it.
+		Assert.AreEqual(int.MaxValue, ((IDiscreteDistribution)new PoissonDistributionProvider(4.5)).Quantile(1.0));
+
+		// A fifth of this geometric's mass lies within the support: quantiles there still invert, and the
+		// boundary itself is the largest one that does.
+		GeometricDistributionProvider geometric = new(1e-10);
+		double inside = geometric.Cdf(int.MaxValue);
+		Assert.AreEqual(0.193, inside, 1e-3);
+		Assert.AreEqual(geometric.Bisect(0.1), geometric.Quantile(0.1));
+		Assert.IsLessThan(int.MaxValue, geometric.Quantile(0.1));
+		Assert.AreEqual(int.MaxValue, geometric.Quantile(inside));
+		Assert.ThrowsExactly<OverflowException>(() => geometric.Quantile(Math.BitIncrement(inside)));
+		Assert.ThrowsExactly<OverflowException>(() => geometric.Quantile(1.0));
+		Assert.ThrowsExactly<OverflowException>(() => ((IDiscreteDistribution)geometric).Median);
 	}
 
 	[TestMethod]
