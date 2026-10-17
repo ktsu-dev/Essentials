@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Text;
 using ktsu.Essentials;
 using ktsu.Essentials.SerializationProviders.Json;
+using ktsu.Essentials.SerializationProviders.NewtonsoftJson;
 using ktsu.Essentials.SerializationProviders.Toml;
 using ktsu.Essentials.SerializationProviders.Yaml;
 using Microsoft.Extensions.DependencyInjection;
@@ -101,6 +102,31 @@ public class ConfigurationProviderTests
 		Assert.IsNotNull(loaded, $"{providerName} should deserialize from bytes");
 		Assert.AreEqual(original.Name, loaded.Name);
 		Assert.AreEqual(original.Count, loaded.Count);
+	}
+
+	public static IEnumerable<object[]> ByteDeserializingProviders =>
+	[
+		[new JsonSerializationProvider(), nameof(JsonSerializationProvider)],
+		[new NewtonsoftJsonSerializationProvider(), nameof(NewtonsoftJsonSerializationProvider)],
+		[new YamlSerializationProvider(), nameof(YamlSerializationProvider)],
+		[new TomlSerializationProvider(), nameof(TomlSerializationProvider)],
+	];
+
+	[TestMethod]
+	[DynamicData(nameof(ByteDeserializingProviders))]
+	public void Configuration_Deserialize_From_Bytes_With_Utf8_Bom(ISerializationProvider configProvider, string providerName)
+	{
+		// The JSON provider returned null for UTF-8 bytes that start with a byte order mark, as
+		// File.ReadAllBytes yields for a file saved by Notepad or Visual Studio (issue #76).
+		TestConfig original = new() { Name = "WithBom", Count = 21, Enabled = true };
+
+		string serialized = configProvider.Serialize(original);
+		byte[] bytes = [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes(serialized)];
+		TestConfig? loaded = configProvider.Deserialize<TestConfig>(bytes);
+		Assert.IsNotNull(loaded, $"{providerName} should deserialize BOM-prefixed bytes");
+		Assert.AreEqual(original.Name, loaded.Name);
+		Assert.AreEqual(original.Count, loaded.Count);
+		Assert.AreEqual(original.Enabled, loaded.Enabled);
 	}
 
 	[TestMethod]

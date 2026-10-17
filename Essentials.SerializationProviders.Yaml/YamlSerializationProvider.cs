@@ -78,7 +78,7 @@ public class YamlSerializationProvider : ISerializationProvider
 
 		try
 		{
-			string content = Encoding.UTF8.GetString(data);
+			string content = Encoding.UTF8.GetString(Utf8Bom.Skip(data));
 			return deserializer.Deserialize<T>(content);
 		}
 		catch (YamlException)

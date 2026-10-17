@@ -49,6 +49,7 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 - `Shared/DistributionArguments.cs` - Parameter validation shared by every distribution provider, linked in the same way
 - `Shared/PersistenceDefaults.cs` - The `IPersistenceProvider` default `RetrieveOrCreateAsync` body, linked into the FileSystem and Temp providers, which declare that member themselves and so hide the default
 - `Essentials/ISerializationProvider.cs` - Object serialization/deserialization interface
+- `Shared/Utf8Bom.cs` - Strips a leading UTF-8 byte order mark, linked into the four serialization providers so each byte `Deserialize` overload reads `File.ReadAllBytes` output from Notepad or Visual Studio the same way its text overloads do
 - `Essentials/ISerializationOptions.cs` - Configurable serialization options (naming, inclusion, boxing policies)
 - `Essentials/ICacheProvider.cs` - Generic cache interface with expiration and get-or-add
 - `Essentials/IPersistenceProvider.cs` - Object persistence interface with pluggable backends

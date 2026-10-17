@@ -98,7 +98,7 @@ public class JsonSerializationProvider : ISerializationProvider
 
 		try
 		{
-			return JsonSerializer.Deserialize<T>(data, options);
+			return JsonSerializer.Deserialize<T>(Utf8Bom.Skip(data), options);
 		}
 		catch (JsonException)
 		{
