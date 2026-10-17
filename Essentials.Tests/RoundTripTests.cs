@@ -83,6 +83,41 @@ public class RoundTripTests
 
 	[TestMethod]
 	[DynamicData(nameof(CompressionProviders))]
+	public void Compression_TryDecompress_Span_Fails_When_The_Output_Is_One_Byte_Too_Long(ICompressionProvider compressor, string providerName)
+	{
+		byte[] original = Encoding.UTF8.GetBytes("payload whose exact length is the boundary for " + providerName);
+		byte[] compressed = compressor.Compress(original);
+
+		Assert.IsFalse(compressor.TryDecompress(compressed, new byte[original.Length - 1], out int shortWritten), $"{providerName} should refuse a destination one byte short");
+		Assert.AreEqual(0, shortWritten, $"{providerName} should report no bytes written on failure");
+
+		byte[] roomy = new byte[original.Length + 16];
+		Assert.IsTrue(compressor.TryDecompress(compressed, roomy, out int roomyWritten), $"{providerName} should accept a larger destination");
+		Assert.AreEqual(original.Length, roomyWritten, $"{providerName} should report the decompressed length, not the destination's");
+		CollectionAssert.AreEqual(original, roomy.Take(roomyWritten).ToArray(), $"{providerName} should produce original data");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(CompressionProviders))]
+	public void Compression_TryDecompress_Span_Is_Bounded_By_The_Destination(ICompressionProvider compressor, string providerName)
+	{
+		// A highly compressible payload: tens of kilobytes or less that expand to 64 MiB. The span overload
+		// used to inflate all of it into a growing MemoryStream and copy it out again before comparing the
+		// length, allocating about three times the output to return false. See issue #122.
+		byte[] compressed = compressor.Compress(new byte[64 * 1024 * 1024]);
+		byte[] destination = new byte[16];
+
+		long before = GC.GetAllocatedBytesForCurrentThread();
+		bool ok = compressor.TryDecompress(compressed, destination, out int written);
+		long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+		Assert.IsFalse(ok, $"{providerName} should refuse output that does not fit");
+		Assert.AreEqual(0, written, $"{providerName} should report no bytes written on failure");
+		Assert.IsLessThan(compressed.Length + (1024 * 1024), allocated, $"{providerName} allocated {allocated} bytes for a {compressed.Length}-byte input");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(CompressionProviders))]
 	public void Compression_Stream_To_Stream_Roundtrip(ICompressionProvider compressor, string providerName)
 	{
 		byte[] original = Encoding.UTF8.GetBytes("stream roundtrip with " + providerName);

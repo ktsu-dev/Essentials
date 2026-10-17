@@ -169,25 +169,11 @@ public class GzipCompressionProvider : ICompressionProvider
 
 		try
 		{
-			using MemoryStream inputStream = new();
-			inputStream.Write(compressedData);
-			inputStream.Position = 0;
-			using MemoryStream outputStream = new();
-
-			if (!TryDecompress(inputStream, outputStream))
-			{
-				return false;
-			}
-
-			byte[] decompressedData = outputStream.ToArray();
-			if (decompressedData.Length > destination.Length)
-			{
-				return false;
-			}
-
-			decompressedData.CopyTo(destination);
-			bytesWritten = decompressedData.Length;
-			return true;
+			return BoundedDecompression.TryDecompress(
+				compressedData,
+				destination,
+				static input => new GZipStream(input, CompressionMode.Decompress, leaveOpen: true),
+				out bytesWritten);
 		}
 		catch (ArgumentException)
 		{

@@ -45,6 +45,7 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 - `Essentials/IContinuousDistribution.cs` - `IDistribution<double>` plus `Pdf`/`LogPdf`
 - `Essentials/IDiscreteDistribution.cs` - `IDistribution<int>` plus `Pmf`/`LogPmf`, and a default `Quantile` that bisects the CDF. That default is an explicit reimplementation of `IDistribution<int>.Quantile`, which CA1033 misreads as an explicit implementation on a class; the suppression on it says why
 - `Shared/DeflateBound.cs` - zlib's `deflateBound` plus container overhead, linked into the Deflate, Gzip and ZLib providers as their `GetMaxCompressedLength`
+- `Shared/BoundedDecompression.cs` - The span overload of `TryDecompress` for Brotli, Deflate, Gzip and ZLib: reads the decompressing stream straight into the destination and fails once it is full and more output remains, so the destination bounds the work. See issue #122
 - `Shared/SpecialFunctions.cs` - Incomplete gamma, incomplete beta, error function, normal quantile and cancellation-free `ExpM1`/`Log1P`, linked into the Normal, LogNormal, Exponential, Binomial, Poisson and Geometric providers rather than placed in the interfaces-only package
 - `Shared/DistributionArguments.cs` - Parameter validation shared by every distribution provider, linked in the same way
 - `Shared/PersistenceDefaults.cs` - The `IPersistenceProvider` default `RetrieveOrCreateAsync` body, linked into the FileSystem and Temp providers, which declare that member themselves and so hide the default
