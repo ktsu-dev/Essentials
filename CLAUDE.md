@@ -48,6 +48,7 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 - `Shared/SpecialFunctions.cs` - Incomplete gamma, incomplete beta, error function, normal quantile and cancellation-free `ExpM1`/`Log1P`, linked into the Normal, LogNormal, Exponential, Binomial, Poisson and Geometric providers rather than placed in the interfaces-only package
 - `Shared/DistributionArguments.cs` - Parameter validation shared by every distribution provider, linked in the same way
 - `Shared/PersistenceDefaults.cs` - The `IPersistenceProvider` default `RetrieveOrCreateAsync` body, linked into the FileSystem and Temp providers, which declare that member themselves and so hide the default
+- `Shared/AtomicFile.cs` - The FileSystem and Temp providers' write and read paths: each store stages its data in a uniquely named `<guid>.tmp` beside the target and publishes it with an overwriting move, retrying briefly while Windows holds the target open, so concurrent writers can't collide and a reader never sees the key missing; reads retry only the Windows sharing violation a replace in progress raises. Linked into both providers like `PersistenceDefaults.cs`
 - `Essentials/ISerializationProvider.cs` - Object serialization/deserialization interface
 - `Essentials/ISerializationOptions.cs` - Configurable serialization options (naming, inclusion, boxing policies)
 - `Essentials/ICacheProvider.cs` - Generic cache interface with expiration and get-or-add

@@ -686,6 +686,80 @@ public class PersistenceProviderTests
 		public CyclicNode? Next { get; set; }
 	}
 
+	[TestMethod]
+	public async Task Concurrent_Stores_To_One_Key_Never_Throw_Or_Hide_The_Key()
+	{
+		// Every writer staged its data in the same "<file>.tmp", so overlapping writers moved each other's file
+		// away and threw, and the delete-then-move left a window in which a reader saw the key as missing
+		// (issue #66).
+		string fileSystemDir = Path.Join(Path.GetTempPath(), "PersistenceTests_FS_" + Guid.NewGuid().ToString("N")[..8]);
+		NativeFileSystemProvider fs = new();
+		JsonSerializationProvider serializer = new();
+		using TempPersistenceProvider<string> temp = new(fs, serializer, "PersistenceTests_Temp_" + Guid.NewGuid().ToString("N")[..8]);
+
+		try
+		{
+			IPersistenceProvider<string>[] providers =
+			[
+				new FileSystemPersistenceProvider<string>(fs, serializer, fileSystemDir),
+				temp,
+			];
+
+			foreach (IPersistenceProvider<string> persistence in providers)
+			{
+				string name = persistence.ProviderName;
+				const int writers = 200;
+
+				await persistence.StoreAsync("k", new TestData { Name = "initial" }, TestContext.CancellationToken).ConfigureAwait(false);
+
+				using CancellationTokenSource stopReading = new();
+				int missing = 0;
+				Task reader = Task.Run(async () =>
+				{
+					while (!stopReading.IsCancellationRequested)
+					{
+						if (!await persistence.ExistsAsync("k", TestContext.CancellationToken).ConfigureAwait(false)
+							|| await persistence.RetrieveAsync<TestData>("k", TestContext.CancellationToken).ConfigureAwait(false) is null)
+						{
+							Interlocked.Increment(ref missing);
+						}
+					}
+				}, TestContext.CancellationToken);
+
+				Task[] stores = [.. Enumerable.Range(0, writers).Select(i => Task.Run(
+					() => persistence.StoreAsync("k", new TestData { Name = $"writer {i}" }, TestContext.CancellationToken),
+					TestContext.CancellationToken))];
+
+				try
+				{
+					await Task.WhenAll(stores).ConfigureAwait(false);
+				}
+				finally
+				{
+					await stopReading.CancelAsync().ConfigureAwait(false);
+					await reader.ConfigureAwait(false);
+				}
+
+				Assert.AreEqual(0, missing, $"{name} reported a stored key as missing during concurrent writes");
+
+				TestData? final = await persistence.RetrieveAsync<TestData>("k", TestContext.CancellationToken).ConfigureAwait(false);
+				Assert.IsNotNull(final);
+				Assert.Contains(final.Name, Enumerable.Range(0, writers).Select(i => $"writer {i}"), $"{name} published a payload no writer stored");
+
+				string[] keys = [.. await persistence.GetAllKeysAsync(TestContext.CancellationToken).ConfigureAwait(false)];
+				Assert.HasCount(1, keys, $"{name} listed a staging file as a key");
+				Assert.AreEqual("k", keys[0]);
+			}
+
+			Assert.IsEmpty(Directory.GetFiles(fileSystemDir, "*.tmp"), "A staging file was left behind");
+		}
+		finally
+		{
+			CleanupDirectory(fileSystemDir);
+			temp.CleanupDirectory();
+		}
+	}
+
 	public record struct ValueData()
 	{
 		public int Value { get; set; } = 50;
