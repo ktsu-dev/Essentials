@@ -4,10 +4,13 @@ namespace ktsu.Essentials.SerializationProviders.Toml;
 
 using ktsu.Essentials;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.Serialization;
 using System.Text;
 using Tomlyn;
 using Tomlyn.Model;
@@ -31,6 +34,13 @@ public class TomlSerializationProvider : ISerializationProvider
 	public bool TrySerialize(object obj, TextWriter writer)
 	{
 		if (writer is null)
+		{
+			return false;
+		}
+
+		// Tomlyn recurses without cycle detection, and the stack overflow a cycle causes cannot be
+		// caught, so a self-referencing graph would take the whole process down.
+		if (ContainsCycle(obj, new HashSet<object>(ReferenceComparer.Instance), depth: 0))
 		{
 			return false;
 		}
@@ -88,6 +98,124 @@ public class TomlSerializationProvider : ISerializationProvider
 		{
 			return default;
 		}
+	}
+
+	/// <summary>
+	/// The deepest nesting <see cref="ContainsCycle"/> follows before treating the graph as
+	/// unserializable. It only stops a value type whose properties keep producing new instances of
+	/// itself, which Tomlyn would recurse into without end as well.
+	/// </summary>
+	private const int MaxDepth = 512;
+
+	/// <summary>
+	/// Reports whether the graph below <paramref name="value"/> reaches one of its own ancestors,
+	/// following the same members Tomlyn's model writer visits: dictionary values, sequence items,
+	/// and public readable instance properties that are not indexers or marked
+	/// <see cref="IgnoreDataMemberAttribute"/>. An object reached twice along different branches is
+	/// not a cycle; only one that appears on its own path is.
+	/// </summary>
+	private static bool ContainsCycle(object? value, HashSet<object> path, int depth)
+	{
+		if (value is null || IsScalar(value.GetType()))
+		{
+			return false;
+		}
+
+		if (depth > MaxDepth)
+		{
+			return true;
+		}
+
+		bool tracked = !value.GetType().IsValueType;
+		if (tracked && !path.Add(value))
+		{
+			return true;
+		}
+
+		try
+		{
+			foreach (object? child in Children(value))
+			{
+				if (ContainsCycle(child, path, depth + 1))
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+		finally
+		{
+			if (tracked)
+			{
+				path.Remove(value);
+			}
+		}
+	}
+
+	private static IEnumerable<object?> Children(object value)
+	{
+		if (value is IDictionary dictionary)
+		{
+			foreach (DictionaryEntry entry in dictionary)
+			{
+				yield return entry.Value;
+			}
+
+			yield break;
+		}
+
+		if (value is IEnumerable sequence)
+		{
+			foreach (object? item in sequence)
+			{
+				yield return item;
+			}
+
+			yield break;
+		}
+
+		foreach (PropertyInfo property in value.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+		{
+			if (!property.CanRead || property.GetIndexParameters().Length != 0 || property.IsDefined(typeof(IgnoreDataMemberAttribute), inherit: true))
+			{
+				continue;
+			}
+
+			object? child;
+			try
+			{
+				child = property.GetValue(value);
+			}
+			catch (TargetInvocationException)
+			{
+				// A throwing getter is Tomlyn's to report; it is not a cycle.
+				continue;
+			}
+
+			yield return child;
+		}
+	}
+
+	private static bool IsScalar(Type type)
+		=> type.IsPrimitive
+		|| type.IsEnum
+		|| type == typeof(string)
+		|| type == typeof(decimal)
+		|| type == typeof(DateTime)
+		|| type == typeof(DateTimeOffset)
+		|| type == typeof(TimeSpan)
+		|| type == typeof(Guid)
+		|| type == typeof(TomlDateTime);
+
+	/// <summary>Compares by reference, so value-equal objects on a path are not mistaken for a cycle.</summary>
+	private sealed class ReferenceComparer : IEqualityComparer<object>
+	{
+		internal static readonly ReferenceComparer Instance = new();
+
+		public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
+
+		public int GetHashCode(object obj) => RuntimeHelpers.GetHashCode(obj);
 	}
 
 	private static T? ConvertToModel<T>(TomlTable table)
