@@ -2,6 +2,10 @@
 
 Changes since v2.11.0:
 
+- Merge remote-tracking branch 'origin/main' into fix/66-atomic-store (Claude)
+- Bound the retry loops explicitly and use Assert.Contains (Claude)
+- Retry a read that lands on a Windows replace in progress (Claude)
+- Make file-backed StoreAsync safe under concurrent writers and readers [patch] (Claude)
 - Throw from Serialize when TrySerialize fails [minor] (Claude)
 - Remove the key when InMemory stores null, as the file providers do [patch] (Claude)
 - Merge main into fix/72-newtonsoft-leave-writer-open (Claude)
