@@ -4,7 +4,6 @@ namespace ktsu.Essentials.DistributionProviders.LogNormal;
 
 using ktsu.Essentials;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 /// <summary>
 /// Dependency injection registration for the log-normal distribution provider.
@@ -20,7 +19,9 @@ public static class ServiceCollectionExtensions
 	/// singleton is safe because a distribution is immutable: its parameters are fixed at construction
 	/// and sampling changes nothing, so the randomness passed in at the call site is the only state
 	/// involved. Registration is explicit rather than reflection-based so the parameters below are used
-	/// rather than whichever constructor happens to be greediest. Calling this more than once is a no-op.
+	/// rather than whichever constructor happens to be greediest.
+	/// A later call replaces an earlier registration of this provider in place, so arguments passed
+	/// after <c>AddEssentials()</c> take effect.
 	/// </remarks>
 	/// <param name="services">The service collection to add the provider to.</param>
 	/// <param name="logMean">The mean of the underlying normal distribution. Defaults to 0.0.</param>
@@ -31,8 +32,7 @@ public static class ServiceCollectionExtensions
 		Ensure.NotNull(services);
 
 		LogNormalDistributionProvider provider = new(logMean, logStandardDeviation);
-		services.TryAddSingleton(provider);
-		services.TryAddEnumerable(ServiceDescriptor.Singleton<IContinuousDistribution>(provider));
+		ProviderRegistration.AddOrReplaceSingleton<IContinuousDistribution, LogNormalDistributionProvider>(services, provider);
 		return services;
 	}
 }

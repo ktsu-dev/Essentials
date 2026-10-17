@@ -19,7 +19,7 @@
 - **Compression**: `ICompressionProvider` with Gzip, Brotli, Deflate, and ZLib implementations
 - **Encoding**: `IEncodingProvider` with Base64 and Hex implementations for format/transport encoding
 - **Obfuscation**: `IObfuscationProvider` with XOR, Caesar, bit-rotation, byte-reversal, Base64, and Hex implementations, plus a `Composite` provider that pipelines several together. Obfuscation is reversible but is **not** encryption — it provides no confidentiality
-- **Dependency Injection**: every provider package ships an `Add<Impl><Category>Provider()` extension; `ktsu.Essentials.All` adds per-category helpers and a single `AddEssentials()`. Registrations are idempotent and expose each provider by both concrete type and interface
+- **Dependency Injection**: every provider package ships an `Add<Impl><Category>Provider()` extension; `ktsu.Essentials.All` adds per-category helpers and a single `AddEssentials()`. Registrations are idempotent and expose each provider by both concrete type and interface. A provider that takes arguments (the Xor, Caesar and BitRotate obfuscators and the distributions) replaces its own earlier registration, so `AddEssentials()` followed by `AddXorObfuscationProvider(key)` uses `key`, and `AddEssentials()` keeps one registered before it, in the place its default would have taken
 - **Encryption**: `IEncryptionProvider` with AES implementation including key and IV generation. Provides confidentiality only, not tamper detection
 - **Hashing**: `IHashProvider` with 15 implementations (MD5, SHA1/256/384/512, FNV1/FNV1a 32/64-bit, CRC32/64, XxHash32/64/3/128)
 - **Keyed Hashing**: `IKeyedHashProvider` with HMAC-SHA256/384/512 implementations for authenticating data, plus `Verify` for fixed-time tag checking

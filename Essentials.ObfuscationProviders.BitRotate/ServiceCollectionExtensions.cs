@@ -4,7 +4,6 @@ namespace ktsu.Essentials.ObfuscationProviders.BitRotate;
 
 using ktsu.Essentials;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 /// <summary>
 /// Dependency injection registration for the bit-rotation obfuscation provider.
@@ -16,7 +15,9 @@ public static class ServiceCollectionExtensions
 	/// </summary>
 	/// <remarks>
 	/// The provider is registered as a singleton, both as its concrete type and as an additional
-	/// <see cref="IObfuscationProvider"/> in the resolvable set. Calling this more than once is a no-op.
+	/// <see cref="IObfuscationProvider"/> in the resolvable set.
+	/// A later call replaces an earlier registration of this provider in place, so arguments passed
+	/// after <c>AddEssentials()</c> take effect.
 	/// Registration is explicit rather than reflection-based so the rotation count is not resolved
 	/// from the container.
 	/// </remarks>
@@ -28,8 +29,7 @@ public static class ServiceCollectionExtensions
 		Ensure.NotNull(services);
 
 		BitRotateObfuscationProvider provider = new(bits);
-		services.TryAddSingleton(provider);
-		services.TryAddEnumerable(ServiceDescriptor.Singleton<IObfuscationProvider>(provider));
+		ProviderRegistration.AddOrReplaceSingleton<IObfuscationProvider, BitRotateObfuscationProvider>(services, provider);
 		return services;
 	}
 }
