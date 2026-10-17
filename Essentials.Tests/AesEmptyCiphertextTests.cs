@@ -69,4 +69,41 @@ public class AesEmptyCiphertextTests
 		Assert.IsTrue(await Provider.TryDecryptAsync(asyncSource, Key, Iv, asyncDestination, TestContext.CancellationToken).ConfigureAwait(false));
 		Assert.AreEqual(0, asyncDestination.Length);
 	}
+
+	[TestMethod]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Deliberately exercises the synchronous overloads alongside the asynchronous ones.")]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1835:Prefer the 'Memory'-based overloads for 'ReadAsync' and 'WriteAsync'", Justification = "Deliberately exercises the array-based ReadAsync override.")]
+	public async Task CountingReadStream_CountsEveryReadOverloadAsync()
+	{
+		using MemoryStream inner = new([1, 2, 3, 4, 5, 6, 7, 8]);
+		using AesEncryptionProvider.CountingReadStream counting = new(inner);
+		byte[] buffer = new byte[2];
+
+		Assert.AreEqual(2, counting.Read(buffer, 0, 2));
+		Assert.AreEqual(2, counting.Read(buffer.AsSpan()));
+		Assert.AreEqual(2, await counting.ReadAsync(buffer, 0, 2, TestContext.CancellationToken).ConfigureAwait(false));
+		Assert.AreEqual(2, await counting.ReadAsync(buffer.AsMemory(), TestContext.CancellationToken).ConfigureAwait(false));
+		Assert.AreEqual(0, counting.Read(buffer, 0, 2));
+
+		Assert.AreEqual(8, counting.BytesRead);
+	}
+
+	[TestMethod]
+	public void CountingReadStream_IsReadOnlyAndForwardOnly()
+	{
+		using MemoryStream inner = new();
+		using AesEncryptionProvider.CountingReadStream counting = new(inner);
+
+		Assert.IsTrue(counting.CanRead);
+		Assert.IsFalse(counting.CanSeek);
+		Assert.IsFalse(counting.CanWrite);
+		counting.Flush();
+
+		Assert.ThrowsExactly<NotSupportedException>(() => _ = counting.Length);
+		Assert.ThrowsExactly<NotSupportedException>(() => _ = counting.Position);
+		Assert.ThrowsExactly<NotSupportedException>(() => counting.Position = 0);
+		Assert.ThrowsExactly<NotSupportedException>(() => counting.Seek(0, SeekOrigin.Begin));
+		Assert.ThrowsExactly<NotSupportedException>(() => counting.SetLength(0));
+		Assert.ThrowsExactly<NotSupportedException>(() => counting.Write([1], 0, 1));
+	}
 }

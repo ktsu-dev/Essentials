@@ -366,7 +366,7 @@ public class AesEncryptionProvider : IEncryptionProvider
 	/// also decrypts to nothing, so the stream paths count the input instead (issue #75). Each read forwards
 	/// to the same overload of the source, so the asynchronous path stays asynchronous.
 	/// </remarks>
-	private sealed class CountingReadStream(Stream source) : Stream
+	internal sealed class CountingReadStream(Stream source) : Stream
 	{
 		public long BytesRead { get; private set; }
 
