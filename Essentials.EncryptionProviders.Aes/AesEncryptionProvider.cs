@@ -276,9 +276,10 @@ public class AesEncryptionProvider : IEncryptionProvider
 		{
 			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
 			using ICryptoTransform decryptor = aes.CreateDecryptor(key.ToArray(), iv.ToArray());
-			using CryptoStream cryptoStream = new(data, decryptor, CryptoStreamMode.Read, leaveOpen: true);
+			CountingReadStream source = new(data);
+			using CryptoStream cryptoStream = new(source, decryptor, CryptoStreamMode.Read, leaveOpen: true);
 			cryptoStream.CopyTo(destination);
-			return true;
+			return source.BytesRead > 0;
 		}
 		catch (ArgumentException)
 		{
@@ -328,13 +329,14 @@ public class AesEncryptionProvider : IEncryptionProvider
 		{
 			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
 			using ICryptoTransform decryptor = aes.CreateDecryptor(key.ToArray(), iv.ToArray());
-			CryptoStream cryptoStream = new(data, decryptor, CryptoStreamMode.Read, leaveOpen: true);
+			CountingReadStream source = new(data);
+			CryptoStream cryptoStream = new(source, decryptor, CryptoStreamMode.Read, leaveOpen: true);
 			await using (cryptoStream.ConfigureAwait(false))
 			{
 				await cryptoStream.CopyToAsync(destination, 81920, cancellationToken).ConfigureAwait(false);
 			}
 
-			return true;
+			return source.BytesRead > 0;
 		}
 		catch (ArgumentException)
 		{
@@ -351,6 +353,61 @@ public class AesEncryptionProvider : IEncryptionProvider
 		catch (ObjectDisposedException)
 		{
 			return false;
+		}
+	}
+
+	/// <summary>
+	/// A read-only pass-through that counts the bytes read from the source.
+	/// </summary>
+	/// <remarks>
+	/// CBC with PKCS7 padding always produces at least one block, so a ciphertext with no bytes is never
+	/// valid, but <see cref="CryptoStream"/> decrypts an empty source to empty plaintext without complaint.
+	/// The output length can't tell the two apart, because a valid one-block ciphertext of empty plaintext
+	/// also decrypts to nothing, so the stream paths count the input instead (issue #75). Each read forwards
+	/// to the same overload of the source, so the asynchronous path stays asynchronous.
+	/// </remarks>
+	private sealed class CountingReadStream(Stream source) : Stream
+	{
+		public long BytesRead { get; private set; }
+
+		public override bool CanRead => true;
+
+		public override bool CanSeek => false;
+
+		public override bool CanWrite => false;
+
+		public override long Length => throw new NotSupportedException();
+
+		public override long Position
+		{
+			get => throw new NotSupportedException();
+			set => throw new NotSupportedException();
+		}
+
+		public override int Read(byte[] buffer, int offset, int count) => Count(source.Read(buffer, offset, count));
+
+		public override int Read(Span<byte> buffer) => Count(source.Read(buffer));
+
+		public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+			Count(await source.ReadAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false));
+
+		public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+			Count(await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false));
+
+		public override void Flush()
+		{
+		}
+
+		public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+		public override void SetLength(long value) => throw new NotSupportedException();
+
+		public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+		private int Count(int read)
+		{
+			BytesRead += read;
+			return read;
 		}
 	}
 }
