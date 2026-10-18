@@ -75,7 +75,7 @@ public class NewtonsoftJsonSerializationProvider : ISerializationProvider
 
 		try
 		{
-			string jsonString = Encoding.UTF8.GetString(data);
+			string jsonString = Encoding.UTF8.GetString(Utf8Bom.Skip(data));
 			return JsonConvert.DeserializeObject<T>(jsonString, settings);
 		}
 		catch (JsonReaderException)

@@ -70,7 +70,7 @@ public class TomlSerializationProvider : ISerializationProvider
 
 		try
 		{
-			string content = Encoding.UTF8.GetString(data);
+			string content = Encoding.UTF8.GetString(Utf8Bom.Skip(data));
 			TomlTable table = Tomlyn.Toml.ToModel(content);
 			object? result = ConvertToModel<T>(table);
 			if (result is T typedResult)
