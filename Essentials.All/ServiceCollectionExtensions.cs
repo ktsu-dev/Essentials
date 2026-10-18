@@ -54,6 +54,7 @@ using ktsu.Essentials.SerializationProviders.NewtonsoftJson;
 using ktsu.Essentials.SerializationProviders.Toml;
 using ktsu.Essentials.SerializationProviders.Yaml;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 
 #if !NETSTANDARD2_1
 using ktsu.Essentials.CompressionProviders.ZLib;
@@ -152,15 +153,15 @@ public static class ServiceCollectionExtensions
 		Ensure.NotNull(services);
 
 		return services
-			.AddUniformDistributionProvider()
-			.AddLogNormalDistributionProvider()
-			.AddExponentialDistributionProvider()
-			.AddBernoulliDistributionProvider()
-			.AddGeometricDistributionProvider()
+			.AddDefaultOrKeep<UniformDistributionProvider>(static s => s.AddUniformDistributionProvider())
+			.AddDefaultOrKeep<LogNormalDistributionProvider>(static s => s.AddLogNormalDistributionProvider())
+			.AddDefaultOrKeep<ExponentialDistributionProvider>(static s => s.AddExponentialDistributionProvider())
+			.AddDefaultOrKeep<BernoulliDistributionProvider>(static s => s.AddBernoulliDistributionProvider())
+			.AddDefaultOrKeep<GeometricDistributionProvider>(static s => s.AddGeometricDistributionProvider())
 			// The defaults go last, so that a single IContinuousDistribution or IDiscreteDistribution
 			// resolves to the normal or Poisson distribution respectively.
-			.AddNormalDistributionProvider()
-			.AddPoissonDistributionProvider();
+			.AddDefaultOrKeep<NormalDistributionProvider>(static s => s.AddNormalDistributionProvider())
+			.AddDefaultOrKeep<PoissonDistributionProvider>(static s => s.AddPoissonDistributionProvider());
 	}
 
 	/// <summary>
@@ -271,13 +272,13 @@ public static class ServiceCollectionExtensions
 		Ensure.NotNull(services);
 
 		return services
-			.AddCaesarObfuscationProvider()
+			.AddDefaultOrKeep<CaesarObfuscationProvider>(static s => s.AddCaesarObfuscationProvider())
 			.AddReverseObfuscationProvider()
-			.AddBitRotateObfuscationProvider()
+			.AddDefaultOrKeep<BitRotateObfuscationProvider>(static s => s.AddBitRotateObfuscationProvider())
 			.AddBase64ObfuscationProvider()
 			.AddHexObfuscationProvider()
 			// Registered last so that it is the provider an IObfuscationProvider resolves to.
-			.AddXorObfuscationProvider();
+			.AddDefaultOrKeep<XorObfuscationProvider>(static s => s.AddXorObfuscationProvider());
 	}
 
 	/// <summary>
@@ -373,4 +374,17 @@ public static class ServiceCollectionExtensions
 
 		return services.AddInMemoryPersistenceProvider();
 	}
+
+	/// <summary>
+	/// Registers a provider's default configuration unless the caller has already registered that provider.
+	/// </summary>
+	/// <remarks>
+	/// The providers with construction arguments replace an earlier registration of themselves, so that
+	/// arguments passed after <see cref="AddEssentials(IServiceCollection)"/> take effect. The bundled
+	/// registrations must not do the same to arguments passed before it, so they keep the caller's
+	/// registration, moved to the place the default would have taken. See issue #132.
+	/// </remarks>
+	private static IServiceCollection AddDefaultOrKeep<TProvider>(this IServiceCollection services, Func<IServiceCollection, IServiceCollection> register)
+		where TProvider : class
+		=> ProviderRegistration.AddDefaultOrKeep<TProvider>(services, register);
 }

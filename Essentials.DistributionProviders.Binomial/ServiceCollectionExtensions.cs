@@ -4,7 +4,6 @@ namespace ktsu.Essentials.DistributionProviders.Binomial;
 
 using ktsu.Essentials;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 /// <summary>
 /// Dependency injection registration for the binomial distribution provider.
@@ -18,7 +17,9 @@ public static class ServiceCollectionExtensions
 	/// The parameters are required rather than defaulted, because there is no standard binomial to fall
 	/// back on — a trial count belongs to the situation being modelled. That is also why this provider is
 	/// left out of the bundled <c>AddEssentials</c> registration. It is a singleton, safe because a
-	/// distribution is immutable once constructed. Calling this more than once is a no-op.
+	/// distribution is immutable once constructed.
+	/// A later call replaces an earlier registration of this provider in place, so arguments passed
+	/// after <c>AddEssentials()</c> take effect.
 	/// </remarks>
 	/// <param name="services">The service collection to add the provider to.</param>
 	/// <param name="trials">The number of trials.</param>
@@ -29,8 +30,7 @@ public static class ServiceCollectionExtensions
 		Ensure.NotNull(services);
 
 		BinomialDistributionProvider provider = new(trials, probability);
-		services.TryAddSingleton(provider);
-		services.TryAddEnumerable(ServiceDescriptor.Singleton<IDiscreteDistribution>(provider));
+		ProviderRegistration.AddOrReplaceSingleton<IDiscreteDistribution, BinomialDistributionProvider>(services, provider);
 		return services;
 	}
 }
