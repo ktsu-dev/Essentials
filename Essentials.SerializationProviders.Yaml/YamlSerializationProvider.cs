@@ -27,8 +27,11 @@ public class YamlSerializationProvider : ISerializationProvider
 		.IgnoreUnmatchedProperties()
 		.Build();
 
+	// Strings that YAML would read as something else, such as "null", "~" or "true", are quoted, so they
+	// read back as the strings they were instead of as null or another type.
 	private readonly ISerializer serializer = new SerializerBuilder()
 		.WithNamingConvention(CamelCaseNamingConvention.Instance)
+		.WithQuotingNecessaryStrings()
 		.Build();
 
 	/// <summary>
