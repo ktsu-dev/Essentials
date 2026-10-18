@@ -2,6 +2,16 @@
 
 Changes since v2.11.0:
 
+- Bound span TryDecompress by the destination instead of inflating everything [patch] (Claude)
+- Let parameterized provider registrations take effect after AddEssentials() [patch] (Claude)
+- Throw OverflowException for quantiles past the int support [patch] (Claude)
+- Quote YAML strings that would read back as null [patch] (Claude)
+- Refuse a cyclic object graph in the TOML provider instead of overflowing the stack [patch] (Claude)
+- Copy the Xor key and the Composite stage list at construction [patch] (Claude)
+- Make the byte-wise obfuscators safe when source and destination overlap [patch] (Claude)
+- Cover CountingReadStream's members directly (Claude)
+- Reject a zero-byte ciphertext on every AES decrypt path [patch] (Claude)
+- Skip a UTF-8 byte order mark in the serialization providers' byte overloads [patch] (Claude)
 - Merge remote-tracking branch 'origin/main' into fix/66-atomic-store (Claude)
 - Bound the retry loops explicitly and use Assert.Contains (Claude)
 - Retry a read that lands on a Windows replace in progress (Claude)
