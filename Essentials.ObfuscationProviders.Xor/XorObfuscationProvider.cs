@@ -27,7 +27,8 @@ public class XorObfuscationProvider : IObfuscationProvider
 			throw new ArgumentException("Key must contain at least one byte.", nameof(key));
 		}
 
-		_key = key;
+		// Copied so a caller that later zeroes or reuses its array cannot change the transform.
+		_key = (byte[])key.Clone();
 	}
 
 	/// <inheritdoc/>
