@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.DistributionProviders.Poisson;
 
@@ -19,6 +19,12 @@ using System;
 /// <para>
 /// The CDF is the regularized upper incomplete gamma function, evaluated in one step whatever the count,
 /// rather than a sum of masses whose length grows with it.
+/// </para>
+/// <para>
+/// The support is an <see cref="int"/>, so a rate near or above <see cref="int.MaxValue"/> puts much of
+/// the mass past it. The CDF, survival function and mass stay exact there, but the quantile, the median
+/// and sampling above the direct sampling limit throw <see cref="OverflowException"/> for any probability
+/// whose quantile cannot be represented, rather than returning <see cref="int.MaxValue"/> for all of them.
 /// </para>
 /// </remarks>
 /// <param name="rate">The average number of events per interval. Must be greater than zero.</param>

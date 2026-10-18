@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials;
 
@@ -45,6 +45,12 @@ public interface IDiscreteDistribution : IDistribution<int>
 	/// <param name="probability">The probability to invert, in the range [0, 1].</param>
 	/// <returns>The smallest outcome whose cumulative probability is at least <paramref name="probability"/>.</returns>
 	/// <exception cref="ArgumentOutOfRangeException"><paramref name="probability"/> is outside [0, 1] or is not a number.</exception>
+	/// <exception cref="OverflowException">
+	/// The support is declared as reaching <see cref="int.MaxValue"/>, but less than
+	/// <paramref name="probability"/> of the mass lies within it, so the quantile is larger than an
+	/// <see cref="int"/> can hold. Returning <see cref="int.MaxValue"/> instead would hand back the same
+	/// value for every such probability, and a sampler built on it would draw a constant.
+	/// </exception>
 	[SuppressMessage("Design", "CA1033:Interface methods should be callable by child types", Justification = "This is a default interface implementation supplying a body for an inherited member, not an explicit implementation on a class hiding one. An implementer that wants its own inverse declares Quantile publicly, which takes precedence.")]
 	int IDistribution<int>.Quantile(double probability)
 	{
@@ -52,6 +58,11 @@ public interface IDiscreteDistribution : IDistribution<int>
 
 		int low = Minimum;
 		int high = Maximum;
+		if (high == int.MaxValue && Cdf(high) < probability)
+		{
+			throw new OverflowException($"The {probability} quantile lies beyond int.MaxValue, the largest outcome an int support can represent.");
+		}
+
 		if (probability >= 1.0)
 		{
 			return high;

@@ -42,6 +42,12 @@ public sealed class GeometricDistributionProvider : IDiscreteDistribution
 	/// <summary>
 	/// Initializes a geometric distribution with the given probability of success per trial.
 	/// </summary>
+	/// <remarks>
+	/// The support is an <see cref="int"/>, so a small enough probability puts much of the mass past
+	/// <see cref="int.MaxValue"/>: below about 5e-10 the mean itself lies there. The CDF, survival function and mass stay
+	/// exact there, but <see cref="Quantile(double)"/>, the median and sampling throw
+	/// <see cref="OverflowException"/> for any probability whose quantile cannot be represented.
+	/// </remarks>
 	/// <param name="probability">The probability of success on each trial, in the range (0, 1].</param>
 	/// <exception cref="ArgumentOutOfRangeException"><paramref name="probability"/> is outside (0, 1] or is not a number.</exception>
 	public GeometricDistributionProvider(double probability)
@@ -118,6 +124,10 @@ public sealed class GeometricDistributionProvider : IDiscreteDistribution
 	public double SurvivalFunction(int value) => value < 0 ? 1.0 : Math.Exp((value + 1.0) * logFailureProbability);
 
 	/// <inheritdoc />
+	/// <exception cref="OverflowException">
+	/// Less than <paramref name="probability"/> of the mass lies within <see cref="int.MaxValue"/>: for
+	/// the 0.99 quantile, a success probability below about 2e-9; for the median, below about 3e-10.
+	/// </exception>
 	public int Quantile(double probability)
 	{
 		DistributionArguments.QuantileProbability(probability, nameof(probability));
@@ -125,6 +135,14 @@ public sealed class GeometricDistributionProvider : IDiscreteDistribution
 		if (Probability >= 1.0)
 		{
 			return 0;
+		}
+
+		// A rare enough success puts most of the mass past int.MaxValue — a mean of 1e10 failures leaves
+		// a fifth of it inside — and saturating there would make every larger quantile, the median and
+		// every draw the same constant. The CDF itself stays exact, so only the inverse refuses.
+		if (Cdf(int.MaxValue) < probability)
+		{
+			throw new OverflowException($"The {probability} quantile lies beyond int.MaxValue, the largest outcome an int support can represent.");
 		}
 
 		if (probability >= 1.0)
