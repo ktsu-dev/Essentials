@@ -3,6 +3,7 @@
 namespace ktsu.Essentials.Tests;
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using ktsu.Essentials;
 using ktsu.Essentials.ObfuscationProviders.Base64;
@@ -70,6 +71,51 @@ public class ObfuscationProviderTests
 		Assert.IsTrue(provider.TryDeobfuscateAsync(obfuscated, restored, TestContext.CancellationToken).Result, $"{providerName} async deobfuscate");
 
 		CollectionAssert.AreEqual(original, restored.ToArray(), $"{providerName} async should restore original");
+	}
+
+	/// <summary>
+	/// The providers whose output is the same length as their input, which are the ones a caller can
+	/// run over a single buffer.
+	/// </summary>
+	public static IEnumerable<object[]> LengthPreservingObfuscationProviders
+		=> ObfuscationProviders.Where(row => row[0] is IObfuscationProvider provider
+			&& provider.GetMaxObfuscatedLength(64) == 64
+			&& provider.GetMaxDeobfuscatedLength(64) == 64);
+
+	[TestMethod]
+	[DynamicData(nameof(LengthPreservingObfuscationProviders))]
+	public void Obfuscation_InPlace_SameBuffer_MatchesOutOfPlace(IObfuscationProvider provider, string providerName)
+	{
+		byte[] original = Encoding.ASCII.GetBytes("Hello, world");
+		byte[] expected = provider.Obfuscate(original);
+
+		byte[] buffer = (byte[])original.Clone();
+		Assert.IsTrue(provider.TryObfuscate(buffer, buffer, out int written), $"{providerName} should obfuscate in place");
+		Assert.AreEqual(original.Length, written);
+		CollectionAssert.AreEqual(expected, buffer, $"{providerName} should obfuscate in place as it does out of place");
+
+		Assert.IsTrue(provider.TryDeobfuscate(buffer, buffer, out written), $"{providerName} should deobfuscate in place");
+		Assert.AreEqual(original.Length, written);
+		CollectionAssert.AreEqual(original, buffer, $"{providerName} should restore the original in place");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(LengthPreservingObfuscationProviders))]
+	public void Obfuscation_InPlace_OverlappingSlices_MatchesOutOfPlace(IObfuscationProvider provider, string providerName)
+	{
+		byte[] original = Encoding.ASCII.GetBytes("Hello, world");
+		byte[] expected = provider.Obfuscate(original);
+		const int shift = 3;
+
+		byte[] buffer = new byte[original.Length + shift];
+		original.CopyTo(buffer, 0);
+		Assert.IsTrue(provider.TryObfuscate(buffer.AsSpan(0, original.Length), buffer.AsSpan(shift), out int written), $"{providerName} should obfuscate into an overlapping slice");
+		Assert.AreEqual(original.Length, written);
+		CollectionAssert.AreEqual(expected, buffer[shift..], $"{providerName} should obfuscate into an overlapping slice as it does out of place");
+
+		Assert.IsTrue(provider.TryDeobfuscate(buffer.AsSpan(shift), buffer.AsSpan(0, original.Length), out written), $"{providerName} should deobfuscate into an overlapping slice");
+		Assert.AreEqual(original.Length, written);
+		CollectionAssert.AreEqual(original, buffer[..original.Length], $"{providerName} should restore the original from an overlapping slice");
 	}
 
 	[TestMethod]

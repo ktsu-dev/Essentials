@@ -49,9 +49,11 @@ public class BitRotateObfuscationProvider : IObfuscationProvider
 			return false;
 		}
 
+		// Copy first so a destination that overlaps the source is never read after it is written.
+		data.CopyTo(destination);
 		for (int i = 0; i < data.Length; i++)
 		{
-			destination[i] = RotateLeft(data[i], _bits);
+			destination[i] = RotateLeft(destination[i], _bits);
 		}
 
 		bytesWritten = data.Length;
@@ -85,9 +87,11 @@ public class BitRotateObfuscationProvider : IObfuscationProvider
 			return false;
 		}
 
+		// Copy first so a destination that overlaps the source is never read after it is written.
+		obfuscatedData.CopyTo(destination);
 		for (int i = 0; i < obfuscatedData.Length; i++)
 		{
-			destination[i] = RotateRight(obfuscatedData[i], _bits);
+			destination[i] = RotateRight(destination[i], _bits);
 		}
 
 		bytesWritten = obfuscatedData.Length;

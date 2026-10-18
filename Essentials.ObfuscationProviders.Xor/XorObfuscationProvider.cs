@@ -46,9 +46,11 @@ public class XorObfuscationProvider : IObfuscationProvider
 			return false;
 		}
 
+		// Copy first so a destination that overlaps the source is never read after it is written.
+		data.CopyTo(destination);
 		for (int i = 0; i < data.Length; i++)
 		{
-			destination[i] = (byte)(data[i] ^ _key[i % _key.Length]);
+			destination[i] = (byte)(destination[i] ^ _key[i % _key.Length]);
 		}
 
 		bytesWritten = data.Length;

@@ -30,9 +30,11 @@ public class CaesarObfuscationProvider(byte shift = 13) : IObfuscationProvider
 			return false;
 		}
 
+		// Copy first so a destination that overlaps the source is never read after it is written.
+		data.CopyTo(destination);
 		for (int i = 0; i < data.Length; i++)
 		{
-			destination[i] = (byte)(data[i] + _shift);
+			destination[i] = (byte)(destination[i] + _shift);
 		}
 
 		bytesWritten = data.Length;
@@ -66,9 +68,11 @@ public class CaesarObfuscationProvider(byte shift = 13) : IObfuscationProvider
 			return false;
 		}
 
+		// Copy first so a destination that overlaps the source is never read after it is written.
+		obfuscatedData.CopyTo(destination);
 		for (int i = 0; i < obfuscatedData.Length; i++)
 		{
-			destination[i] = (byte)(obfuscatedData[i] - _shift);
+			destination[i] = (byte)(destination[i] - _shift);
 		}
 
 		bytesWritten = obfuscatedData.Length;
