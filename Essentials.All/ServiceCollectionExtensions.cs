@@ -153,15 +153,15 @@ public static class ServiceCollectionExtensions
 		Ensure.NotNull(services);
 
 		return services
-			.AddDefaultOrKeep<UniformDistributionProvider>(static s => s.AddUniformDistributionProvider())
-			.AddDefaultOrKeep<LogNormalDistributionProvider>(static s => s.AddLogNormalDistributionProvider())
-			.AddDefaultOrKeep<ExponentialDistributionProvider>(static s => s.AddExponentialDistributionProvider())
-			.AddDefaultOrKeep<BernoulliDistributionProvider>(static s => s.AddBernoulliDistributionProvider())
-			.AddDefaultOrKeep<GeometricDistributionProvider>(static s => s.AddGeometricDistributionProvider())
+			.AddDefaultOrKeep<IContinuousDistribution, UniformDistributionProvider>(static s => s.AddUniformDistributionProvider())
+			.AddDefaultOrKeep<IContinuousDistribution, LogNormalDistributionProvider>(static s => s.AddLogNormalDistributionProvider())
+			.AddDefaultOrKeep<IContinuousDistribution, ExponentialDistributionProvider>(static s => s.AddExponentialDistributionProvider())
+			.AddDefaultOrKeep<IDiscreteDistribution, BernoulliDistributionProvider>(static s => s.AddBernoulliDistributionProvider())
+			.AddDefaultOrKeep<IDiscreteDistribution, GeometricDistributionProvider>(static s => s.AddGeometricDistributionProvider())
 			// The defaults go last, so that a single IContinuousDistribution or IDiscreteDistribution
 			// resolves to the normal or Poisson distribution respectively.
-			.AddDefaultOrKeep<NormalDistributionProvider>(static s => s.AddNormalDistributionProvider())
-			.AddDefaultOrKeep<PoissonDistributionProvider>(static s => s.AddPoissonDistributionProvider());
+			.AddDefaultOrKeep<IContinuousDistribution, NormalDistributionProvider>(static s => s.AddNormalDistributionProvider())
+			.AddDefaultOrKeep<IDiscreteDistribution, PoissonDistributionProvider>(static s => s.AddPoissonDistributionProvider());
 	}
 
 	/// <summary>
@@ -272,13 +272,13 @@ public static class ServiceCollectionExtensions
 		Ensure.NotNull(services);
 
 		return services
-			.AddDefaultOrKeep<CaesarObfuscationProvider>(static s => s.AddCaesarObfuscationProvider())
+			.AddDefaultOrKeep<IObfuscationProvider, CaesarObfuscationProvider>(static s => s.AddCaesarObfuscationProvider())
 			.AddReverseObfuscationProvider()
-			.AddDefaultOrKeep<BitRotateObfuscationProvider>(static s => s.AddBitRotateObfuscationProvider())
-			.AddDefaultOrKeep<Base64ObfuscationProvider>(static s => s.AddBase64ObfuscationProvider())
-			.AddDefaultOrKeep<HexObfuscationProvider>(static s => s.AddHexObfuscationProvider())
+			.AddDefaultOrKeep<IObfuscationProvider, BitRotateObfuscationProvider>(static s => s.AddBitRotateObfuscationProvider())
+			.AddDefaultOrKeep<IObfuscationProvider, Base64ObfuscationProvider>(static s => s.AddBase64ObfuscationProvider())
+			.AddDefaultOrKeep<IObfuscationProvider, HexObfuscationProvider>(static s => s.AddHexObfuscationProvider())
 			// Registered last so that it is the provider an IObfuscationProvider resolves to.
-			.AddDefaultOrKeep<XorObfuscationProvider>(static s => s.AddXorObfuscationProvider());
+			.AddDefaultOrKeep<IObfuscationProvider, XorObfuscationProvider>(static s => s.AddXorObfuscationProvider());
 	}
 
 	/// <summary>
@@ -384,7 +384,8 @@ public static class ServiceCollectionExtensions
 	/// registrations must not do the same to arguments passed before it, so they keep the caller's
 	/// registration, moved to the place the default would have taken. See issue #132.
 	/// </remarks>
-	private static IServiceCollection AddDefaultOrKeep<TProvider>(this IServiceCollection services, Func<IServiceCollection, IServiceCollection> register)
-		where TProvider : class
-		=> ProviderRegistration.AddDefaultOrKeep<TProvider>(services, register);
+	private static IServiceCollection AddDefaultOrKeep<TService, TProvider>(this IServiceCollection services, Func<IServiceCollection, IServiceCollection> register)
+		where TService : class
+		where TProvider : class, TService
+		=> ProviderRegistration.AddDefaultOrKeep<TService, TProvider>(services, register);
 }
