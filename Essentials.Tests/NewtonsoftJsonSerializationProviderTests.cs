@@ -60,6 +60,33 @@ public class NewtonsoftJsonSerializationProviderTests
 		}
 	}
 
+	[TestMethod]
+	[DataRow(64)]
+	[DataRow(65)]
+	public void TrySerialize_DeeplyNestedArrays_SucceedsOnlyWhenItDeserializes(int depth)
+	{
+		NewtonsoftJsonSerializationProvider provider = new();
+		object[] root = [];
+		for (int i = 1; i < depth; i++)
+		{
+			root = [root];
+		}
+
+		using StringWriter writer = new();
+		bool serialized = provider.TrySerialize(root, writer);
+		object? roundTripped = ((ISerializationProvider)provider).Deserialize<object>(writer.ToString());
+
+		if (depth <= 64)
+		{
+			Assert.IsTrue(serialized);
+			Assert.IsNotNull(roundTripped);
+		}
+		else
+		{
+			Assert.IsFalse(serialized);
+		}
+	}
+
 	private sealed class Node
 	{
 		public string Name { get; set; } = string.Empty;
