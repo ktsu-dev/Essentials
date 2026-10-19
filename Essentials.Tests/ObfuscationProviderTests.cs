@@ -119,6 +119,29 @@ public class ObfuscationProviderTests
 	}
 
 	[TestMethod]
+	[DynamicData(nameof(ObfuscationProviders))]
+	public void Obfuscation_OverlappingBuffers_MatchesOutOfPlace(IObfuscationProvider provider, string providerName)
+	{
+		byte[] original = Encoding.ASCII.GetBytes("Hello!");
+		byte[] expected = provider.Obfuscate(original);
+		int maxLength = provider.GetMaxObfuscatedLength(original.Length);
+
+		// Unlike the in-place tests above, this covers the providers whose output is longer than their
+		// input, with the destination starting at the source, after it, and before it.
+		foreach ((int sourceOffset, int destinationOffset) in new[] { (0, 0), (0, 3), (3, 0) })
+		{
+			byte[] buffer = new byte[System.Math.Max(sourceOffset + original.Length, destinationOffset + maxLength)];
+			original.CopyTo(buffer, sourceOffset);
+
+			Assert.IsTrue(
+				provider.TryObfuscate(buffer.AsSpan(sourceOffset, original.Length), buffer.AsSpan(destinationOffset, maxLength), out int written),
+				$"{providerName} should obfuscate with source at {sourceOffset} and destination at {destinationOffset}");
+			CollectionAssert.AreEqual(expected, buffer[destinationOffset..(destinationOffset + written)],
+				$"{providerName} should obfuscate with source at {sourceOffset} and destination at {destinationOffset} as it does out of place");
+		}
+	}
+
+	[TestMethod]
 	public void Obfuscation_Base64_Roundtrip_String()
 	{
 		IObfuscationProvider provider = new Base64ObfuscationProvider();
