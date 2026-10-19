@@ -135,9 +135,9 @@ public class ParameterizedRegistrationTests
 		using ServiceProvider provider = services.BuildServiceProvider();
 
 		byte[] expected = Obfuscate(new XorObfuscationProvider(Key));
-		CollectionAssert.AreEqual(expected, Obfuscate(provider.GetRequiredService<IObfuscationProvider>()));
+		Assert.AreSequenceEqual(expected, Obfuscate(provider.GetRequiredService<IObfuscationProvider>()));
 		XorObfuscationProvider xor = provider.GetServices<IObfuscationProvider>().OfType<XorObfuscationProvider>().Single();
-		CollectionAssert.AreEqual(expected, Obfuscate(xor));
+		Assert.AreSequenceEqual(expected, Obfuscate(xor));
 	}
 
 	[TestMethod]
@@ -180,7 +180,7 @@ public class ParameterizedRegistrationTests
 		IContinuousDistribution distribution = provider.GetRequiredService<IContinuousDistribution>();
 		Assert.IsInstanceOfType<NormalDistributionProvider>(distribution);
 		Assert.AreEqual(100.0, distribution.Mean, 1e-12);
-		Assert.AreEqual(1, provider.GetServices<IContinuousDistribution>().Count(d => d is NormalDistributionProvider));
+		Assert.ContainsSingle(d => d is NormalDistributionProvider, provider.GetServices<IContinuousDistribution>());
 	}
 
 	[TestMethod]
