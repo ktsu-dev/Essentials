@@ -275,8 +275,8 @@ public static class ServiceCollectionExtensions
 			.AddDefaultOrKeep<CaesarObfuscationProvider>(static s => s.AddCaesarObfuscationProvider())
 			.AddReverseObfuscationProvider()
 			.AddDefaultOrKeep<BitRotateObfuscationProvider>(static s => s.AddBitRotateObfuscationProvider())
-			.AddBase64ObfuscationProvider()
-			.AddHexObfuscationProvider()
+			.AddDefaultOrKeep<Base64ObfuscationProvider>(static s => s.AddBase64ObfuscationProvider())
+			.AddDefaultOrKeep<HexObfuscationProvider>(static s => s.AddHexObfuscationProvider())
 			// Registered last so that it is the provider an IObfuscationProvider resolves to.
 			.AddDefaultOrKeep<XorObfuscationProvider>(static s => s.AddXorObfuscationProvider());
 	}

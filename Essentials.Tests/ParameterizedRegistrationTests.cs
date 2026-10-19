@@ -8,8 +8,12 @@ using ktsu.Essentials.All;
 using ktsu.Essentials.DistributionProviders.Normal;
 using ktsu.Essentials.DistributionProviders.Poisson;
 using ktsu.Essentials.DistributionProviders.Triangular;
+using ktsu.Essentials.EncodingProviders.Base64;
+using ktsu.Essentials.EncodingProviders.Hex;
+using ktsu.Essentials.ObfuscationProviders.Base64;
 using ktsu.Essentials.ObfuscationProviders.BitRotate;
 using ktsu.Essentials.ObfuscationProviders.Caesar;
+using ktsu.Essentials.ObfuscationProviders.Hex;
 using ktsu.Essentials.ObfuscationProviders.Xor;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -90,6 +94,36 @@ public class ParameterizedRegistrationTests
 	}
 
 	[TestMethod]
+	public void Hex_Encoder_Takes_Effect_On_Either_Side_Of_AddEssentials()
+	{
+		// Before issue #151 the Hex and Base64 overloads still used TryAdd…, so an encoder passed after
+		// AddEssentials() was dropped and data was obfuscated with the default encoder instead.
+		ServiceCollection after = new();
+		after.AddEssentials();
+		after.AddHexObfuscationProvider(new Base64EncodingProvider());
+		AssertResolvesEncoder<HexObfuscationProvider>(after, new HexObfuscationProvider(new Base64EncodingProvider()));
+
+		ServiceCollection before = new();
+		before.AddHexObfuscationProvider(new Base64EncodingProvider());
+		before.AddEssentials();
+		AssertResolvesEncoder<HexObfuscationProvider>(before, new HexObfuscationProvider(new Base64EncodingProvider()));
+	}
+
+	[TestMethod]
+	public void Base64_Encoder_Takes_Effect_On_Either_Side_Of_AddEssentials()
+	{
+		ServiceCollection after = new();
+		after.AddEssentials();
+		after.AddBase64ObfuscationProvider(new HexEncodingProvider());
+		AssertResolvesEncoder<Base64ObfuscationProvider>(after, new Base64ObfuscationProvider(new HexEncodingProvider()));
+
+		ServiceCollection before = new();
+		before.AddBase64ObfuscationProvider(new HexEncodingProvider());
+		before.AddEssentials();
+		AssertResolvesEncoder<Base64ObfuscationProvider>(before, new Base64ObfuscationProvider(new HexEncodingProvider()));
+	}
+
+	[TestMethod]
 	public void A_Second_Call_Replaces_A_Distribution_Outside_AddEssentials()
 	{
 		ServiceCollection services = new();
@@ -113,6 +147,19 @@ public class ParameterizedRegistrationTests
 		CollectionAssert.AreEqual(expected, Obfuscate(provider.GetRequiredService<IObfuscationProvider>()));
 		CollectionAssert.AreEqual(expected, Obfuscate(provider.GetRequiredService<XorObfuscationProvider>()));
 		Assert.AreEqual(1, provider.GetServices<IObfuscationProvider>().Count(o => o is XorObfuscationProvider));
+	}
+
+	private static void AssertResolvesEncoder<TProvider>(ServiceCollection services, TProvider configured)
+		where TProvider : class, IObfuscationProvider
+	{
+		using ServiceProvider provider = services.BuildServiceProvider();
+
+		byte[] expected = Obfuscate(configured);
+		CollectionAssert.AreEqual(expected, Obfuscate(provider.GetRequiredService<TProvider>()));
+		CollectionAssert.AreEqual(expected, Obfuscate(provider.GetServices<IObfuscationProvider>().OfType<TProvider>().Single()));
+
+		// Xor stays the default obfuscator, so replacing this one leaves the order AddEssentials() chose.
+		Assert.IsInstanceOfType<XorObfuscationProvider>(provider.GetRequiredService<IObfuscationProvider>());
 	}
 
 	private static void AssertResolvesNormal(ServiceCollection services, double mean, double standardDeviation)
