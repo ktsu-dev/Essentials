@@ -80,6 +80,18 @@ public class CacheProviderTests
 	}
 
 	[TestMethod]
+	public void Cache_Remove_Expired_Key_Returns_False_And_Removes_It()
+	{
+		ICacheProvider<string, int> cache = CreateCache();
+
+		cache.Set("key", 42, TimeSpan.MinValue);
+		bool removed = cache.Remove("key");
+
+		Assert.IsFalse(removed, "An expired entry is not found by TryGet, so Remove should not report finding it either");
+		Assert.IsFalse(cache.Remove("key"), "The expired entry should have been removed");
+	}
+
+	[TestMethod]
 	public void Cache_Clear_Removes_All_Entries()
 	{
 		ICacheProvider<string, int> cache = CreateCache();
