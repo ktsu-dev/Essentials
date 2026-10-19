@@ -2,7 +2,9 @@
 
 namespace ktsu.Essentials.Tests;
 
+using System.Globalization;
 using System.IO;
+using ktsu.Essentials;
 using ktsu.Essentials.SerializationProviders.NewtonsoftJson;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -26,6 +28,43 @@ public class NewtonsoftJsonSerializationProviderTests
 		using FailingWriter writer = new();
 
 		Assert.IsFalse(provider.TrySerialize(new { A = 1 }, writer));
+	}
+
+	[TestMethod]
+	[DataRow(64)]
+	[DataRow(65)]
+	[DataRow(200)]
+	public void TrySerialize_DeepChain_SucceedsOnlyWhenItDeserializes(int depth)
+	{
+		NewtonsoftJsonSerializationProvider provider = new();
+		Node root = new() { Name = "0" };
+		Node tail = root;
+		for (int i = 1; i < depth; i++)
+		{
+			tail.Next = new Node { Name = i.ToString(CultureInfo.InvariantCulture) };
+			tail = tail.Next;
+		}
+
+		using StringWriter writer = new();
+		bool serialized = provider.TrySerialize(root, writer);
+		Node? roundTripped = ((ISerializationProvider)provider).Deserialize<Node>(writer.ToString());
+
+		if (depth <= 64)
+		{
+			Assert.IsTrue(serialized);
+			Assert.IsNotNull(roundTripped);
+		}
+		else
+		{
+			Assert.IsFalse(serialized);
+		}
+	}
+
+	private sealed class Node
+	{
+		public string Name { get; set; } = string.Empty;
+
+		public Node? Next { get; set; }
 	}
 
 	private sealed class FailingWriter : StringWriter

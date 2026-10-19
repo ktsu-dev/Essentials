@@ -18,7 +18,11 @@ public class NewtonsoftJsonSerializationProvider : ISerializationProvider
 	/// </summary>
 	public string FileExtension => ".json";
 
-	private readonly JsonSerializerSettings settings = new();
+	// Newtonsoft enforces MaxDepth only when reading, so writing is held to the same limit
+	// by DepthLimitedJsonTextWriter. Without it, TrySerialize accepts graphs Deserialize refuses.
+	private const int MaxDepth = 64;
+
+	private readonly JsonSerializerSettings settings = new() { MaxDepth = MaxDepth };
 
 	/// <summary>
 	/// Tries to serialize the specified object into the writer.
@@ -36,7 +40,7 @@ public class NewtonsoftJsonSerializationProvider : ISerializationProvider
 		try
 		{
 			// The caller owns the writer, so disposing the JSON writer must not close it.
-			using JsonTextWriter jsonWriter = new(writer) { CloseOutput = false };
+			using DepthLimitedJsonTextWriter jsonWriter = new(writer, MaxDepth) { CloseOutput = false };
 			JsonSerializer serializer = JsonSerializer.Create(settings);
 			serializer.Serialize(jsonWriter, obj);
 			jsonWriter.Flush();
@@ -89,6 +93,33 @@ public class NewtonsoftJsonSerializationProvider : ISerializationProvider
 		catch (ArgumentException)
 		{
 			return default;
+		}
+	}
+
+	/// <summary>
+	/// A <see cref="JsonTextWriter"/> that refuses to nest objects or arrays deeper than the
+	/// reader will accept, so everything it writes can be read back.
+	/// </summary>
+	private sealed class DepthLimitedJsonTextWriter(TextWriter textWriter, int maxDepth) : JsonTextWriter(textWriter)
+	{
+		public override void WriteStartObject()
+		{
+			base.WriteStartObject();
+			EnsureDepth();
+		}
+
+		public override void WriteStartArray()
+		{
+			base.WriteStartArray();
+			EnsureDepth();
+		}
+
+		private void EnsureDepth()
+		{
+			if (Top > maxDepth)
+			{
+				throw new JsonWriterException($"The object graph is deeper than the maximum depth of {maxDepth}.");
+			}
 		}
 	}
 }
