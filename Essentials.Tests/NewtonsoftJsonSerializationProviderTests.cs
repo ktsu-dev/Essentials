@@ -28,6 +28,25 @@ public class NewtonsoftJsonSerializationProviderTests
 		Assert.IsFalse(provider.TrySerialize(new { A = 1 }, writer));
 	}
 
+	[TestMethod]
+	public void TrySerialize_CyclicObject_ReturnsFalseAndWritesNothing()
+	{
+		NewtonsoftJsonSerializationProvider provider = new();
+		Node node = new() { Name = "a" };
+		node.Next = node;
+		using StringWriter writer = new();
+
+		Assert.IsFalse(provider.TrySerialize(node, writer));
+		Assert.AreEqual(string.Empty, writer.ToString());
+	}
+
+	private sealed class Node
+	{
+		public string Name { get; set; } = string.Empty;
+
+		public Node? Next { get; set; }
+	}
+
 	private sealed class FailingWriter : StringWriter
 	{
 		public override void Write(char value) => throw new IOException("disk full");
