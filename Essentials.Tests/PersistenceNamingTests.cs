@@ -217,7 +217,7 @@ public class PersistenceNamingTests
 			Assert.AreEqual("short", await persistence.RetrieveAsync<string>(shortKey, TestContext.CancellationToken).ConfigureAwait(false));
 
 			string[] keys = [.. await persistence.GetAllKeysAsync(TestContext.CancellationToken).ConfigureAwait(false)];
-			CollectionAssert.Contains(keys, shortKey);
+			Assert.Contains(shortKey, keys);
 		}
 		finally
 		{
