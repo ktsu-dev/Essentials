@@ -46,18 +46,29 @@ internal static class ProviderRegistration
 	/// moves the caller's registration to where the default would have gone.
 	/// </summary>
 	/// <remarks>
+	/// <para>
 	/// Used by the bundled <c>AddEssentials()</c> registrations, which must not replace arguments passed
 	/// before them. Moving rather than skipping keeps the order those registrations choose, so the
 	/// caller's instance is still the one a single interface resolves to when it is the category default.
+	/// </para>
+	/// <para>
+	/// The caller may have registered the provider as its concrete type, as <typeparamref name="TService"/>,
+	/// or both. Either counts: an interface-only registration is kept rather than overwritten by the
+	/// default, and a concrete-only one gains a <typeparamref name="TService"/> registration that forwards
+	/// to it, so it is in the resolvable set as the default would have been. See issue #156.
+	/// </para>
 	/// </remarks>
+	/// <typeparam name="TService">The provider interface the registration adds to the resolvable set.</typeparam>
 	/// <typeparam name="TImplementation">The concrete provider type the registration adds.</typeparam>
 	/// <param name="services">The service collection to register in.</param>
 	/// <param name="register">The provider's own registration, called with its defaults.</param>
 	/// <returns>The same service collection, to allow chaining.</returns>
-	internal static IServiceCollection AddDefaultOrKeep<TImplementation>(IServiceCollection services, Func<IServiceCollection, IServiceCollection> register)
-		where TImplementation : class
+	internal static IServiceCollection AddDefaultOrKeep<TService, TImplementation>(IServiceCollection services, Func<IServiceCollection, IServiceCollection> register)
+		where TService : class
+		where TImplementation : class, TService
 	{
-		bool registered = false;
+		ServiceDescriptor? concrete = null;
+		bool inSet = false;
 		List<ServiceDescriptor> members = [];
 		for (int i = 0; i < services.Count; i++)
 		{
@@ -69,15 +80,16 @@ internal static class ProviderRegistration
 
 			if (existing.ServiceType == typeof(TImplementation))
 			{
-				registered = true;
+				concrete = existing;
 			}
 			else if (ImplementationTypeOf(existing) == typeof(TImplementation))
 			{
 				members.Add(existing);
+				inSet |= existing.ServiceType == typeof(TService);
 			}
 		}
 
-		if (!registered)
+		if (concrete is null && members.Count == 0)
 		{
 			return register(services);
 		}
@@ -88,8 +100,20 @@ internal static class ProviderRegistration
 			services.Add(member);
 		}
 
+		if (concrete is not null && !inSet)
+		{
+			// A Func returning TImplementation, so ImplementationTypeOf, and so a later Add…Provider call,
+			// recognises the forward as this provider's.
+			Func<IServiceProvider, TImplementation> forward = Forward<TImplementation>;
+			services.Add(new ServiceDescriptor(typeof(TService), forward, concrete.Lifetime));
+		}
+
 		return services;
 	}
+
+	private static TImplementation Forward<TImplementation>(IServiceProvider provider)
+		where TImplementation : class
+		=> provider.GetRequiredService<TImplementation>();
 
 	private static void AddOrReplace(IServiceCollection services, ServiceDescriptor descriptor, Type implementationType)
 	{
