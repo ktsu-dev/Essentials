@@ -2,7 +2,15 @@
 
 Changes since v2.11.0:
 
+- Use Assert.AreSequenceEqual and Assert.ContainsSingle in the new registration tests (Claude)
+- Use Assert.Contains in the truncated-shape key test (Claude)
+- Cover the array path of the depth-limited Newtonsoft writer (Claude)
+- Keep a key shaped like a truncated name out of its long key's file [patch] (Claude)
+- Keep an interface-only or concrete-only provider registration through AddEssentials [patch] (Claude)
+- Refuse to write Newtonsoft JSON deeper than it can read back [patch] (Claude)
 - Honour the encoder passed to AddHexObfuscationProvider and AddBase64ObfuscationProvider around AddEssentials() [patch] (Claude)
+- Encode correctly when the Hex or Base64 source overlaps the destination [patch] (Claude)
+- Report false from InMemoryCacheProvider.Remove for an expired entry [patch] (Claude)
 - Bound span TryDecompress by the destination instead of inflating everything [patch] (Claude)
 - Let parameterized provider registrations take effect after AddEssentials() [patch] (Claude)
 - Throw OverflowException for quantiles past the int support [patch] (Claude)
@@ -21,9 +29,12 @@ Changes since v2.11.0:
 - Remove the key when InMemory stores null, as the file providers do [patch] (Claude)
 - Merge main into fix/72-newtonsoft-leave-writer-open (Claude)
 - Compute LogNormal variance with ExpM1 so a small sigma keeps its digits [patch] (Claude)
+- Build the write-only test file path with Path.Join (Claude)
 - Build the persistence test's paths with Path.Join (Claude)
+- Name the write-only test file from a GUID alone (Claude)
 - Register each category's default last in AddEssentials [patch] (Claude)
 - Drop the .gitignore the SDK build rewrote (Claude)
+- Report unreadable streams as false from the async TryHash defaults [patch] (Claude)
 - Ignore unmatched keys in the YAML serialization provider [patch] (Claude)
 - Cover the Newtonsoft TrySerialize disposed-writer and IOException paths (Claude)
 - Leave the caller's writer open in the Newtonsoft serialization provider [patch] (Claude)
