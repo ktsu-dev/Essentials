@@ -4,6 +4,7 @@ namespace ktsu.Essentials.EncodingProviders.Hex;
 
 using ktsu.Essentials;
 using System;
+using System.Buffers;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,7 +14,8 @@ using System.Threading.Tasks;
 /// </summary>
 /// <remarks>
 /// The span paths convert byte by byte, so they neither allocate an intermediate string nor copy
-/// through a temporary array. Encoding emits uppercase; decoding accepts either case.
+/// through a temporary array, except that encoding copies the source to a pooled buffer first when it
+/// overlaps the destination. Encoding emits uppercase; decoding accepts either case.
 /// </remarks>
 public class HexEncodingProvider : IEncodingProvider
 {
@@ -33,6 +35,21 @@ public class HexEncodingProvider : IEncodingProvider
 		if (destination.Length < data.Length * 2)
 		{
 			return false;
+		}
+
+		if (data.Overlaps(destination))
+		{
+			// Writing pair i would overwrite source bytes the loop has not read yet, so encode from a copy.
+			byte[] copy = ArrayPool<byte>.Shared.Rent(data.Length);
+			try
+			{
+				data.CopyTo(copy);
+				return TryEncode(copy.AsSpan(0, data.Length), destination, out bytesWritten);
+			}
+			finally
+			{
+				ArrayPool<byte>.Shared.Return(copy, clearArray: true);
+			}
 		}
 
 		for (int i = 0; i < data.Length; i++)
