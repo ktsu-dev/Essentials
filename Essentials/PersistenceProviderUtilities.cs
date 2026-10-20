@@ -99,10 +99,30 @@ public static class PersistenceProviderUtilities
 		}
 
 		string encoded = builder.ToString();
-		return encoded.Length > MaxEncodedLength || Encoding.UTF8.GetByteCount(encoded) > MaxEncodedBytes
-			? Truncate(encoded)
-			: encoded;
+		if (ExceedsBudget(encoded))
+		{
+			return Truncate(encoded);
+		}
+
+		// A key short enough to keep verbatim can still have exactly the shape Truncate produces, and
+		// would then share a file with the long key whose truncated name it matches. Escaping its marker
+		// keeps the two namespaces apart, and touches no other key's name. See issue #153.
+		if (IsTruncatedName(encoded))
+		{
+			int markerIndex = encoded.Length - TruncationHashLength - 1;
+			encoded = $"{encoded[..markerIndex]}{Escape(TruncationMarker)}{encoded[(markerIndex + 1)..]}";
+
+			// The escape may take the name up to two characters past MaxEncodedLength, which is only a
+			// margin for full path lengths, so the name is kept and its key stays listable. The byte budget
+			// is the file system's own limit, so a name over it is still truncated.
+			return Encoding.UTF8.GetByteCount(encoded) > MaxEncodedBytes ? Truncate(encoded) : encoded;
+		}
+
+		return encoded;
 	}
+
+	private static bool ExceedsBudget(string encoded)
+		=> encoded.Length > MaxEncodedLength || Encoding.UTF8.GetByteCount(encoded) > MaxEncodedBytes;
 
 	/// <summary>
 	/// Recovers the original key text from a filename produced by <see cref="GetSafeFileName"/>.
