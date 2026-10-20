@@ -4,6 +4,7 @@ namespace ktsu.Essentials.SerializationProviders.NewtonsoftJson;
 
 using ktsu.Essentials;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using Newtonsoft.Json;
@@ -39,11 +40,17 @@ public class NewtonsoftJsonSerializationProvider : ISerializationProvider
 
 		try
 		{
-			// The caller owns the writer, so disposing the JSON writer must not close it.
-			using DepthLimitedJsonTextWriter jsonWriter = new(writer, MaxDepth) { CloseOutput = false };
-			JsonSerializer serializer = JsonSerializer.Create(settings);
-			serializer.Serialize(jsonWriter, obj);
-			jsonWriter.Flush();
+			// Serialize into a local buffer and copy it to the caller's writer only on success.
+			// Disposing a JsonTextWriter closes any object or array a failure left open, so
+			// streaming straight into the caller's writer would leave truncated JSON that parses.
+			using StringWriter buffer = new(CultureInfo.InvariantCulture);
+			using (DepthLimitedJsonTextWriter jsonWriter = new(buffer, MaxDepth))
+			{
+				JsonSerializer serializer = JsonSerializer.Create(settings);
+				serializer.Serialize(jsonWriter, obj);
+			}
+
+			writer.Write(buffer.ToString());
 			return true;
 		}
 		catch (JsonSerializationException)
