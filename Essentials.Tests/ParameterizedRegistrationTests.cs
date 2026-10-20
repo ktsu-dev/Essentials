@@ -124,6 +124,66 @@ public class ParameterizedRegistrationTests
 	}
 
 	[TestMethod]
+	public void Xor_Registered_Only_As_The_Interface_Before_AddEssentials_Keeps_Its_Key()
+	{
+		// Before issue #156 AddEssentials() saw no concrete-type registration and overwrote this one
+		// in place with the default-key instance.
+		ServiceCollection services = new();
+		services.AddSingleton<IObfuscationProvider>(new XorObfuscationProvider(Key));
+		services.AddEssentials();
+
+		using ServiceProvider provider = services.BuildServiceProvider();
+
+		byte[] expected = Obfuscate(new XorObfuscationProvider(Key));
+		Assert.AreSequenceEqual(expected, Obfuscate(provider.GetRequiredService<IObfuscationProvider>()));
+		XorObfuscationProvider xor = provider.GetServices<IObfuscationProvider>().OfType<XorObfuscationProvider>().Single();
+		Assert.AreSequenceEqual(expected, Obfuscate(xor));
+	}
+
+	[TestMethod]
+	public void Xor_Registered_Only_As_Its_Concrete_Type_Before_AddEssentials_Joins_The_Set()
+	{
+		// Before issue #156 this counted as registered but had no interface registration to move,
+		// so Xor was missing from IEnumerable<IObfuscationProvider> altogether.
+		XorObfuscationProvider configured = new(Key);
+		ServiceCollection services = new();
+		services.AddSingleton(configured);
+		services.AddEssentials();
+
+		using ServiceProvider provider = services.BuildServiceProvider();
+
+		Assert.AreSame(configured, provider.GetServices<IObfuscationProvider>().OfType<XorObfuscationProvider>().Single());
+		Assert.AreSame(configured, provider.GetRequiredService<IObfuscationProvider>());
+		Assert.AreSame(configured, provider.GetRequiredService<XorObfuscationProvider>());
+	}
+
+	[TestMethod]
+	public void Xor_Registered_Only_As_Its_Concrete_Type_Is_Still_Replaced_By_A_Later_Call()
+	{
+		ServiceCollection services = new();
+		services.AddSingleton(new XorObfuscationProvider([9, 9]));
+		services.AddEssentials();
+		services.AddXorObfuscationProvider(Key);
+
+		AssertResolvesXorKey(services);
+	}
+
+	[TestMethod]
+	public void Normal_Registered_Only_As_The_Interface_Before_AddEssentials_Keeps_Its_Parameters()
+	{
+		ServiceCollection services = new();
+		services.AddSingleton<IContinuousDistribution>(new NormalDistributionProvider(100.0, 15.0));
+		services.AddEssentials();
+
+		using ServiceProvider provider = services.BuildServiceProvider();
+
+		IContinuousDistribution distribution = provider.GetRequiredService<IContinuousDistribution>();
+		Assert.IsInstanceOfType<NormalDistributionProvider>(distribution);
+		Assert.AreEqual(100.0, distribution.Mean, 1e-12);
+		Assert.ContainsSingle(d => d is NormalDistributionProvider, provider.GetServices<IContinuousDistribution>());
+	}
+
+	[TestMethod]
 	public void A_Second_Call_Replaces_A_Distribution_Outside_AddEssentials()
 	{
 		ServiceCollection services = new();

@@ -28,6 +28,28 @@ public class EncodingProviderTests
 
 	[TestMethod]
 	[DynamicData(nameof(EncodingProviders))]
+	public void Encoding_OverlappingBuffers_MatchesOutOfPlace(IEncodingProvider encoder, string providerName)
+	{
+		byte[] original = Encoding.ASCII.GetBytes("Hello!");
+		byte[] expected = encoder.Encode(original);
+		int maxLength = encoder.GetMaxEncodedLength(original.Length);
+
+		// The destination starts at the source, after it, and before it.
+		foreach ((int sourceOffset, int destinationOffset) in new[] { (0, 0), (0, 3), (3, 0) })
+		{
+			byte[] buffer = new byte[Math.Max(sourceOffset + original.Length, destinationOffset + maxLength)];
+			original.CopyTo(buffer, sourceOffset);
+
+			Assert.IsTrue(
+				encoder.TryEncode(buffer.AsSpan(sourceOffset, original.Length), buffer.AsSpan(destinationOffset, maxLength), out int written),
+				$"{providerName} should encode with source at {sourceOffset} and destination at {destinationOffset}");
+			CollectionAssert.AreEqual(expected, buffer[destinationOffset..(destinationOffset + written)],
+				$"{providerName} should encode with source at {sourceOffset} and destination at {destinationOffset} as it does out of place");
+		}
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(EncodingProviders))]
 	public void Encoding_Roundtrip_Stream(IEncodingProvider encoder, string providerName)
 	{
 		byte[] original = Encoding.UTF8.GetBytes("encode me with " + providerName);

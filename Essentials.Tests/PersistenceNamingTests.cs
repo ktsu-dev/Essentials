@@ -188,6 +188,47 @@ public class PersistenceNamingTests
 	}
 
 	[TestMethod]
+	public void SafeFileName_Keeps_A_Key_Shaped_Like_A_Truncated_Name_Apart_From_Its_Long_Key()
+	{
+		string longKey = new('a', 150);
+		string truncated = PersistenceProviderUtilities.GetSafeFileName(longKey);
+
+		string shortKeyName = PersistenceProviderUtilities.GetSafeFileName(truncated);
+
+		Assert.AreNotEqual(truncated, shortKeyName);
+		Assert.AreEqual(truncated, PersistenceProviderUtilities.GetKeyFromFileName(shortKeyName));
+		Assert.AreEqual("backup~1", PersistenceProviderUtilities.GetSafeFileName("backup~1"), "An ordinary tilde key keeps its name");
+	}
+
+	[TestMethod]
+	public async Task A_Key_Shaped_Like_A_Truncated_Name_Does_Not_Overwrite_Its_Long_Key()
+	{
+		string longKey = new('a', 150);
+		string shortKey = PersistenceProviderUtilities.GetSafeFileName(longKey);
+		string dir = Directory.CreateTempSubdirectory("NamingTests_").FullName;
+		try
+		{
+			FileSystemPersistenceProvider<string> persistence = new(new NativeFileSystemProvider(), new JsonSerializationProvider(), dir);
+
+			await persistence.StoreAsync(longKey, "long", TestContext.CancellationToken).ConfigureAwait(false);
+			await persistence.StoreAsync(shortKey, "short", TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.AreEqual("long", await persistence.RetrieveAsync<string>(longKey, TestContext.CancellationToken).ConfigureAwait(false));
+			Assert.AreEqual("short", await persistence.RetrieveAsync<string>(shortKey, TestContext.CancellationToken).ConfigureAwait(false));
+
+			string[] keys = [.. await persistence.GetAllKeysAsync(TestContext.CancellationToken).ConfigureAwait(false)];
+			Assert.Contains(shortKey, keys);
+		}
+		finally
+		{
+			if (Directory.Exists(dir))
+			{
+				Directory.Delete(dir, true);
+			}
+		}
+	}
+
+	[TestMethod]
 	public void SafeFileName_Rejects_Empty_Keys()
 	{
 		Assert.ThrowsExactly<ArgumentException>(() => PersistenceProviderUtilities.GetSafeFileName(""));

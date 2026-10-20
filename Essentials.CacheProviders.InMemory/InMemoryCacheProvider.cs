@@ -54,8 +54,12 @@ public class InMemoryCacheProvider<TKey, TValue> : ICacheProvider<TKey, TValue> 
 	/// Removes a cached value by key.
 	/// </summary>
 	/// <param name="key">The cache key to remove.</param>
-	/// <returns>True if the value was found and removed, false if it didn't exist.</returns>
-	public bool Remove(TKey key) => cache.TryRemove(key, out _);
+	/// <returns>
+	/// True if the value was found and removed, false if it didn't exist. An expired entry is removed but
+	/// reports false, matching <see cref="TryGet"/>, which treats it as absent.
+	/// </returns>
+	public bool Remove(TKey key) =>
+		cache.TryRemove(key, out CacheEntry? entry) && (entry.Expiration is null || entry.Expiration > DateTime.UtcNow);
 
 	/// <summary>
 	/// Clears all entries from the cache.

@@ -15,7 +15,8 @@ using SysBase64 = System.Buffers.Text.Base64;
 /// </summary>
 /// <remarks>
 /// The span paths use the UTF8 Base64 primitives directly, so they neither allocate an intermediate
-/// string nor copy through a temporary array.
+/// string nor copy through a temporary array, except that encoding copies the source to a pooled buffer
+/// first when it overlaps the destination.
 /// </remarks>
 public class Base64EncodingProvider : IEncodingProvider
 {
@@ -28,6 +29,21 @@ public class Base64EncodingProvider : IEncodingProvider
 	/// <inheritdoc/>
 	public bool TryEncode(ReadOnlySpan<byte> data, Span<byte> destination, out int bytesWritten)
 	{
+		if (data.Overlaps(destination))
+		{
+			// Base64.EncodeToUtf8 does not support overlapping buffers, so encode from a copy.
+			byte[] copy = ArrayPool<byte>.Shared.Rent(data.Length);
+			try
+			{
+				data.CopyTo(copy);
+				return TryEncode(copy.AsSpan(0, data.Length), destination, out bytesWritten);
+			}
+			finally
+			{
+				ArrayPool<byte>.Shared.Return(copy, clearArray: true);
+			}
+		}
+
 		OperationStatus status = SysBase64.EncodeToUtf8(data, destination, out int consumed, out bytesWritten);
 
 		if (status == OperationStatus.Done && consumed == data.Length)

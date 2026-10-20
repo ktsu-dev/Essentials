@@ -2,7 +2,9 @@
 
 namespace ktsu.Essentials.Tests;
 
+using System.Globalization;
 using System.IO;
+using ktsu.Essentials;
 using ktsu.Essentials.SerializationProviders.NewtonsoftJson;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -38,6 +40,63 @@ public class NewtonsoftJsonSerializationProviderTests
 
 		Assert.IsFalse(provider.TrySerialize(node, writer));
 		Assert.AreEqual(string.Empty, writer.ToString());
+	}
+
+	[TestMethod]
+	[DataRow(64)]
+	[DataRow(65)]
+	[DataRow(200)]
+	public void TrySerialize_DeepChain_SucceedsOnlyWhenItDeserializes(int depth)
+	{
+		NewtonsoftJsonSerializationProvider provider = new();
+		Node root = new() { Name = "0" };
+		Node tail = root;
+		for (int i = 1; i < depth; i++)
+		{
+			tail.Next = new Node { Name = i.ToString(CultureInfo.InvariantCulture) };
+			tail = tail.Next;
+		}
+
+		using StringWriter writer = new();
+		bool serialized = provider.TrySerialize(root, writer);
+		Node? roundTripped = ((ISerializationProvider)provider).Deserialize<Node>(writer.ToString());
+
+		if (depth <= 64)
+		{
+			Assert.IsTrue(serialized);
+			Assert.IsNotNull(roundTripped);
+		}
+		else
+		{
+			Assert.IsFalse(serialized);
+		}
+	}
+
+	[TestMethod]
+	[DataRow(64)]
+	[DataRow(65)]
+	public void TrySerialize_DeeplyNestedArrays_SucceedsOnlyWhenItDeserializes(int depth)
+	{
+		NewtonsoftJsonSerializationProvider provider = new();
+		object[] root = [];
+		for (int i = 1; i < depth; i++)
+		{
+			root = [root];
+		}
+
+		using StringWriter writer = new();
+		bool serialized = provider.TrySerialize(root, writer);
+		object? roundTripped = ((ISerializationProvider)provider).Deserialize<object>(writer.ToString());
+
+		if (depth <= 64)
+		{
+			Assert.IsTrue(serialized);
+			Assert.IsNotNull(roundTripped);
+		}
+		else
+		{
+			Assert.IsFalse(serialized);
+		}
 	}
 
 	private sealed class Node

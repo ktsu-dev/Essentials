@@ -2,6 +2,7 @@
 
 Changes since v2.11.0:
 
+- Honour the encoder passed to AddHexObfuscationProvider and AddBase64ObfuscationProvider around AddEssentials() [patch] (Claude)
 - Bound span TryDecompress by the destination instead of inflating everything [patch] (Claude)
 - Let parameterized provider registrations take effect after AddEssentials() [patch] (Claude)
 - Throw OverflowException for quantiles past the int support [patch] (Claude)
