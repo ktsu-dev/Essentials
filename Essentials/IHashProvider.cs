@@ -67,7 +67,7 @@ public interface IHashProvider
 	/// <param name="data">The stream to hash.</param>
 	/// <param name="destination">The buffer to write the hash to.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>True if the hash was written, false if the stream was null or the buffer too small.</returns>
+	/// <returns>True if the hash was written, false if the stream was null or could not be read, or the buffer was too small.</returns>
 	public async Task<bool> TryHashAsync(Stream data, Memory<byte> destination, CancellationToken cancellationToken = default)
 	{
 		if (data is null || destination.Length < HashLengthBytes)
@@ -88,6 +88,12 @@ public interface IHashProvider
 
 			return hash.TryGetHashAndReset(destination.Span, out int bytesWritten)
 				&& bytesWritten == HashLengthBytes;
+		}
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
+		{
+			// An unreadable stream is a failure to report, as the synchronous TryHash(Stream, ...) does.
+			// Cancellation is not one of these and still propagates.
+			return false;
 		}
 		finally
 		{
