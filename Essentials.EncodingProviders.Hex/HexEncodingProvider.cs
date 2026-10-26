@@ -79,13 +79,23 @@ public class HexEncodingProvider : IEncodingProvider
 			return false;
 		}
 
+		// A chunk at a time, as the asynchronous path does: the base Stream.ReadByte and WriteByte allocate and
+		// make a call per byte on any stream that does not override them (issue #91).
+		byte[] source = new byte[ChunkSize];
+		byte[] encoded = new byte[ChunkSize * 2];
+
 		try
 		{
-			int b;
-			while ((b = data.ReadByte()) >= 0)
+			int read;
+			while ((read = data.Read(source, 0, ChunkSize)) > 0)
 			{
-				destination.WriteByte((byte)HexDigits[b >> 4]);
-				destination.WriteByte((byte)HexDigits[b & 0x0F]);
+				for (int i = 0; i < read; i++)
+				{
+					encoded[i * 2] = (byte)HexDigits[source[i] >> 4];
+					encoded[(i * 2) + 1] = (byte)HexDigits[source[i] & 0x0F];
+				}
+
+				destination.Write(encoded, 0, read * 2);
 			}
 
 			return true;
@@ -137,25 +147,36 @@ public class HexEncodingProvider : IEncodingProvider
 			return false;
 		}
 
+		byte[] source = new byte[ChunkSize];
+		byte[] decoded = new byte[ChunkSize / 2];
+
 		try
 		{
 			while (true)
 			{
-				int first = encodedData.ReadByte();
-				if (first < 0)
+				int filled = ReadPairs(encodedData, source);
+				if (filled == 0)
 				{
 					return true;
 				}
 
-				int second = encodedData.ReadByte();
-				if (second < 0
-					|| !TryParseNibble((byte)first, out int high)
-					|| !TryParseNibble((byte)second, out int low))
+				if (filled < 0)
 				{
+					// An odd number of characters: the last byte has no partner, so the input is truncated.
 					return false;
 				}
 
-				destination.WriteByte((byte)((high << 4) | low));
+				for (int i = 0; i < filled; i += 2)
+				{
+					if (!TryParseNibble(source[i], out int high) || !TryParseNibble(source[i + 1], out int low))
+					{
+						return false;
+					}
+
+					decoded[i / 2] = (byte)((high << 4) | low);
+				}
+
+				destination.Write(decoded, 0, filled / 2);
 			}
 		}
 		catch (IOException)
@@ -322,6 +343,29 @@ public class HexEncodingProvider : IEncodingProvider
 		while (filled < buffer.Length)
 		{
 			int read = await source.ReadAsync(buffer.AsMemory(filled, buffer.Length - filled), cancellationToken).ConfigureAwait(false);
+			if (read == 0)
+			{
+				break;
+			}
+
+			filled += read;
+		}
+
+		return filled % 2 == 0 ? filled : -1;
+	}
+
+	/// <summary>
+	/// The synchronous counterpart of <see cref="ReadPairsAsync"/>, with the same result.
+	/// </summary>
+	/// <param name="source">The stream to read.</param>
+	/// <param name="buffer">The buffer to fill.</param>
+	/// <returns>How many characters were read, zero at a clean end of stream, or -1 if the stream ended on an unpaired character.</returns>
+	private static int ReadPairs(Stream source, byte[] buffer)
+	{
+		int filled = 0;
+		while (filled < buffer.Length)
+		{
+			int read = source.Read(buffer, filled, buffer.Length - filled);
 			if (read == 0)
 			{
 				break;

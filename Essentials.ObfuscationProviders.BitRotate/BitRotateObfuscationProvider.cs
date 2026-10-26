@@ -4,6 +4,7 @@ namespace ktsu.Essentials.ObfuscationProviders.BitRotate;
 
 using ktsu.Essentials;
 using System;
+using System.Buffers;
 using System.IO;
 
 /// <summary>
@@ -12,6 +13,9 @@ using System.IO;
 /// </summary>
 public class BitRotateObfuscationProvider : IObfuscationProvider
 {
+	/// <summary>How many bytes the stream paths transform at a time.</summary>
+	private const int StreamBufferSize = 81920;
+
 	private readonly int _bits;
 
 	/// <summary>Initializes a new instance rotating by 3 bits.</summary>
@@ -70,10 +74,25 @@ public class BitRotateObfuscationProvider : IObfuscationProvider
 
 		try
 		{
-			int b;
-			while ((b = data.ReadByte()) >= 0)
+			// A chunk at a time: the base Stream.ReadByte and WriteByte allocate and make a call per byte on any
+			// stream that does not override them (issue #91).
+			byte[] buffer = ArrayPool<byte>.Shared.Rent(StreamBufferSize);
+			try
 			{
-				destination.WriteByte(RotateLeft((byte)b, _bits));
+				int read;
+				while ((read = data.Read(buffer, 0, buffer.Length)) > 0)
+				{
+					for (int i = 0; i < read; i++)
+					{
+						buffer[i] = RotateLeft(buffer[i], _bits);
+					}
+
+					destination.Write(buffer, 0, read);
+				}
+			}
+			finally
+			{
+				ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
 			}
 
 			return true;
@@ -117,10 +136,25 @@ public class BitRotateObfuscationProvider : IObfuscationProvider
 
 		try
 		{
-			int b;
-			while ((b = obfuscatedData.ReadByte()) >= 0)
+			// A chunk at a time: the base Stream.ReadByte and WriteByte allocate and make a call per byte on any
+			// stream that does not override them (issue #91).
+			byte[] buffer = ArrayPool<byte>.Shared.Rent(StreamBufferSize);
+			try
 			{
-				destination.WriteByte(RotateRight((byte)b, _bits));
+				int read;
+				while ((read = obfuscatedData.Read(buffer, 0, buffer.Length)) > 0)
+				{
+					for (int i = 0; i < read; i++)
+					{
+						buffer[i] = RotateRight(buffer[i], _bits);
+					}
+
+					destination.Write(buffer, 0, read);
+				}
+			}
+			finally
+			{
+				ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
 			}
 
 			return true;

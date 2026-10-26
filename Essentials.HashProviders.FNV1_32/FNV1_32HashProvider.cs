@@ -4,6 +4,7 @@ namespace ktsu.Essentials.HashProviders.FNV1_32;
 
 using ktsu.Essentials;
 using System;
+using System.Buffers;
 using System.IO;
 
 /// <summary>
@@ -13,6 +14,9 @@ public class FNV1_32HashProvider : IHashProvider
 {
 	private const uint FnvOffsetBasis32 = 0x811c9dc5;
 	private const uint FnvPrime32 = 0x01000193;
+
+	/// <summary>How many bytes the stream path reads at a time.</summary>
+	private const int StreamBufferSize = 81920;
 
 	/// <summary>
 	/// The length of the FNV-1 32-bit hash in bytes (4 bytes / 32 bits).
@@ -84,12 +88,24 @@ public class FNV1_32HashProvider : IHashProvider
 		try
 		{
 			uint hash = FnvOffsetBasis32;
-			int b;
-
-			while ((b = data.ReadByte()) != -1)
+			// A chunk at a time: the base Stream.ReadByte allocates and makes a Read call per byte, which on a
+			// stream that does not override it cost eleven times as long and 32 bytes of garbage per byte (issue #91).
+			byte[] buffer = ArrayPool<byte>.Shared.Rent(StreamBufferSize);
+			try
 			{
-				hash *= FnvPrime32;
-				hash ^= (byte)b;
+				int read;
+				while ((read = data.Read(buffer, 0, buffer.Length)) > 0)
+				{
+					for (int i = 0; i < read; i++)
+					{
+						hash *= FnvPrime32;
+						hash ^= buffer[i];
+					}
+				}
+			}
+			finally
+			{
+				ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
 			}
 
 			// Write the hash as little-endian bytes
