@@ -22,7 +22,15 @@ public class HexEncodingProvider : IEncodingProvider
 	private const string HexDigits = "0123456789ABCDEF";
 
 	/// <inheritdoc/>
-	public int GetMaxEncodedLength(int sourceLength) => sourceLength * 2;
+	/// <exception cref="ArgumentOutOfRangeException">The encoded length of <paramref name="sourceLength"/> bytes exceeds <see cref="int.MaxValue"/>.</exception>
+	public int GetMaxEncodedLength(int sourceLength)
+	{
+		// Computed in long: doubling an input of 1 GiB or more would wrap to a negative bound.
+		long bound = 2L * sourceLength;
+		return bound <= int.MaxValue
+			? (int)bound
+			: throw new ArgumentOutOfRangeException(nameof(sourceLength), sourceLength, "The encoded length exceeds the largest possible buffer.");
+	}
 
 	/// <inheritdoc/>
 	public int GetMaxDecodedLength(int encodedLength) => encodedLength / 2;
@@ -32,7 +40,8 @@ public class HexEncodingProvider : IEncodingProvider
 	{
 		bytesWritten = 0;
 
-		if (destination.Length < data.Length * 2)
+		// Compared in long so an input of 1 GiB or more cannot wrap the requirement negative and pass.
+		if (destination.Length < 2L * data.Length)
 		{
 			return false;
 		}

@@ -9,6 +9,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ktsu.Essentials;
+using ktsu.Essentials.EncodingProviders.Hex;
+using ktsu.Essentials.ObfuscationProviders.Hex;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -46,6 +48,23 @@ public class EncodingProviderTests
 			CollectionAssert.AreEqual(expected, buffer[destinationOffset..(destinationOffset + written)],
 				$"{providerName} should encode with source at {sourceOffset} and destination at {destinationOffset} as it does out of place");
 		}
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(EncodingProviders))]
+	public void GetMaxEncodedLength_Throws_When_The_Bound_Does_Not_Fit_An_Int(IEncodingProvider encoder, string providerName)
+		=> Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => encoder.GetMaxEncodedLength(int.MaxValue),
+			$"{providerName} must not return a wrapped, negative bound");
+
+	[TestMethod]
+	public void Hex_Bound_Is_Exact_Up_To_The_Largest_Encodable_Input()
+	{
+		HexEncodingProvider hex = new();
+		Assert.AreEqual(int.MaxValue - 1, hex.GetMaxEncodedLength(int.MaxValue / 2));
+		Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => hex.GetMaxEncodedLength((int.MaxValue / 2) + 1));
+
+		HexObfuscationProvider obfuscator = new();
+		Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => obfuscator.GetMaxObfuscatedLength(int.MaxValue));
 	}
 
 	[TestMethod]
