@@ -181,6 +181,7 @@ public class GzipCompressionProvider : ICompressionProvider
 				compressedData,
 				destination,
 				static input => new GZipStream(input, CompressionMode.Decompress, leaveOpen: true),
+				static (output, input) => new CompressedStreamEnd.Gzip().IsComplete(output, input),
 				out bytesWritten);
 		}
 		catch (ArgumentException)
@@ -212,9 +213,7 @@ public class GzipCompressionProvider : ICompressionProvider
 
 		try
 		{
-			using GZipStream gzipStream = new(compressedData, CompressionMode.Decompress, leaveOpen: true);
-			gzipStream.CopyTo(destination);
-			return true;
+			return new CompressedStreamEnd.Gzip().CopyTo(compressedData, destination, static input => new GZipStream(input, CompressionMode.Decompress, leaveOpen: true));
 		}
 		catch (ArgumentException)
 		{
@@ -264,13 +263,7 @@ public class GzipCompressionProvider : ICompressionProvider
 
 		try
 		{
-			GZipStream gzipStream = new(compressedData, CompressionMode.Decompress, leaveOpen: true);
-			await using (gzipStream.ConfigureAwait(false))
-			{
-				await gzipStream.CopyToAsync(destination, 81920, cancellationToken).ConfigureAwait(false);
-			}
-
-			return true;
+			return await new CompressedStreamEnd.Gzip().CopyToAsync(compressedData, destination, static input => new GZipStream(input, CompressionMode.Decompress, leaveOpen: true), cancellationToken).ConfigureAwait(false);
 		}
 		catch (ArgumentException)
 		{

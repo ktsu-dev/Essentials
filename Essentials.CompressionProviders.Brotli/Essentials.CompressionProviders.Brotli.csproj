@@ -17,7 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\Shared\BoundedDecompression.cs" Link="BoundedDecompression.cs" />
   </ItemGroup>
 
 </Project>

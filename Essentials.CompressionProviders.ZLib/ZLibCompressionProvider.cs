@@ -180,6 +180,7 @@ public class ZLibCompressionProvider : ICompressionProvider
 				compressedData,
 				destination,
 				static input => new ZLibStream(input, CompressionMode.Decompress, leaveOpen: true),
+				static (output, input) => new CompressedStreamEnd.ZLib().IsComplete(output, input),
 				out bytesWritten);
 		}
 		catch (ArgumentException)
@@ -211,9 +212,7 @@ public class ZLibCompressionProvider : ICompressionProvider
 
 		try
 		{
-			using ZLibStream zlibStream = new(compressedData, CompressionMode.Decompress, leaveOpen: true);
-			zlibStream.CopyTo(destination);
-			return true;
+			return new CompressedStreamEnd.ZLib().CopyTo(compressedData, destination, static input => new ZLibStream(input, CompressionMode.Decompress, leaveOpen: true));
 		}
 		catch (ArgumentException)
 		{
@@ -263,13 +262,7 @@ public class ZLibCompressionProvider : ICompressionProvider
 
 		try
 		{
-			ZLibStream zlibStream = new(compressedData, CompressionMode.Decompress, leaveOpen: true);
-			await using (zlibStream.ConfigureAwait(false))
-			{
-				await zlibStream.CopyToAsync(destination, 81920, cancellationToken).ConfigureAwait(false);
-			}
-
-			return true;
+			return await new CompressedStreamEnd.ZLib().CopyToAsync(compressedData, destination, static input => new ZLibStream(input, CompressionMode.Decompress, leaveOpen: true), cancellationToken).ConfigureAwait(false);
 		}
 		catch (ArgumentException)
 		{
