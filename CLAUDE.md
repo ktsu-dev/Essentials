@@ -154,7 +154,10 @@ the line, including inside a `///` comment, which is how the doc comment broke w
 
 Rolling happens before an entry that would push a non-empty file past `MaxFileSizeBytes`, so no file exceeds
 the limit unless a single entry does, and such an entry is written whole to a fresh file. `MaxFileCount`
-counts the current file, so 1 means a full file is deleted and started again.
+counts the current file, so 1 means a full file is deleted and started again. A roll is all or nothing: the active file and every rolled one move under unique `.rolling`
+staging names or up a slot, each move recorded and undone in reverse if a later one is refused, and the
+oldest is deleted only after the roll is complete. A refused roll (a viewer holding the file without
+`FileShare.Delete` on Windows) appends the entry past the limit rather than dropping it. See issue #120.
 
 ### New packages and the validation baseline
 
