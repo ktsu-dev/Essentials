@@ -75,6 +75,39 @@ public class InMemoryPersistenceProvider<TKey> : IPersistenceProvider<TKey> wher
 	}
 
 	/// <summary>
+	/// Retrieves an object using the specified key, or creates and stores a new instance if not found.
+	/// </summary>
+	/// <remarks>
+	/// Creation is atomic: callers racing on one missing key, or racing a <see cref="StoreAsync{T}"/>, all get
+	/// the instance left stored, and a value stored in the meantime is never replaced by a new one.
+	/// </remarks>
+	/// <typeparam name="T">The type of object to retrieve or create.</typeparam>
+	/// <param name="key">The unique key that identifies the stored object.</param>
+	/// <param name="cancellationToken">A cancellation token to cancel the operation.</param>
+	/// <returns>The stored object, or the new instance now stored under <paramref name="key"/>.</returns>
+	public Task<T> RetrieveOrCreateAsync<T>(TKey key, CancellationToken cancellationToken = default) where T : new()
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		while (true)
+		{
+			object? stored = store.GetOrAdd(key, static _ => new T());
+			if (stored is T typed)
+			{
+				return Task.FromResult(typed);
+			}
+
+			// Something of another type is stored, which RetrieveAsync reports as missing, so it is replaced as a
+			// missing key would be created; but only if it is still what was seen, so a concurrent store wins.
+			T created = new();
+			if (store.TryUpdate(key, created, stored))
+			{
+				return Task.FromResult(created);
+			}
+		}
+	}
+
+	/// <summary>
 	/// Checks whether an object with the specified key exists in storage.
 	/// </summary>
 	/// <param name="key">The unique key to check for.</param>

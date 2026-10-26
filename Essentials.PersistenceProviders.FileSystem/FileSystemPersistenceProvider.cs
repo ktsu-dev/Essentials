@@ -5,8 +5,6 @@ namespace ktsu.Essentials.PersistenceProviders.FileSystem;
 using ktsu.Essentials;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -27,13 +25,16 @@ public sealed class FileSystemPersistenceProvider<TKey>(
 	string baseDirectory) : IPersistenceProvider<TKey>
 	where TKey : notnull
 {
-	private readonly IFileSystemProvider _fileSystemProvider = Ensure.NotNull(fileSystemProvider);
-	private readonly ISerializationProvider _serializationProvider = Ensure.NotNull(serializationProvider);
+	private readonly FileRecordStore<TKey> _records = new(
+		Ensure.NotNull(fileSystemProvider),
+		Ensure.NotNull(serializationProvider),
+		Ensure.NotNull(baseDirectory),
+		"file system");
 
 	/// <summary>
 	/// Gets the directory this provider stores objects in.
 	/// </summary>
-	public string BaseDirectory { get; } = Ensure.NotNull(baseDirectory);
+	public string BaseDirectory { get; } = baseDirectory;
 
 	/// <inheritdoc/>
 	public string ProviderName => "FileSystem";
@@ -42,75 +43,37 @@ public sealed class FileSystemPersistenceProvider<TKey>(
 	public bool IsPersistent => true;
 
 	/// <inheritdoc/>
-	public async Task StoreAsync<T>(TKey key, T obj, CancellationToken cancellationToken = default)
+	public Task StoreAsync<T>(TKey key, T obj, CancellationToken cancellationToken = default)
 	{
 #pragma warning disable KTSU0003 // Ensure.NotNull requires class constraint, but TKey is notnull
 		ArgumentNullException.ThrowIfNull(key);
 #pragma warning restore KTSU0003
-
-		if (obj is null)
-		{
-			await RemoveAsync(key, cancellationToken).ConfigureAwait(false);
-			return;
-		}
-
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			string filePath = GetFilePath(key);
-			string serializedData = await _serializationProvider.SerializeAsync(obj, cancellationToken).ConfigureAwait(false);
-
-			// Ensure directory exists
-			string? directory = _fileSystemProvider.Path.GetDirectoryName(filePath);
-			if (!string.IsNullOrEmpty(directory))
-			{
-				_fileSystemProvider.Directory.CreateDirectory(directory);
-			}
-
-			await AtomicFile.WriteAllTextAsync(_fileSystemProvider, filePath, serializedData, cancellationToken).ConfigureAwait(false);
-		}
-		catch (Exception ex)
-		{
-			throw new PersistenceProviderException($"Failed to store object with key '{key}' to file system", ex);
-		}
+		return _records.StoreAsync(key, obj, cancellationToken);
 	}
 
 	/// <inheritdoc/>
-	public async Task<T?> RetrieveAsync<T>(TKey key, CancellationToken cancellationToken = default)
+	/// <exception cref="PersistenceProviderException">The record is there but cannot be read as <typeparamref name="T"/>, or reading it failed.</exception>
+	public Task<T?> RetrieveAsync<T>(TKey key, CancellationToken cancellationToken = default)
 	{
 #pragma warning disable KTSU0003 // Ensure.NotNull requires class constraint, but TKey is notnull
 		ArgumentNullException.ThrowIfNull(key);
 #pragma warning restore KTSU0003
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			string filePath = GetFilePath(key);
-
-			if (!_fileSystemProvider.File.Exists(filePath))
-			{
-				return default;
-			}
-
-			string serializedData = await AtomicFile.ReadAllTextAsync(_fileSystemProvider, filePath, cancellationToken).ConfigureAwait(false);
-
-			if (string.IsNullOrEmpty(serializedData))
-			{
-				return default;
-			}
-
-			return await _serializationProvider.DeserializeAsync<T>(serializedData, cancellationToken).ConfigureAwait(false);
-		}
-		catch (Exception ex)
-		{
-			throw new PersistenceProviderException($"Failed to retrieve object with key '{key}' from file system", ex);
-		}
+		return _records.RetrieveAsync<T>(key, cancellationToken);
 	}
 
 	/// <inheritdoc/>
+	/// <remarks>
+	/// The new instance is stored only if no record has appeared under the key in the meantime; if one has, it is
+	/// returned instead. A record that is there but cannot be read is left untouched and throws.
+	/// </remarks>
+	/// <exception cref="PersistenceProviderException">The record is there but cannot be read as <typeparamref name="T"/>, or reading or storing it failed.</exception>
 	public Task<T> RetrieveOrCreateAsync<T>(TKey key, CancellationToken cancellationToken = default) where T : new()
-		=> PersistenceDefaults.RetrieveOrCreateAsync<TKey, T>(this, key, cancellationToken);
+	{
+#pragma warning disable KTSU0003 // Ensure.NotNull requires class constraint, but TKey is notnull
+		ArgumentNullException.ThrowIfNull(key);
+#pragma warning restore KTSU0003
+		return _records.RetrieveOrCreateAsync<T>(key, cancellationToken);
+	}
 
 	/// <inheritdoc/>
 	public Task<bool> ExistsAsync(TKey key, CancellationToken cancellationToken = default)
@@ -119,10 +82,7 @@ public sealed class FileSystemPersistenceProvider<TKey>(
 		ArgumentNullException.ThrowIfNull(key);
 #pragma warning restore KTSU0003
 		cancellationToken.ThrowIfCancellationRequested();
-
-		string filePath = GetFilePath(key);
-		bool exists = _fileSystemProvider.File.Exists(filePath);
-		return Task.FromResult(exists);
+		return Task.FromResult(_records.Exists(key));
 	}
 
 	/// <inheritdoc/>
@@ -131,94 +91,21 @@ public sealed class FileSystemPersistenceProvider<TKey>(
 #pragma warning disable KTSU0003 // Ensure.NotNull requires class constraint, but TKey is notnull
 		ArgumentNullException.ThrowIfNull(key);
 #pragma warning restore KTSU0003
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			string filePath = GetFilePath(key);
-
-			if (!_fileSystemProvider.File.Exists(filePath))
-			{
-				return Task.FromResult(false);
-			}
-
-			_fileSystemProvider.File.Delete(filePath);
-			return Task.FromResult(true);
-		}
-		catch (Exception ex)
-		{
-			throw new PersistenceProviderException($"Failed to remove object with key '{key}' from file system", ex);
-		}
+		return _records.RemoveAsync(key, cancellationToken);
 	}
 
 	/// <inheritdoc/>
 	public Task<IEnumerable<TKey>> GetAllKeysAsync(CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			if (!_fileSystemProvider.Directory.Exists(BaseDirectory))
-			{
-				return Task.FromResult(Enumerable.Empty<TKey>());
-			}
-
-			string[] files = _fileSystemProvider.Directory.GetFiles(BaseDirectory, "*" + _serializationProvider.FileExtension, SearchOption.TopDirectoryOnly);
-			List<TKey> keys = [];
-			foreach (string file in files)
-			{
-				string? name = _fileSystemProvider.Path.GetFileNameWithoutExtension(file);
-				if (string.IsNullOrEmpty(name))
-				{
-					continue;
-				}
-
-				// Names are percent-encoded, so the original key is recovered exactly. Truncated
-				// names cannot be decoded and are skipped rather than reported as a wrong key.
-				string? decoded = PersistenceProviderUtilities.GetKeyFromFileName(name!);
-				if (decoded is not null && PersistenceProviderUtilities.TryConvertToKey(decoded, out TKey key))
-				{
-					keys.Add(key);
-				}
-			}
-
-			return Task.FromResult<IEnumerable<TKey>>(keys);
-		}
-		catch (Exception ex)
-		{
-			throw new PersistenceProviderException("Failed to retrieve all keys from file system", ex);
-		}
+		return Task.FromResult(_records.GetAllKeys());
 	}
 
 	/// <inheritdoc/>
-	public Task ClearAsync(CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
+	/// <remarks>
+	/// Also removes staging files that writes interrupted by a crash or power loss left behind, each of which
+	/// holds a whole record. Staging files younger than a minute belong to writes still in progress and are kept.
+	/// </remarks>
+	public Task ClearAsync(CancellationToken cancellationToken = default) => _records.ClearAsync(cancellationToken);
 
-		try
-		{
-			if (!_fileSystemProvider.Directory.Exists(BaseDirectory))
-			{
-				return Task.CompletedTask;
-			}
-
-			string[] files = _fileSystemProvider.Directory.GetFiles(BaseDirectory, "*" + _serializationProvider.FileExtension, SearchOption.TopDirectoryOnly);
-			foreach (string file in files)
-			{
-				_fileSystemProvider.File.Delete(file);
-			}
-
-			return Task.CompletedTask;
-		}
-		catch (Exception ex)
-		{
-			throw new PersistenceProviderException("Failed to clear all objects from file system", ex);
-		}
-	}
-
-	private string GetFilePath(TKey key)
-	{
-		string fileName = PersistenceProviderUtilities.GetSafeFileName(PersistenceProviderUtilities.FormatKey(key)) + _serializationProvider.FileExtension;
-		return _fileSystemProvider.Path.Combine(BaseDirectory, fileName);
-	}
 }

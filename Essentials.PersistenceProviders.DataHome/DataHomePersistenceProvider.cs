@@ -55,6 +55,10 @@ public sealed class DataHomePersistenceProvider<TKey>(
 		=> _inner.RetrieveAsync<T>(key, cancellationToken);
 
 	/// <inheritdoc/>
+	public Task<T> RetrieveOrCreateAsync<T>(TKey key, CancellationToken cancellationToken = default) where T : new()
+		=> _inner.RetrieveOrCreateAsync<T>(key, cancellationToken);
+
+	/// <inheritdoc/>
 	public Task<bool> ExistsAsync(TKey key, CancellationToken cancellationToken = default)
 		=> _inner.ExistsAsync(key, cancellationToken);
 
