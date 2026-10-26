@@ -4,6 +4,8 @@ namespace ktsu.Essentials.Tests;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ktsu.Essentials;
@@ -254,6 +256,111 @@ public class CacheProviderTests
 		cache.Set("key", 42, TimeSpan.MinValue);
 
 		Assert.IsFalse(cache.TryGet("key", out _), "An entry with the most negative time-to-live has already expired");
+	}
+
+	[TestMethod]
+	public void Cache_Expiry_Follows_Elapsed_Time_Not_The_Wall_Clock()
+	{
+		// The time-to-live was turned into a DateTime and checked against DateTime.UtcNow, so a clock step
+		// stretched or cut every entry's lifetime (issue #162). Only the clock the cache is given moves here.
+		long now = 0;
+		InMemoryCacheProvider<string, int> cache = new(() => now);
+
+		cache.Set("token", 1, TimeSpan.FromSeconds(30));
+		now += Stopwatch.Frequency * 29;
+		Assert.IsTrue(cache.TryGet("token", out _), "an entry is live until its time-to-live has elapsed");
+
+		now += Stopwatch.Frequency * 2;
+		Assert.IsFalse(cache.TryGet("token", out _), "an entry expires once its time-to-live has elapsed");
+	}
+
+	[TestMethod]
+	public void Cache_Sweeps_Expired_Entries_That_Are_Never_Read_Again()
+	{
+		// An expired entry was removed only when its own key was read, so short-lived keys that were never
+		// read again stayed for the life of the process (issue #79).
+		long now = 0;
+		InMemoryCacheProvider<int, int> cache = new(() => now);
+
+		for (int i = 0; i < 10_000; i++)
+		{
+			cache.Set(i, i, TimeSpan.FromMilliseconds(1));
+		}
+
+		cache.Set(-1, -1);
+		now += Stopwatch.Frequency * 2;
+		cache.Set(-2, -2);
+
+		Assert.AreEqual(2, cache.Count, "only the two entries that do not expire should be left");
+		Assert.IsTrue(cache.TryGet(-1, out _));
+	}
+
+	[TestMethod]
+	public void Cache_Sweep_Keeps_Live_Entries()
+	{
+		long now = 0;
+		InMemoryCacheProvider<int, int> cache = new(() => now);
+
+		for (int i = 0; i < 5_000; i++)
+		{
+			cache.Set(i, i, TimeSpan.FromHours(1));
+		}
+
+		now += Stopwatch.Frequency * 2;
+		cache.Set(-1, -1);
+
+		Assert.AreEqual(5_001, cache.Count);
+	}
+
+	[TestMethod]
+	public void Cache_GetOrAdd_Keeps_A_Value_Set_While_The_Factory_Ran()
+	{
+		// GetOrAdd checked, ran the factory and then set unconditionally, so a value another writer set in
+		// between was overwritten (issue #85).
+		ICacheProvider<string, string> cache = new InMemoryCacheProvider<string, string>();
+
+		string result = cache.GetOrAdd("k", key =>
+		{
+			cache.Set(key, "fresh");
+			return "factory";
+		});
+
+		Assert.AreEqual("fresh", result);
+		Assert.IsTrue(cache.TryGet("k", out string? stored));
+		Assert.AreEqual("fresh", stored);
+	}
+
+	[TestMethod]
+	public async Task Cache_GetOrAdd_Gives_Racing_Callers_The_Cached_Instance()
+	{
+		ICacheProvider<string, object> cache = new InMemoryCacheProvider<string, object>();
+		using Barrier barrier = new(2);
+
+		Task<object>[] callers = [.. Enumerable.Range(0, 2).Select(_ => Task.Run(() => cache.GetOrAdd("k", _ =>
+		{
+			barrier.SignalAndWait(TestContext.CancellationToken);
+			return new object();
+		}), TestContext.CancellationToken))];
+		object[] results = await Task.WhenAll(callers).ConfigureAwait(false);
+
+		(bool found, object? cached) = await cache.TryGetAsync("k", TestContext.CancellationToken).ConfigureAwait(false);
+		Assert.IsTrue(found);
+		Assert.AreSame(cached, results[0], "the first caller holds an instance that is not cached");
+		Assert.AreSame(cached, results[1], "the second caller holds an instance that is not cached");
+	}
+
+	[TestMethod]
+	public void Cache_GetOrAdd_Replaces_An_Expired_Entry()
+	{
+		long now = 0;
+		InMemoryCacheProvider<string, int> cache = new(() => now);
+
+		cache.Set("k", 1, TimeSpan.FromSeconds(1));
+		now += Stopwatch.Frequency * 2;
+
+		Assert.AreEqual(2, cache.GetOrAdd("k", _ => 2));
+		Assert.IsTrue(cache.TryGet("k", out int value));
+		Assert.AreEqual(2, value);
 	}
 
 	/// <summary>
