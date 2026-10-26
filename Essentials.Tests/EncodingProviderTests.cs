@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ktsu.Essentials;
+using ktsu.Essentials.EncodingProviders.Base64;
 using ktsu.Essentials.EncodingProviders.Hex;
 using ktsu.Essentials.ObfuscationProviders.Hex;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,6 +56,22 @@ public class EncodingProviderTests
 	public void GetMaxEncodedLength_Throws_When_The_Bound_Does_Not_Fit_An_Int(IEncodingProvider encoder, string providerName)
 		=> Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => encoder.GetMaxEncodedLength(int.MaxValue),
 			$"{providerName} must not return a wrapped, negative bound");
+
+	[TestMethod]
+	public void Base64_Decodes_Line_Wrapped_Input()
+	{
+		// net8 and later skipped whitespace and earlier targets rejected it, so one package decoded the same
+		// input differently by target framework (issue #140). Every target now skips it.
+		IEncodingProvider base64 = new Base64EncodingProvider();
+		foreach (string wrapped in new[] { "SGVs\r\nbG8=", "SGVs\nbG8=", " SGVs bG8= ", "SGVs\tbG8\r\n=" })
+		{
+			byte[] decoded = base64.Decode(Encoding.ASCII.GetBytes(wrapped));
+			Assert.AreEqual("Hello", Encoding.ASCII.GetString(decoded), $"'{wrapped}' should decode");
+		}
+
+		Assert.IsFalse(base64.TryDecode("SGVs*bG8="u8, new byte[16], out int written), "other characters are still invalid");
+		Assert.AreEqual(0, written);
+	}
 
 	[TestMethod]
 	public void Hex_Bound_Is_Exact_Up_To_The_Largest_Encodable_Input()
