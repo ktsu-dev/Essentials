@@ -84,17 +84,25 @@ public class AesEncryptionProvider : IEncryptionProvider
 		try
 		{
 			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
-			using ICryptoTransform encryptor = aes.CreateEncryptor(key.ToArray(), iv.ToArray());
-			byte[] encryptedData = encryptor.TransformFinalBlock(data.ToArray(), 0, data.Length);
-
-			if (encryptedData.Length > destination.Length)
+			using ICryptoTransform encryptor = CreateTransform(aes, key, iv, encrypt: true);
+			byte[] plaintext = data.ToArray();
+			try
 			{
-				return false;
-			}
+				byte[] encryptedData = encryptor.TransformFinalBlock(plaintext, 0, plaintext.Length);
 
-			encryptedData.CopyTo(destination);
-			bytesWritten = encryptedData.Length;
-			return true;
+				if (encryptedData.Length > destination.Length)
+				{
+					return false;
+				}
+
+				encryptedData.CopyTo(destination);
+				bytesWritten = encryptedData.Length;
+				return true;
+			}
+			finally
+			{
+				CryptographicOperations.ZeroMemory(plaintext);
+			}
 		}
 		catch (ArgumentException)
 		{
@@ -128,7 +136,7 @@ public class AesEncryptionProvider : IEncryptionProvider
 		try
 		{
 			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
-			using ICryptoTransform encryptor = aes.CreateEncryptor(key.ToArray(), iv.ToArray());
+			using ICryptoTransform encryptor = CreateTransform(aes, key, iv, encrypt: true);
 			using CryptoStream cryptoStream = new(destination, encryptor, CryptoStreamMode.Write, leaveOpen: true);
 			data.CopyTo(cryptoStream);
 			return true;
@@ -184,7 +192,7 @@ public class AesEncryptionProvider : IEncryptionProvider
 		try
 		{
 			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
-			using ICryptoTransform encryptor = aes.CreateEncryptor(key.ToArray(), iv.ToArray());
+			using ICryptoTransform encryptor = CreateTransform(aes, key.Span, iv.Span, encrypt: true);
 			CryptoStream cryptoStream = new(destination, encryptor, CryptoStreamMode.Write, leaveOpen: true);
 			await using (cryptoStream.ConfigureAwait(false))
 			{
@@ -239,17 +247,23 @@ public class AesEncryptionProvider : IEncryptionProvider
 			// length by trimming trailing zeros, because the API could not report how many bytes the
 			// matching encrypt call wrote; that corrupted any ciphertext ending in a zero byte.
 			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
-			using ICryptoTransform decryptor = aes.CreateDecryptor(key.ToArray(), iv.ToArray());
+			using ICryptoTransform decryptor = CreateTransform(aes, key, iv, encrypt: false);
 			byte[] decryptedData = decryptor.TransformFinalBlock(data.ToArray(), 0, data.Length);
-
-			if (decryptedData.Length > destination.Length)
+			try
 			{
-				return false;
-			}
+				if (decryptedData.Length > destination.Length)
+				{
+					return false;
+				}
 
-			decryptedData.CopyTo(destination);
-			bytesWritten = decryptedData.Length;
-			return true;
+				decryptedData.CopyTo(destination);
+				bytesWritten = decryptedData.Length;
+				return true;
+			}
+			finally
+			{
+				CryptographicOperations.ZeroMemory(decryptedData);
+			}
 		}
 		catch (ArgumentException)
 		{
@@ -283,7 +297,7 @@ public class AesEncryptionProvider : IEncryptionProvider
 		try
 		{
 			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
-			using ICryptoTransform decryptor = aes.CreateDecryptor(key.ToArray(), iv.ToArray());
+			using ICryptoTransform decryptor = CreateTransform(aes, key, iv, encrypt: false);
 			CountingReadStream source = new(data);
 			using CryptoStream cryptoStream = new(source, decryptor, CryptoStreamMode.Read, leaveOpen: true);
 			cryptoStream.CopyTo(destination);
@@ -340,7 +354,7 @@ public class AesEncryptionProvider : IEncryptionProvider
 		try
 		{
 			using System.Security.Cryptography.Aes aes = System.Security.Cryptography.Aes.Create();
-			using ICryptoTransform decryptor = aes.CreateDecryptor(key.ToArray(), iv.ToArray());
+			using ICryptoTransform decryptor = CreateTransform(aes, key.Span, iv.Span, encrypt: false);
 			CountingReadStream source = new(data);
 			CryptoStream cryptoStream = new(source, decryptor, CryptoStreamMode.Read, leaveOpen: true);
 			await using (cryptoStream.ConfigureAwait(false))
@@ -424,6 +438,24 @@ public class AesEncryptionProvider : IEncryptionProvider
 		{
 			BytesRead += read;
 			return read;
+		}
+	}
+
+	/// <summary>
+	/// Creates an encryptor or decryptor over a copy of <paramref name="key"/> that is zeroed as soon as the
+	/// transform holds its own, so the secret does not linger in an unreachable heap array until the collector
+	/// reuses the memory, as the HMAC providers already ensure (issue #98).
+	/// </summary>
+	private static ICryptoTransform CreateTransform(System.Security.Cryptography.Aes aes, ReadOnlySpan<byte> key, ReadOnlySpan<byte> iv, bool encrypt)
+	{
+		byte[] keyCopy = key.ToArray();
+		try
+		{
+			return encrypt ? aes.CreateEncryptor(keyCopy, iv.ToArray()) : aes.CreateDecryptor(keyCopy, iv.ToArray());
+		}
+		finally
+		{
+			CryptographicOperations.ZeroMemory(keyCopy);
 		}
 	}
 }
