@@ -587,6 +587,39 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Triangular_Handles_Bounds_Whose_Width_Overflows()
+	{
+		// max - min overflowed to infinity, which made the mean infinite, the CDF NaN and every sample
+		// -Infinity, outside the bounds (issue #142).
+		IContinuousDistribution symmetric = new TriangularDistributionProvider(-1e308, 0.0, 1e308);
+		Assert.AreEqual(0.0, symmetric.Mean, 1e293);
+		Assert.AreEqual(0.5, symmetric.Cdf(0.0), Tight);
+		Assert.AreEqual(0.5, symmetric.SurvivalFunction(0.0), Tight);
+		Assert.AreEqual(0.0, symmetric.Median, 1e293);
+		Assert.AreEqual(1e-308, symmetric.Pdf(0.0), 1e-320);
+
+		IRandomProvider random = SeededRandom();
+		foreach (double sample in symmetric.Sample(random, 1000))
+		{
+			Assert.IsTrue(sample is >= -1e308 and <= 1e308, $"sample {sample} is outside the bounds");
+		}
+
+		IContinuousDistribution skewed = new TriangularDistributionProvider(-1e308, -5e307, 1e308);
+		double previous = 0.0;
+		for (int i = 1; i < 20; i++)
+		{
+			double value = (i - 10) / 10.0 * 1e308;
+			double cdf = skewed.Cdf(value);
+			Assert.IsTrue(cdf >= previous, $"the CDF fell at {value}");
+			Assert.AreEqual(1.0, cdf + skewed.SurvivalFunction(value), 1e-12, $"the survival function does not complement the CDF at {value}");
+			Assert.AreEqual(value, skewed.Quantile(cdf), 1e295, $"the quantile does not invert the CDF at {value}");
+			previous = cdf;
+		}
+
+		Assert.AreEqual(0.25, skewed.Cdf(-5e307), 1e-12, "the mode carries the lower side's share of the mass");
+	}
+
+	[TestMethod]
 	public void Bernoulli_Matches_Its_Closed_Form()
 	{
 		BernoulliDistributionProvider distribution = new(0.3);
