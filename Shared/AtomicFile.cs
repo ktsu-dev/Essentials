@@ -99,11 +99,13 @@ internal static class AtomicFile
 			{
 				return await fileSystem.File.ReadAllTextAsync(filePath, cancellationToken).ConfigureAwait(false);
 			}
-			catch (IOException ex) when (IsSharingViolation(ex))
+			catch (Exception ex) when ((ex is IOException io && IsSharingViolation(io)) || (ex is UnauthorizedAccessException && IsWindows))
 			{
 				// Windows holds the target exclusively for the instant an overwriting move swaps it, so a
-				// read that lands then is refused rather than served either version. Only that refusal is
-				// retried; a missing file and every other error surface at once.
+				// read that lands then is refused rather than served either version: as a sharing violation,
+				// or as access denied while the replaced file is still pending deletion. Only those refusals
+				// are retried, and a real permission problem still surfaces once the attempts run out; a
+				// missing file and every other error surface at once.
 				await Task.Delay(Backoff(attempt), cancellationToken).ConfigureAwait(false);
 			}
 		}
