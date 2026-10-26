@@ -79,8 +79,11 @@ public class NativeCommandExecutor : ICommandExecutor
 				await Task.Run(process.WaitForExit, cancellationToken).ConfigureAwait(false);
 #endif
 
-				string stdout = await stdoutTask.ConfigureAwait(false);
-				string stderr = await stderrTask.ConfigureAwait(false);
+				// A background job the command started keeps the pipes open after the shell exits, so the reads
+				// can outlast the wait above. Where ReadToEndAsync takes no token they are bounded by it here, or
+				// cancelling would do nothing until that job ended (issue #125).
+				string stdout = await ReadToEndAsync(stdoutTask, cancellationToken).ConfigureAwait(false);
+				string stderr = await ReadToEndAsync(stderrTask, cancellationToken).ConfigureAwait(false);
 
 				return new CommandResult(process.ExitCode, stdout, stderr);
 			}
@@ -155,16 +158,26 @@ public class NativeCommandExecutor : ICommandExecutor
 					}
 				}
 
-				return new CommandResult(process.ExitCode, stdout.Wait(), stderr.Wait());
+				// A background job the command started keeps the pipes open after the shell exits, so the
+				// drains are waited for under the same token rather than without one, which ignored a cancel
+				// and then reported the run as a success once that job ended (issue #125).
+				if (!stdout.Wait(cancellationToken) || !stderr.Wait(cancellationToken))
+				{
+					TryKill(process);
+					return Cancelled();
+				}
+
+				return new CommandResult(process.ExitCode, stdout.Text, stderr.Text);
 			}
 			finally
 			{
 				// The cancelled path abandons the drains rather than waiting for them. They still have to
 				// stop touching the streams before the `using` above disposes the process, so they are
-				// given a bounded chance to notice the child is gone. On the path that returns a result
-				// both have already been waited for, and these joins return immediately.
-				stdout.Abandon();
-				stderr.Abandon();
+				// given a bounded chance, shared between the two, to notice the child is gone. On the path
+				// that returns a result both have already been waited for, and these joins return at once.
+				Stopwatch abandoning = Stopwatch.StartNew();
+				stdout.Abandon(DrainAbandonTimeoutMilliseconds);
+				stderr.Abandon(Math.Max(0, DrainAbandonTimeoutMilliseconds - (int)abandoning.ElapsedMilliseconds));
 			}
 		}
 		catch (InvalidOperationException ex)
@@ -249,6 +262,30 @@ public class NativeCommandExecutor : ICommandExecutor
 	}
 
 	/// <summary>
+	/// Awaits a read of a redirected stream, giving up when <paramref name="cancellationToken"/> is cancelled.
+	/// </summary>
+	/// <param name="read">The read, started without a token where the platform has no overload taking one.</param>
+	/// <param name="cancellationToken">A cancellation token to stop waiting.</param>
+	/// <returns>Everything the stream carried.</returns>
+	/// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled first.</exception>
+	private static async Task<string> ReadToEndAsync(Task<string> read, CancellationToken cancellationToken)
+	{
+#if NET6_0_OR_GREATER
+		return await read.WaitAsync(cancellationToken).ConfigureAwait(false);
+#else
+		using CancellationTokenSource stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+		Task first = await Task.WhenAny(read, Task.Delay(Timeout.Infinite, stop.Token)).ConfigureAwait(false);
+		await stop.CancelAsync().ConfigureAwait(false);
+		if (first != read)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+		}
+
+		return await read.ConfigureAwait(false);
+#endif
+	}
+
+	/// <summary>
 	/// Builds the result returned when an operation is cancelled.
 	/// </summary>
 	/// <returns>A failed <see cref="CommandResult"/> describing the cancellation.</returns>
@@ -315,14 +352,9 @@ public class NativeCommandExecutor : ICommandExecutor
 	private sealed class StreamDrain
 	{
 		/// <summary>
-		/// The thread reading the stream. Joining it publishes <see cref="text"/> to the caller.
+		/// The thread reading the stream. Joining it publishes <see cref="Text"/> to the caller.
 		/// </summary>
 		private readonly Thread thread;
-
-		/// <summary>
-		/// What was read. Written only by <see cref="thread"/>, and read only after it has been joined.
-		/// </summary>
-		private string text = string.Empty;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="StreamDrain"/> class and starts reading.
@@ -334,7 +366,7 @@ public class NativeCommandExecutor : ICommandExecutor
 			{
 				try
 				{
-					text = reader.ReadToEnd();
+					Text = reader.ReadToEnd();
 				}
 				catch (Exception ex) when (ex is IOException or ObjectDisposedException)
 				{
@@ -358,19 +390,34 @@ public class NativeCommandExecutor : ICommandExecutor
 		public static StreamDrain Start(StreamReader reader) => new(reader);
 
 		/// <summary>
-		/// Waits for the stream to reach its end and returns everything it carried.
+		/// Gets everything the stream carried, exactly as the child wrote it. Written only by
+		/// <see cref="thread"/>, so read it only after <see cref="Wait"/> has returned <see langword="true"/>.
 		/// </summary>
-		/// <returns>The stream's contents, exactly as the child wrote them.</returns>
-		public string Wait()
+		public string Text { get; private set; } = string.Empty;
+
+		/// <summary>
+		/// Waits for the stream to reach its end, checking <paramref name="cancellationToken"/> as it goes.
+		/// </summary>
+		/// <param name="cancellationToken">A cancellation token to stop waiting.</param>
+		/// <returns><see langword="true"/> once the stream has ended; <see langword="false"/> if cancelled first.</returns>
+		public bool Wait(CancellationToken cancellationToken)
 		{
-			thread.Join();
-			return text;
+			while (!thread.Join(CancellationPollIntervalMilliseconds))
+			{
+				if (cancellationToken.IsCancellationRequested)
+				{
+					return false;
+				}
+			}
+
+			return true;
 		}
 
 		/// <summary>
 		/// Gives an abandoned drain a bounded chance to finish, so it is not still reading a stream whose
 		/// process is about to be disposed. Whatever it read is discarded.
 		/// </summary>
-		public void Abandon() => thread.Join(DrainAbandonTimeoutMilliseconds);
+		/// <param name="timeoutMilliseconds">How long to wait at most.</param>
+		public void Abandon(int timeoutMilliseconds) => thread.Join(timeoutMilliseconds);
 	}
 }
