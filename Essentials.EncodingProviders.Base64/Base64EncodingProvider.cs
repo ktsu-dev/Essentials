@@ -20,6 +20,11 @@ using SysBase64 = System.Buffers.Text.Base64;
 /// </remarks>
 public class Base64EncodingProvider : IEncodingProvider
 {
+#if !NET8_0_OR_GREATER
+	// The whitespace .NET 8's decoder skips.
+	private static ReadOnlySpan<byte> Whitespace => " \t\r\n"u8;
+#endif
+
 	/// <inheritdoc/>
 	public int GetMaxEncodedLength(int sourceLength) => SysBase64.GetMaxEncodedToUtf8Length(sourceLength);
 
@@ -94,8 +99,37 @@ public class Base64EncodingProvider : IEncodingProvider
 	}
 
 	/// <inheritdoc/>
+	/// <remarks>
+	/// ASCII whitespace (space, tab, carriage return and line feed) is skipped wherever it appears, so line-wrapped
+	/// MIME or PEM-style input decodes. .NET 8's decoder skips it itself; earlier targets strip it first, so every
+	/// target framework decodes the same input the same way.
+	/// </remarks>
 	public bool TryDecode(ReadOnlySpan<byte> encodedData, Span<byte> destination, out int bytesWritten)
 	{
+#if !NET8_0_OR_GREATER
+		if (encodedData.IndexOfAny(Whitespace) >= 0)
+		{
+			byte[] stripped = ArrayPool<byte>.Shared.Rent(encodedData.Length);
+			try
+			{
+				int length = 0;
+				foreach (byte b in encodedData)
+				{
+					if (Whitespace.IndexOf(b) < 0)
+					{
+						stripped[length++] = b;
+					}
+				}
+
+				return TryDecode(stripped.AsSpan(0, length), destination, out bytesWritten);
+			}
+			finally
+			{
+				ArrayPool<byte>.Shared.Return(stripped, clearArray: true);
+			}
+		}
+#endif
+
 		OperationStatus status = SysBase64.DecodeFromUtf8(encodedData, destination, out int consumed, out bytesWritten);
 
 		if (status == OperationStatus.Done && consumed == encodedData.Length)
