@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 
 /// <summary>
@@ -119,9 +120,9 @@ public class InMemoryCacheProvider<TKey, TValue> : ICacheProvider<TKey, TValue> 
 
 		while (true)
 		{
-			if (cache.TryGetValue(key, out CacheEntry? observed) && !observed.IsExpired(clock()))
+			if (cache.TryGetValue(key, out CacheEntry? observed) && observed is { } existing && !existing.IsExpired(clock()))
 			{
-				return observed.Value;
+				return existing.Value;
 			}
 
 			TValue value = factory(key);
@@ -190,12 +191,9 @@ public class InMemoryCacheProvider<TKey, TValue> : ICacheProvider<TKey, TValue> 
 		{
 			Interlocked.Exchange(ref setsSinceSweep, 0);
 			Interlocked.Exchange(ref lastSweep, now);
-			foreach (KeyValuePair<TKey, CacheEntry> pair in cache)
+			foreach (KeyValuePair<TKey, CacheEntry> pair in cache.Where(pair => pair.Value.IsExpired(now)))
 			{
-				if (pair.Value.IsExpired(now))
-				{
-					RemoveEntry(pair.Key, pair.Value);
-				}
+				RemoveEntry(pair.Key, pair.Value);
 			}
 		}
 		finally

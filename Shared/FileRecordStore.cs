@@ -181,9 +181,8 @@ internal sealed class FileRecordStore<TKey>(IFileSystemProvider fileSystem, ISer
 			}
 
 			List<TKey> keys = [];
-			foreach (string file in fileSystem.Directory.GetFiles(Directory, "*" + serializer.FileExtension, SearchOption.TopDirectoryOnly))
+			foreach (string? name in fileSystem.Directory.GetFiles(Directory, "*" + serializer.FileExtension, SearchOption.TopDirectoryOnly).Select(fileSystem.Path.GetFileNameWithoutExtension))
 			{
-				string? name = fileSystem.Path.GetFileNameWithoutExtension(file);
 				if (string.IsNullOrEmpty(name))
 				{
 					continue;
