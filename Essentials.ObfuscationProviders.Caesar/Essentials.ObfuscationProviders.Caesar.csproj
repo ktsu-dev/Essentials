@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\StreamChunks.cs" Link="StreamChunks.cs" />
     <Compile Include="..\Shared\ProviderRegistration.cs" Link="ProviderRegistration.cs" />
   </ItemGroup>
 

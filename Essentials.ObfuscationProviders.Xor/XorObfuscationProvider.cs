@@ -3,7 +3,6 @@
 namespace ktsu.Essentials.ObfuscationProviders.Xor;
 
 using System;
-using System.Buffers;
 using System.IO;
 using ktsu.Essentials;
 
@@ -13,8 +12,6 @@ using ktsu.Essentials;
 /// </summary>
 public class XorObfuscationProvider : IObfuscationProvider
 {
-	/// <summary>How many bytes the stream paths transform at a time.</summary>
-	private const int StreamBufferSize = 81920;
 
 	private readonly byte[] _key;
 
@@ -72,28 +69,19 @@ public class XorObfuscationProvider : IObfuscationProvider
 
 		try
 		{
-			// A chunk at a time: the base Stream.ReadByte and WriteByte allocate and make a call per byte on any
-			// stream that does not override them (issue #91).
-			byte[] buffer = ArrayPool<byte>.Shared.Rent(StreamBufferSize);
-			try
-			{
-				long offset = 0;
-				int read;
-				while ((read = data.Read(buffer, 0, buffer.Length)) > 0)
+			long offset = 0;
+			StreamChunks.ForEach(
+				data,
+				chunk =>
 				{
-					for (int i = 0; i < read; i++)
+					for (int i = 0; i < chunk.Length; i++)
 					{
-						buffer[i] ^= _key[(int)((offset + i) % _key.Length)];
+						chunk[i] ^= _key[(int)((offset + i) % _key.Length)];
 					}
 
-					destination.Write(buffer, 0, read);
-					offset += read;
-				}
-			}
-			finally
-			{
-				ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
-			}
+					offset += chunk.Length;
+				},
+				destination);
 
 			return true;
 		}

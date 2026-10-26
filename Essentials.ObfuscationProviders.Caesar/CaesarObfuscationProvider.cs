@@ -3,7 +3,6 @@
 namespace ktsu.Essentials.ObfuscationProviders.Caesar;
 
 using System;
-using System.Buffers;
 using System.IO;
 using ktsu.Essentials;
 
@@ -13,9 +12,6 @@ using ktsu.Essentials;
 /// </summary>
 public class CaesarObfuscationProvider(byte shift = 13) : IObfuscationProvider
 {
-	/// <summary>How many bytes the stream paths transform at a time.</summary>
-	private const int StreamBufferSize = 81920;
-
 	private readonly byte _shift = shift;
 
 	/// <inheritdoc/>
@@ -55,26 +51,16 @@ public class CaesarObfuscationProvider(byte shift = 13) : IObfuscationProvider
 
 		try
 		{
-			// A chunk at a time: the base Stream.ReadByte and WriteByte allocate and make a call per byte on any
-			// stream that does not override them (issue #91).
-			byte[] buffer = ArrayPool<byte>.Shared.Rent(StreamBufferSize);
-			try
-			{
-				int read;
-				while ((read = data.Read(buffer, 0, buffer.Length)) > 0)
+			StreamChunks.ForEach(
+				data,
+				chunk =>
 				{
-					for (int i = 0; i < read; i++)
+					for (int i = 0; i < chunk.Length; i++)
 					{
-						buffer[i] = (byte)(buffer[i] + _shift);
+						chunk[i] = (byte)(chunk[i] + _shift);
 					}
-
-					destination.Write(buffer, 0, read);
-				}
-			}
-			finally
-			{
-				ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
-			}
+				},
+				destination);
 
 			return true;
 		}
@@ -117,26 +103,16 @@ public class CaesarObfuscationProvider(byte shift = 13) : IObfuscationProvider
 
 		try
 		{
-			// A chunk at a time: the base Stream.ReadByte and WriteByte allocate and make a call per byte on any
-			// stream that does not override them (issue #91).
-			byte[] buffer = ArrayPool<byte>.Shared.Rent(StreamBufferSize);
-			try
-			{
-				int read;
-				while ((read = obfuscatedData.Read(buffer, 0, buffer.Length)) > 0)
+			StreamChunks.ForEach(
+				obfuscatedData,
+				chunk =>
 				{
-					for (int i = 0; i < read; i++)
+					for (int i = 0; i < chunk.Length; i++)
 					{
-						buffer[i] = (byte)(buffer[i] - _shift);
+						chunk[i] = (byte)(chunk[i] - _shift);
 					}
-
-					destination.Write(buffer, 0, read);
-				}
-			}
-			finally
-			{
-				ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
-			}
+				},
+				destination);
 
 			return true;
 		}

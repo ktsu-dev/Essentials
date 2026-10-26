@@ -285,13 +285,13 @@ public class FileLoggingProvider : ILoggingProvider
 
 		try
 		{
-			Move(FilePath, activeStaging);
+			Move(moves, FilePath, activeStaging);
 
 			string oldest = GetRolledFilePath(maxFileCount - 1);
 			if (fileSystem.File.Exists(oldest))
 			{
 				oldestStaging = StagingPath();
-				Move(oldest, oldestStaging);
+				Move(moves, oldest, oldestStaging);
 			}
 
 			for (int index = maxFileCount - 2; index >= 1; index--)
@@ -299,11 +299,11 @@ public class FileLoggingProvider : ILoggingProvider
 				string source = GetRolledFilePath(index);
 				if (fileSystem.File.Exists(source))
 				{
-					Move(source, GetRolledFilePath(index + 1));
+					Move(moves, source, GetRolledFilePath(index + 1));
 				}
 			}
 
-			Move(activeStaging, GetRolledFilePath(1));
+			Move(moves, activeStaging, GetRolledFilePath(1));
 		}
 		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 		{
@@ -335,12 +335,16 @@ public class FileLoggingProvider : ILoggingProvider
 		}
 
 		return true;
+	}
 
-		void Move(string from, string to)
-		{
-			fileSystem.File.Move(from, to);
-			moves.Add((from, to));
-		}
+	/// <summary>Moves a file and records the move, so a roll refused part way can undo it.</summary>
+	/// <param name="moves">The moves made so far.</param>
+	/// <param name="from">The file to move.</param>
+	/// <param name="to">Where it goes.</param>
+	private void Move(List<(string From, string To)> moves, string from, string to)
+	{
+		fileSystem.File.Move(from, to);
+		moves.Add((from, to));
 	}
 
 	private string StagingPath()

@@ -4,7 +4,6 @@ namespace ktsu.Essentials.ObfuscationProviders.BitRotate;
 
 using ktsu.Essentials;
 using System;
-using System.Buffers;
 using System.IO;
 
 /// <summary>
@@ -13,9 +12,6 @@ using System.IO;
 /// </summary>
 public class BitRotateObfuscationProvider : IObfuscationProvider
 {
-	/// <summary>How many bytes the stream paths transform at a time.</summary>
-	private const int StreamBufferSize = 81920;
-
 	private readonly int _bits;
 
 	/// <summary>Initializes a new instance rotating by 3 bits.</summary>
@@ -74,26 +70,16 @@ public class BitRotateObfuscationProvider : IObfuscationProvider
 
 		try
 		{
-			// A chunk at a time: the base Stream.ReadByte and WriteByte allocate and make a call per byte on any
-			// stream that does not override them (issue #91).
-			byte[] buffer = ArrayPool<byte>.Shared.Rent(StreamBufferSize);
-			try
-			{
-				int read;
-				while ((read = data.Read(buffer, 0, buffer.Length)) > 0)
+			StreamChunks.ForEach(
+				data,
+				chunk =>
 				{
-					for (int i = 0; i < read; i++)
+					for (int i = 0; i < chunk.Length; i++)
 					{
-						buffer[i] = RotateLeft(buffer[i], _bits);
+						chunk[i] = RotateLeft(chunk[i], _bits);
 					}
-
-					destination.Write(buffer, 0, read);
-				}
-			}
-			finally
-			{
-				ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
-			}
+				},
+				destination);
 
 			return true;
 		}
@@ -136,26 +122,16 @@ public class BitRotateObfuscationProvider : IObfuscationProvider
 
 		try
 		{
-			// A chunk at a time: the base Stream.ReadByte and WriteByte allocate and make a call per byte on any
-			// stream that does not override them (issue #91).
-			byte[] buffer = ArrayPool<byte>.Shared.Rent(StreamBufferSize);
-			try
-			{
-				int read;
-				while ((read = obfuscatedData.Read(buffer, 0, buffer.Length)) > 0)
+			StreamChunks.ForEach(
+				obfuscatedData,
+				chunk =>
 				{
-					for (int i = 0; i < read; i++)
+					for (int i = 0; i < chunk.Length; i++)
 					{
-						buffer[i] = RotateRight(buffer[i], _bits);
+						chunk[i] = RotateRight(chunk[i], _bits);
 					}
-
-					destination.Write(buffer, 0, read);
-				}
-			}
-			finally
-			{
-				ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
-			}
+				},
+				destination);
 
 			return true;
 		}
