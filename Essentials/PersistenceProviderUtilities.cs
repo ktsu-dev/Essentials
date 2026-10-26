@@ -18,12 +18,17 @@ public static class PersistenceProviderUtilities
 	/// </summary>
 	private static readonly char[] ReservedCharacters = ['<', '>', ':', '"', '/', '\\', '|', '?', '*', '%'];
 
-	/// <summary>Device names Windows reserves regardless of extension.</summary>
+	/// <summary>
+	/// Device names Windows reserves regardless of extension. Windows counts the superscript digits
+	/// ¹, ² and ³ as digits in a device name, so COM¹ is a serial port just as COM1 is.
+	/// </summary>
 	private static readonly string[] ReservedDeviceNames =
 	[
 		"CON", "PRN", "AUX", "NUL",
-		"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-		"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+		"COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+		"COM\u00B9", "COM\u00B2", "COM\u00B3",
+		"LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+		"LPT\u00B9", "LPT\u00B2", "LPT\u00B3",
 	];
 
 	/// <summary>
