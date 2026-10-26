@@ -102,6 +102,10 @@ public class GzipCompressionProvider : ICompressionProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <summary>
@@ -151,6 +155,10 @@ public class GzipCompressionProvider : ICompressionProvider
 			return false;
 		}
 		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+		catch (NotSupportedException)
 		{
 			return false;
 		}
@@ -224,6 +232,10 @@ public class GzipCompressionProvider : ICompressionProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <summary>
@@ -273,6 +285,10 @@ public class GzipCompressionProvider : ICompressionProvider
 			return false;
 		}
 		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+		catch (NotSupportedException)
 		{
 			return false;
 		}

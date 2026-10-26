@@ -66,15 +66,24 @@ public class XorObfuscationProvider : IObfuscationProvider
 			return false;
 		}
 
-		int b;
-		long i = 0;
-		while ((b = data.ReadByte()) >= 0)
+		try
 		{
-			destination.WriteByte((byte)(b ^ _key[(int)(i % _key.Length)]));
-			i++;
-		}
+			int b;
+			long i = 0;
+			while ((b = data.ReadByte()) >= 0)
+			{
+				destination.WriteByte((byte)(b ^ _key[(int)(i % _key.Length)]));
+				i++;
+			}
 
-		return true;
+			return true;
+		}
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
+		{
+			// A stream that cannot be read or written is a failure to report, as the encoder-backed
+			// obfuscators already do (issue #86).
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>

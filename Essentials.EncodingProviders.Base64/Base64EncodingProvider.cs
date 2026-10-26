@@ -96,6 +96,10 @@ public class Base64EncodingProvider : IEncodingProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>
@@ -177,6 +181,10 @@ public class Base64EncodingProvider : IEncodingProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>
@@ -220,6 +228,10 @@ public class Base64EncodingProvider : IEncodingProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>
@@ -251,6 +263,10 @@ public class Base64EncodingProvider : IEncodingProvider
 			return false;
 		}
 		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+		catch (NotSupportedException)
 		{
 			return false;
 		}

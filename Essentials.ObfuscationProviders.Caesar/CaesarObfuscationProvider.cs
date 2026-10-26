@@ -49,13 +49,22 @@ public class CaesarObfuscationProvider(byte shift = 13) : IObfuscationProvider
 			return false;
 		}
 
-		int b;
-		while ((b = data.ReadByte()) >= 0)
+		try
 		{
-			destination.WriteByte((byte)(b + _shift));
-		}
+			int b;
+			while ((b = data.ReadByte()) >= 0)
+			{
+				destination.WriteByte((byte)(b + _shift));
+			}
 
-		return true;
+			return true;
+		}
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
+		{
+			// A stream that cannot be read or written is a failure to report, as the encoder-backed
+			// obfuscators already do (issue #86).
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>
@@ -87,12 +96,21 @@ public class CaesarObfuscationProvider(byte shift = 13) : IObfuscationProvider
 			return false;
 		}
 
-		int b;
-		while ((b = obfuscatedData.ReadByte()) >= 0)
+		try
 		{
-			destination.WriteByte((byte)(b - _shift));
-		}
+			int b;
+			while ((b = obfuscatedData.ReadByte()) >= 0)
+			{
+				destination.WriteByte((byte)(b - _shift));
+			}
 
-		return true;
+			return true;
+		}
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
+		{
+			// A stream that cannot be read or written is a failure to report, as the encoder-backed
+			// obfuscators already do (issue #86).
+			return false;
+		}
 	}
 }

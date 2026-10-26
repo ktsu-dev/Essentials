@@ -149,6 +149,10 @@ public class AesEncryptionProvider : IEncryptionProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <summary>
@@ -202,6 +206,10 @@ public class AesEncryptionProvider : IEncryptionProvider
 			return false;
 		}
 		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+		catch (NotSupportedException)
 		{
 			return false;
 		}
@@ -297,6 +305,10 @@ public class AesEncryptionProvider : IEncryptionProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <summary>
@@ -351,6 +363,10 @@ public class AesEncryptionProvider : IEncryptionProvider
 			return false;
 		}
 		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+		catch (NotSupportedException)
 		{
 			return false;
 		}

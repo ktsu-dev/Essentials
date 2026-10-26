@@ -98,6 +98,10 @@ public class HexEncodingProvider : IEncodingProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>
@@ -162,6 +166,10 @@ public class HexEncodingProvider : IEncodingProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	private static bool TryParseNibble(byte character, out int value)
@@ -223,6 +231,10 @@ public class HexEncodingProvider : IEncodingProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>
@@ -280,6 +292,10 @@ public class HexEncodingProvider : IEncodingProvider
 			return false;
 		}
 		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+		catch (NotSupportedException)
 		{
 			return false;
 		}

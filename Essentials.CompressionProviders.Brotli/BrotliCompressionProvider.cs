@@ -102,6 +102,10 @@ public class BrotliCompressionProvider : ICompressionProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <summary>
@@ -150,6 +154,10 @@ public class BrotliCompressionProvider : ICompressionProvider
 			return false;
 		}
 		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+		catch (NotSupportedException)
 		{
 			return false;
 		}
@@ -223,6 +231,10 @@ public class BrotliCompressionProvider : ICompressionProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <summary>
@@ -272,6 +284,10 @@ public class BrotliCompressionProvider : ICompressionProvider
 			return false;
 		}
 		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+		catch (NotSupportedException)
 		{
 			return false;
 		}
