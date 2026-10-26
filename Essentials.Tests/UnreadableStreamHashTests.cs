@@ -58,6 +58,38 @@ public class UnreadableStreamHashTests
 
 	[TestMethod]
 	[DynamicData(nameof(HashProviders))]
+	public void TryHash_Returns_False_For_An_Unreadable_Stream(IHashProvider provider, string providerName)
+	{
+		byte[] destination = new byte[provider.HashLengthBytes];
+
+		using MemoryStream disposed = CreateDisposedStream();
+		Assert.IsFalse(provider.TryHash(disposed, destination, out _), $"{providerName} should report a disposed stream as a failure");
+		Assert.ThrowsExactly<InvalidOperationException>(() => provider.Hash(disposed));
+
+		using FileStream writeOnly = CreateWriteOnlyStream(TempPath());
+		Assert.IsFalse(provider.TryHash(writeOnly, destination, out _), $"{providerName} should report a write-only stream as a failure");
+		Assert.ThrowsExactly<InvalidOperationException>(() => provider.Hash(writeOnly));
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(KeyedHashProviders))]
+	public void Keyed_TryHash_Returns_False_For_An_Unreadable_Stream(IKeyedHashProvider provider, string providerName)
+	{
+		// The HMAC stream path caught only IOException, so a closed stream threw ObjectDisposedException out of a
+		// Try method (issue #74).
+		byte[] destination = new byte[provider.HashLengthBytes];
+
+		using MemoryStream disposed = CreateDisposedStream();
+		Assert.IsFalse(provider.TryHash(Key, disposed, destination, out _), $"{providerName} should report a disposed stream as a failure");
+		Assert.ThrowsExactly<InvalidOperationException>(() => provider.Hash(Key, disposed));
+
+		using FileStream writeOnly = CreateWriteOnlyStream(TempPath());
+		Assert.IsFalse(provider.TryHash(Key, writeOnly, destination, out _), $"{providerName} should report a write-only stream as a failure");
+		Assert.ThrowsExactly<InvalidOperationException>(() => provider.Hash(Key, writeOnly));
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(HashProviders))]
 	public async Task TryHashAsync_Returns_False_For_A_Disposed_Stream(IHashProvider provider, string providerName)
 	{
 		using MemoryStream stream = CreateDisposedStream();
