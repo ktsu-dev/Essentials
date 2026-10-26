@@ -57,6 +57,34 @@ public class UserDirectoriesTests
 	}
 
 	[TestMethod]
+	[TestCategory("OS-Specific")]
+	public void Homes_Ignore_Drive_Relative_Overrides_On_Windows()
+	{
+		if (!OperatingSystem.IsWindows())
+		{
+			Assert.Inconclusive("Drive-relative paths only exist on Windows.");
+		}
+
+		// Both are rooted but not fully qualified: "\x" is relative to the current drive, "C:x" to the
+		// current directory on drive C.
+		foreach (string relative in new[] { @"\x", "C:x" })
+		{
+			WithVariable(UserDirectories.ConfigHomeVariable, relative, () =>
+				Assert.AreEqual(Path.Join(UserDirectories.GetHomeDirectory(), ".config"), UserDirectories.GetConfigHome()));
+			WithVariable(UserDirectories.DataHomeVariable, relative, () =>
+				Assert.AreEqual(Path.Join(UserDirectories.GetHomeDirectory(), ".local", "share"), UserDirectories.GetDataHome()));
+		}
+	}
+
+	[TestMethod]
+	public void Homes_Honour_A_Fully_Qualified_Override()
+	{
+		string overridden = Path.GetFullPath(Path.Join(Path.GetTempPath(), "xdg_config_" + Guid.NewGuid().ToString("N")[..8]));
+		WithVariable(UserDirectories.ConfigHomeVariable, overridden, () =>
+			Assert.AreEqual(overridden, UserDirectories.GetConfigHome()));
+	}
+
+	[TestMethod]
 	public void Application_Directories_Reject_A_Blank_Name()
 	{
 		Assert.ThrowsExactly<ArgumentException>(() => UserDirectories.GetApplicationStateDirectory(" "));
