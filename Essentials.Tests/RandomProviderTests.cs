@@ -296,6 +296,29 @@ public class RandomProviderTests
 
 	[TestMethod]
 	[DynamicData(nameof(RandomProviders))]
+	public void Choose_Splits_Weights_Whose_Total_Overflows(IRandomProvider random, string name)
+	{
+		// The weights summed to infinity, every share of it was zero, and the fallback took the last element
+		// every time (issue #78).
+		int[] items = [0, 1, 2];
+		double[] weights = [1e308, 1e308, 0.0];
+
+		int first = 0;
+		for (int i = 0; i < SampleCount; i++)
+		{
+			int chosen = random.Choose(items, weights);
+			Assert.AreNotEqual(2, chosen, name);
+			if (chosen == 0)
+			{
+				first++;
+			}
+		}
+
+		Assert.IsTrue(Math.Abs(first - (SampleCount * 0.5)) < SampleCount * 0.02, $"{name} chose the first element {first} times out of {SampleCount}");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(RandomProviders))]
 	public void Choose_Rejects_Malformed_Weights(IRandomProvider random, string name)
 	{
 		string[] items = ["a", "b"];

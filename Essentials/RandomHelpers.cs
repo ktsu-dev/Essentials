@@ -131,13 +131,21 @@ internal static class RandomHelpers
 	/// <summary>
 	/// Adds up a weight list, rejecting negative, non-finite, and all-zero weights.
 	/// </summary>
+	/// <remarks>
+	/// Each weight is finite but their sum need not be: <c>[1e308, 1e308]</c> adds up to infinity, and every share
+	/// of an infinite total is zero (issue #78). When that happens the weights are summed again divided by the
+	/// largest, which cannot overflow, and <paramref name="divisor"/> reports what to divide each weight by so its
+	/// share is measured against the same total. Otherwise the divisor is one and the weights are used as given.
+	/// </remarks>
 	/// <param name="weights">The weights to total.</param>
 	/// <param name="name">The parameter name to report.</param>
-	/// <returns>The sum of the weights.</returns>
+	/// <param name="divisor">What every weight is divided by before it is compared with the returned total.</param>
+	/// <returns>The sum of the weights, each divided by <paramref name="divisor"/>.</returns>
 	/// <exception cref="ArgumentException">A weight is negative or not finite, or they sum to zero.</exception>
-	internal static double SumWeights(IReadOnlyList<double> weights, string name)
+	internal static double SumWeights(IReadOnlyList<double> weights, string name, out double divisor)
 	{
 		double total = 0.0;
+		double largest = 0.0;
 		for (int i = 0; i < weights.Count; i++)
 		{
 			double weight = weights[i];
@@ -147,11 +155,26 @@ internal static class RandomHelpers
 			}
 
 			total += weight;
+			largest = Math.Max(largest, weight);
 		}
 
-		return total > 0.0
-			? total
-			: throw new ArgumentException("At least one weight must be greater than zero.", name);
+		if (total <= 0.0)
+		{
+			throw new ArgumentException("At least one weight must be greater than zero.", name);
+		}
+
+		divisor = 1.0;
+		if (double.IsInfinity(total))
+		{
+			divisor = largest;
+			total = 0.0;
+			for (int i = 0; i < weights.Count; i++)
+			{
+				total += weights[i] / divisor;
+			}
+		}
+
+		return total;
 	}
 
 	/// <summary>
