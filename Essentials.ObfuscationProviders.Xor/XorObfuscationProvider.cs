@@ -12,6 +12,7 @@ using ktsu.Essentials;
 /// </summary>
 public class XorObfuscationProvider : IObfuscationProvider
 {
+
 	private readonly byte[] _key;
 
 	/// <summary>Initializes a new instance with the default single-byte key.</summary>
@@ -66,15 +67,30 @@ public class XorObfuscationProvider : IObfuscationProvider
 			return false;
 		}
 
-		int b;
-		long i = 0;
-		while ((b = data.ReadByte()) >= 0)
+		try
 		{
-			destination.WriteByte((byte)(b ^ _key[(int)(i % _key.Length)]));
-			i++;
-		}
+			long offset = 0;
+			StreamChunks.ForEach(
+				data,
+				chunk =>
+				{
+					for (int i = 0; i < chunk.Length; i++)
+					{
+						chunk[i] ^= _key[(int)((offset + i) % _key.Length)];
+					}
 
-		return true;
+					offset += chunk.Length;
+				},
+				destination);
+
+			return true;
+		}
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
+		{
+			// A stream that cannot be read or written is a failure to report, as the encoder-backed
+			// obfuscators already do (issue #86).
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>

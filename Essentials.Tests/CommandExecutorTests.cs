@@ -293,6 +293,91 @@ public class CommandExecutorTests
 	}
 
 	/// <summary>
+	/// Regression test for issue #125: a background job holding the pipes open after the shell exited made the
+	/// synchronous path wait for it with no token check and then report success.
+	/// </summary>
+	/// <param name="executor">The executor under test.</param>
+	/// <param name="providerName">The name of the executor, for assertion messages.</param>
+	[TestMethod]
+	[DynamicData(nameof(CommandExecutors))]
+	public void CommandExecutor_Cancellation_Is_Honoured_After_The_Shell_Exits(ICommandExecutor executor, string providerName)
+	{
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+		{
+			Assert.Inconclusive("cmd.exe has no plain way to leave a job running on the inherited pipes.");
+		}
+
+		const string command = "sleep 10 & echo hi";
+		TimeSpan limit = TimeSpan.FromSeconds(5);
+
+		Stopwatch syncRun = Stopwatch.StartNew();
+		using (CancellationTokenSource cts = new(TimeSpan.FromMilliseconds(500)))
+		{
+			CommandResult result = executor.Execute(command, cancellationToken: cts.Token);
+			Assert.IsFalse(result.Success, $"{providerName} sync reported a cancelled run as a success");
+		}
+
+		Assert.IsLessThan(limit, syncRun.Elapsed, $"{providerName} sync waited for the background job");
+
+		Stopwatch asyncRun = Stopwatch.StartNew();
+		using (CancellationTokenSource cts = new(TimeSpan.FromMilliseconds(500)))
+		{
+			CommandResult result = executor.ExecuteAsync(command, cancellationToken: cts.Token).Result;
+			Assert.IsFalse(result.Success, $"{providerName} async reported a cancelled run as a success");
+		}
+
+		Assert.IsLessThan(limit, asyncRun.Elapsed, $"{providerName} async waited for the background job");
+	}
+
+	/// <summary>
+	/// Regression test for issue #97: cancelling killed only the shell, so work in a subshell carried on to its
+	/// side effect, and held the pipes open so the call came back a second per stream late.
+	/// </summary>
+	/// <param name="executor">The executor under test.</param>
+	/// <param name="providerName">The name of the executor, for assertion messages.</param>
+	[TestMethod]
+	[DynamicData(nameof(CommandExecutors))]
+	public void CommandExecutor_Cancellation_Stops_Work_In_A_Subshell(ICommandExecutor executor, string providerName)
+	{
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+		{
+			Assert.Inconclusive("Subshells are a Unix shell construct; cmd.exe children are covered by CommandExecutor_Cancellation_Stops_The_Command.");
+		}
+
+		string syncMarker = Path.Join(Path.GetTempPath(), $"ktsu-subshell-sync-{Guid.NewGuid():N}");
+		string asyncMarker = Path.Join(Path.GetTempPath(), $"ktsu-subshell-async-{Guid.NewGuid():N}");
+		TimeSpan prompt = TimeSpan.FromMilliseconds(1750);
+
+		try
+		{
+			Stopwatch syncRun = Stopwatch.StartNew();
+			using (CancellationTokenSource cts = new(CancellationDelay))
+			{
+				CommandResult result = executor.Execute($"(sleep 3; touch '{syncMarker}'); true", cancellationToken: cts.Token);
+				Assert.IsFalse(result.Success, $"{providerName} sync should report the cancellation");
+			}
+
+			Assert.IsLessThan(prompt, syncRun.Elapsed, $"{providerName} sync waited out the pipes a surviving subshell held");
+
+			using (CancellationTokenSource cts = new(CancellationDelay))
+			{
+				CommandResult result = executor.ExecuteAsync($"(sleep 3; touch '{asyncMarker}'); true", cancellationToken: cts.Token).Result;
+				Assert.IsFalse(result.Success, $"{providerName} async should report the cancellation");
+			}
+
+			_ = TestContext.CancellationToken.WaitHandle.WaitOne(TimeSpan.FromSeconds(4));
+
+			Assert.IsFalse(File.Exists(syncMarker), $"{providerName} sync left the subshell running to its side effect");
+			Assert.IsFalse(File.Exists(asyncMarker), $"{providerName} async left the subshell running to its side effect");
+		}
+		finally
+		{
+			File.Delete(syncMarker);
+			File.Delete(asyncMarker);
+		}
+	}
+
+	/// <summary>
 	/// How long the command in <see cref="CommandExecutor_Cancellation_Stops_The_Command"/> waits before
 	/// creating its marker. It has to be far past <see cref="CancellationDelay"/>, with room for a loaded CI
 	/// runner to be slow to deliver the cancellation: at two seconds a Windows runner once observed it only

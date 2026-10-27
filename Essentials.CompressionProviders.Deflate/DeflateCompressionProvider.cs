@@ -12,6 +12,11 @@ using System.Threading.Tasks;
 /// <summary>
 /// A compression provider that uses Deflate for data compression and decompression.
 /// </summary>
+/// <remarks>
+/// Raw Deflate has no trailer, so input cut off at a block boundary cannot be told from a complete stream and
+/// decompresses to the data before the cut. Use the Gzip, ZLib or Brotli provider where truncation must be
+/// detected; each of those reports it as a failure (issue #80).
+/// </remarks>
 public class DeflateCompressionProvider : ICompressionProvider
 {
 	/// <inheritdoc/>
@@ -102,6 +107,10 @@ public class DeflateCompressionProvider : ICompressionProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <summary>
@@ -153,6 +162,10 @@ public class DeflateCompressionProvider : ICompressionProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <summary>
@@ -172,6 +185,7 @@ public class DeflateCompressionProvider : ICompressionProvider
 				compressedData,
 				destination,
 				static input => new DeflateStream(input, CompressionMode.Decompress, leaveOpen: true),
+				isComplete: null,
 				out bytesWritten);
 		}
 		catch (ArgumentException)
@@ -220,6 +234,10 @@ public class DeflateCompressionProvider : ICompressionProvider
 			return false;
 		}
 		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+		catch (NotSupportedException)
 		{
 			return false;
 		}
@@ -272,6 +290,10 @@ public class DeflateCompressionProvider : ICompressionProvider
 			return false;
 		}
 		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+		catch (NotSupportedException)
 		{
 			return false;
 		}

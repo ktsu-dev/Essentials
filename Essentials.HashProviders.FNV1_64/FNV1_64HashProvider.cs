@@ -14,6 +14,8 @@ public class FNV1_64HashProvider : IHashProvider
 	private const ulong FnvOffsetBasis64 = 0xcbf29ce484222325;
 	private const ulong FnvPrime64 = 0x00000100000001b3;
 
+	/// <summary>How many bytes the stream path reads at a time.</summary>
+
 	/// <summary>
 	/// The length of the FNV-1 64-bit hash in bytes (8 bytes / 64 bits).
 	/// </summary>
@@ -88,13 +90,16 @@ public class FNV1_64HashProvider : IHashProvider
 		try
 		{
 			ulong hash = FnvOffsetBasis64;
-			int b;
-
-			while ((b = data.ReadByte()) != -1)
-			{
-				hash *= FnvPrime64;
-				hash ^= (byte)b;
-			}
+			StreamChunks.ForEach(
+				data,
+				chunk =>
+				{
+					for (int i = 0; i < chunk.Length; i++)
+					{
+						hash *= FnvPrime64;
+						hash ^= chunk[i];
+					}
+				});
 
 			// Write the hash as little-endian bytes
 			destination[0] = (byte)(hash & 0xFF);

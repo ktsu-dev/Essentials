@@ -284,12 +284,12 @@ public interface IRandomProvider
 			throw new ArgumentException($"Expected {items.Count} weights to match the collection, but got {weights.Count}.", nameof(weights));
 		}
 
-		double total = RandomHelpers.SumWeights(weights, nameof(weights));
+		double total = RandomHelpers.SumWeights(weights, nameof(weights), out double divisor);
 		double target = NextDouble() * total;
 		double cumulative = 0.0;
 		for (int i = 0; i < items.Count; i++)
 		{
-			cumulative += weights[i];
+			cumulative += weights[i] / divisor;
 			if (target < cumulative)
 			{
 				return items[i];

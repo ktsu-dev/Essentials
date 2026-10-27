@@ -137,8 +137,10 @@ public static class UserDirectories
 	{
 		string? overridden = Environment.GetEnvironmentVariable(variable);
 
-		// The specification says a value that is not an absolute path must be ignored.
-		return !string.IsNullOrWhiteSpace(overridden) && Path.IsPathRooted(overridden)
+		// The specification says a value that is not an absolute path must be ignored. IsPathRooted is not
+		// enough: on Windows it also accepts "\cfg" and "C:cfg", which resolve against the current drive or
+		// the current directory on a drive.
+		return !string.IsNullOrWhiteSpace(overridden) && Path.IsPathFullyQualified(overridden)
 			? overridden!
 			: Path.Combine(GetHomeDirectory(), relativeDefault);
 	}

@@ -38,7 +38,8 @@ public class FileLoggingOptions
 	/// </summary>
 	/// <remarks>
 	/// A file is never left empty to honour the limit: an entry larger than the limit on its own is
-	/// written whole to a fresh file.
+	/// written whole to a fresh file. A file can also grow past the limit while another program holds it
+	/// open without delete sharing, which stops it being rolled; entries are appended until it can be.
 	/// </remarks>
 	public long MaxFileSizeBytes { get; set; } = DefaultMaxFileSizeBytes;
 

@@ -23,6 +23,12 @@ using System.IO;
 /// </remarks>
 internal static class BoundedDecompression
 {
+	/// <summary>Whether <paramref name="output"/> is everything <paramref name="input"/> describes.</summary>
+	/// <param name="output">Everything the decompressor produced.</param>
+	/// <param name="input">The whole compressed input.</param>
+	/// <returns><see langword="true"/> if the input was not cut off.</returns>
+	internal delegate bool CompletenessCheck(ReadOnlySpan<byte> output, ReadOnlySpan<byte> input);
+
 	/// <summary>
 	/// Decompresses <paramref name="compressedData"/> into <paramref name="destination"/>, failing once the
 	/// destination is full and more output remains.
@@ -30,14 +36,18 @@ internal static class BoundedDecompression
 	/// <param name="compressedData">The compressed data to decompress.</param>
 	/// <param name="destination">The destination to write the decompressed data to.</param>
 	/// <param name="openDecompressor">Wraps the compressed input in the provider's decompressing stream.</param>
+	/// <param name="isComplete">
+	/// Tells a stream that reached its own end from one whose input ran out, which the decompressing stream reports
+	/// the same way (issue #80), or <see langword="null"/> for a format that cannot tell.
+	/// </param>
 	/// <param name="bytesWritten">The number of bytes written to <paramref name="destination"/>, or zero on failure.</param>
 	/// <returns><see langword="true"/> if the whole output fit in <paramref name="destination"/>; otherwise, <see langword="false"/>.</returns>
 	/// <remarks>
 	/// Errors in the compressed data surface as the decompressor throws them, for the caller's own
-	/// <c>catch</c> blocks to turn into <see langword="false"/>. Input that ends early is treated exactly
-	/// as the stream overloads treat it, since both read the same decompressing stream to its end.
+	/// <c>catch</c> blocks to turn into <see langword="false"/>. Input that ends early is reported as
+	/// <paramref name="isComplete"/> decides, as the stream overloads report it.
 	/// </remarks>
-	internal static bool TryDecompress(ReadOnlySpan<byte> compressedData, Span<byte> destination, Func<Stream, Stream> openDecompressor, out int bytesWritten)
+	internal static bool TryDecompress(ReadOnlySpan<byte> compressedData, Span<byte> destination, Func<Stream, Stream> openDecompressor, CompletenessCheck? isComplete, out int bytesWritten)
 	{
 		bytesWritten = 0;
 
@@ -50,8 +60,7 @@ internal static class BoundedDecompression
 			int read = decompressor.Read(destination[written..]);
 			if (read == 0)
 			{
-				bytesWritten = written;
-				return true;
+				return Finish(compressedData, destination[..written], isComplete, out bytesWritten);
 			}
 
 			written += read;
@@ -65,7 +74,18 @@ internal static class BoundedDecompression
 			return false;
 		}
 
-		bytesWritten = written;
+		return Finish(compressedData, destination[..written], isComplete, out bytesWritten);
+	}
+
+	private static bool Finish(ReadOnlySpan<byte> compressedData, ReadOnlySpan<byte> output, CompletenessCheck? isComplete, out int bytesWritten)
+	{
+		if (isComplete is not null && !isComplete(output, compressedData))
+		{
+			bytesWritten = 0;
+			return false;
+		}
+
+		bytesWritten = output.Length;
 		return true;
 	}
 }

@@ -68,13 +68,27 @@ public class BitRotateObfuscationProvider : IObfuscationProvider
 			return false;
 		}
 
-		int b;
-		while ((b = data.ReadByte()) >= 0)
+		try
 		{
-			destination.WriteByte(RotateLeft((byte)b, _bits));
-		}
+			StreamChunks.ForEach(
+				data,
+				chunk =>
+				{
+					for (int i = 0; i < chunk.Length; i++)
+					{
+						chunk[i] = RotateLeft(chunk[i], _bits);
+					}
+				},
+				destination);
 
-		return true;
+			return true;
+		}
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
+		{
+			// A stream that cannot be read or written is a failure to report, as the encoder-backed
+			// obfuscators already do (issue #86).
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>
@@ -106,12 +120,26 @@ public class BitRotateObfuscationProvider : IObfuscationProvider
 			return false;
 		}
 
-		int b;
-		while ((b = obfuscatedData.ReadByte()) >= 0)
+		try
 		{
-			destination.WriteByte(RotateRight((byte)b, _bits));
-		}
+			StreamChunks.ForEach(
+				obfuscatedData,
+				chunk =>
+				{
+					for (int i = 0; i < chunk.Length; i++)
+					{
+						chunk[i] = RotateRight(chunk[i], _bits);
+					}
+				},
+				destination);
 
-		return true;
+			return true;
+		}
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
+		{
+			// A stream that cannot be read or written is a failure to report, as the encoder-backed
+			// obfuscators already do (issue #86).
+			return false;
+		}
 	}
 }
