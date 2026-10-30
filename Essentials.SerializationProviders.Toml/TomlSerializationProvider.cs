@@ -6,6 +6,7 @@ using ktsu.Essentials;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -25,8 +26,48 @@ using Tomlyn;
 /// </remarks>
 public class TomlSerializationProvider : ISerializationProvider
 {
-	/// <summary>The options both directions bind with, so names convert the same way in each.</summary>
-	private static readonly TomlModelOptions ModelOptions = new() { IgnoreMissingProperties = true };
+	/// <summary>The options both directions bind with, so names and values convert the same way in each.</summary>
+	private static readonly TomlModelOptions ModelOptions = new()
+	{
+		IgnoreMissingProperties = true,
+		ConvertToToml = ToTomlValue,
+		ConvertToModel = ToModelValue,
+	};
+
+	/// <summary>
+	/// Writes the scalars TOML has no type for as strings. Tomlyn would otherwise write a <see cref="Guid"/>,
+	/// <see cref="decimal"/>, <see cref="TimeSpan"/> or <see cref="Uri"/> as an empty table, which reads back as
+	/// the default, and throws on a <see cref="char"/>. A decimal is a string rather than a float so it keeps
+	/// every digit.
+	/// </summary>
+	private static string? ToTomlValue(object value) => value switch
+	{
+		Guid guid => guid.ToString("D", CultureInfo.InvariantCulture),
+		decimal number => number.ToString(CultureInfo.InvariantCulture),
+		TimeSpan span => span.ToString("c", CultureInfo.InvariantCulture),
+		Uri uri => uri.OriginalString,
+		char character => character.ToString(),
+		_ => null,
+	};
+
+	/// <summary>
+	/// Reads back the scalars <see cref="ToTomlValue"/> writes as strings, and a decimal written by hand as a
+	/// TOML integer or float. Anything else is left to Tomlyn.
+	/// </summary>
+	private static object? ToModelValue(object value, Type targetType)
+	{
+		Type type = Nullable.GetUnderlyingType(targetType) ?? targetType;
+		return value switch
+		{
+			string text when type == typeof(Guid) => Guid.Parse(text),
+			string text when type == typeof(decimal) => decimal.Parse(text, NumberStyles.Number | NumberStyles.AllowExponent, CultureInfo.InvariantCulture),
+			string text when type == typeof(TimeSpan) => TimeSpan.ParseExact(text, "c", CultureInfo.InvariantCulture),
+			string text when type == typeof(Uri) => new Uri(text, UriKind.RelativeOrAbsolute),
+			string { Length: 1 } text when type == typeof(char) => text[0],
+			long or double when type == typeof(decimal) => Convert.ToDecimal(value, CultureInfo.InvariantCulture),
+			_ => null,
+		};
+	}
 
 	/// <summary>
 	/// Gets the conventional file extension for TOML, including the leading dot.
@@ -69,6 +110,16 @@ public class TomlSerializationProvider : ISerializationProvider
 		}
 		catch (ObjectDisposedException)
 		{
+			return false;
+		}
+		catch (InvalidOperationException)
+		{
+			// Tomlyn rejects a value it has no TOML type for this way, as System.Text.Json does
+			return false;
+		}
+		catch (TargetInvocationException)
+		{
+			// A property getter threw while Tomlyn read it
 			return false;
 		}
 	}
