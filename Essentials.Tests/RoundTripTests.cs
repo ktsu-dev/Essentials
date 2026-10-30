@@ -83,6 +83,31 @@ public class RoundTripTests
 
 	[TestMethod]
 	[DynamicData(nameof(CompressionProviders))]
+	public void Compression_TryDecompress_Span_OverlappingBuffers_MatchesOutOfPlace(ICompressionProvider compressor, string providerName)
+	{
+		// Repeated so the output is longer than the input and reaches over the input's trailer.
+		byte[] original = Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat("payload decompressed in place inside one buffer by " + providerName, 8)));
+		byte[] compressed = compressor.Compress(original);
+		Assert.IsLessThan(original.Length, compressed.Length, $"{providerName} should compress the repeated payload");
+
+		// Gzip and ZLib read their trailer from the caller's input after the output had overwritten it, and
+		// reported valid input as truncated (issue #169). The destination starts at the source, after it, and before it.
+		foreach ((int sourceOffset, int destinationOffset) in new[] { (0, 0), (0, 3), (3, 0) })
+		{
+			byte[] buffer = new byte[Math.Max(sourceOffset + compressed.Length, destinationOffset + original.Length)];
+			compressed.CopyTo(buffer, sourceOffset);
+
+			Assert.IsTrue(
+				compressor.TryDecompress(buffer.AsSpan(sourceOffset, compressed.Length), buffer.AsSpan(destinationOffset, original.Length), out int written),
+				$"{providerName} should decompress with source at {sourceOffset} and destination at {destinationOffset}");
+			Assert.AreEqual(original.Length, written, $"{providerName} should report the decompressed length with source at {sourceOffset} and destination at {destinationOffset}");
+			CollectionAssert.AreEqual(original, buffer[destinationOffset..(destinationOffset + written)],
+				$"{providerName} should decompress with source at {sourceOffset} and destination at {destinationOffset} as it does out of place");
+		}
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(CompressionProviders))]
 	public void Compression_TryDecompress_Span_Fails_When_The_Output_Is_One_Byte_Too_Long(ICompressionProvider compressor, string providerName)
 	{
 		byte[] original = Encoding.UTF8.GetBytes("payload whose exact length is the boundary for " + providerName);

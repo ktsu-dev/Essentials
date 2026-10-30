@@ -51,7 +51,10 @@ internal static class BoundedDecompression
 	{
 		bytesWritten = 0;
 
-		using MemoryStream input = new(compressedData.ToArray(), writable: false);
+		// The completeness check reads the trailer from this copy too, because a destination that overlaps the
+		// input has overwritten the input's last bytes by the time the check runs (issue #169).
+		byte[] inputCopy = compressedData.ToArray();
+		using MemoryStream input = new(inputCopy, writable: false);
 		using Stream decompressor = openDecompressor(input);
 
 		int written = 0;
@@ -60,7 +63,7 @@ internal static class BoundedDecompression
 			int read = decompressor.Read(destination[written..]);
 			if (read == 0)
 			{
-				return Finish(compressedData, destination[..written], isComplete, out bytesWritten);
+				return Finish(inputCopy, destination[..written], isComplete, out bytesWritten);
 			}
 
 			written += read;
@@ -74,7 +77,7 @@ internal static class BoundedDecompression
 			return false;
 		}
 
-		return Finish(compressedData, destination[..written], isComplete, out bytesWritten);
+		return Finish(inputCopy, destination[..written], isComplete, out bytesWritten);
 	}
 
 	private static bool Finish(ReadOnlySpan<byte> compressedData, ReadOnlySpan<byte> output, CompletenessCheck? isComplete, out int bytesWritten)
