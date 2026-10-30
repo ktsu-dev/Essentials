@@ -104,6 +104,36 @@ public sealed class SerializationRoundTripTests
 	}
 
 	[TestMethod]
+	public void Toml_Reads_A_Hand_Written_Decimal_Written_As_A_Number()
+	{
+		ISerializationProvider serializer = new TomlSerializationProvider();
+
+		Assert.AreEqual(12m, serializer.Deserialize<Scalars>("price = 12\n")?.Price);
+		Assert.AreEqual(0.5m, serializer.Deserialize<Scalars>("price = 0.5\n")?.Price);
+	}
+
+	[TestMethod]
+	public void Toml_Round_Trips_Nullable_Scalars()
+	{
+		ISerializationProvider serializer = new TomlSerializationProvider();
+		NullableScalars original = new() { Id = new Guid("0f8fad5b-d9cb-469f-a165-70867728950e"), Price = 1.25m };
+
+		NullableScalars? back = serializer.Deserialize<NullableScalars>(serializer.Serialize(original));
+
+		Assert.AreEqual(original.Id, back?.Id);
+		Assert.AreEqual(original.Price, back?.Price);
+	}
+
+	[TestMethod]
+	public void Toml_Reports_A_Throwing_Getter_As_A_Failed_Serialize()
+	{
+		ISerializationProvider serializer = new TomlSerializationProvider();
+		using StringWriter writer = new();
+
+		Assert.IsFalse(serializer.TrySerialize(new ThrowingGetter(), writer));
+	}
+
+	[TestMethod]
 	public void Toml_Returns_Default_For_A_Type_It_Cannot_Create()
 	{
 		// Activator.CreateInstance threw MissingMethodException out of Deserialize for a positional record.
@@ -140,6 +170,23 @@ public sealed class SerializationRoundTripTests
 	}
 
 	public sealed record Positional(int A);
+
+	public sealed class NullableScalars
+	{
+		public Guid? Id { get; set; }
+
+		public decimal? Price { get; set; }
+	}
+
+	public sealed class ThrowingGetter
+	{
+		[SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "A serializer reads instance properties, which is what is under test.")]
+		public string Value
+		{
+			get => throw new InvalidOperationException("unreadable");
+			set => _ = value;
+		}
+	}
 
 	public sealed class Unwritable
 	{
