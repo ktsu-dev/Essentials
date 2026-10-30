@@ -2,6 +2,7 @@
 
 Changes since v2.11.0:
 
+- Decode Hex and Base64 from a copy when the source overlaps the destination [patch] (Claude)
 - Share the chunked stream loop and make the roll's moves visible to analysis (Claude)
 - Retry a Windows read refused while a replace is pending (Claude)
 - Make cache and key enumeration filters explicit (Claude)
