@@ -14,8 +14,8 @@ using System.Threading.Tasks;
 /// </summary>
 /// <remarks>
 /// The span paths convert byte by byte, so they neither allocate an intermediate string nor copy
-/// through a temporary array, except that encoding copies the source to a pooled buffer first when it
-/// overlaps the destination. Encoding emits uppercase; decoding accepts either case.
+/// through a temporary array, except that encoding and decoding copy the source to a pooled buffer first
+/// when it overlaps the destination. Encoding emits uppercase; decoding accepts either case.
 /// </remarks>
 public class HexEncodingProvider : IEncodingProvider
 {
@@ -122,6 +122,21 @@ public class HexEncodingProvider : IEncodingProvider
 		if (encodedData.Length % 2 != 0 || destination.Length < encodedData.Length / 2)
 		{
 			return false;
+		}
+
+		if (encodedData.Overlaps(destination))
+		{
+			// A destination starting after the source would overwrite pairs the loop has not read yet, so decode from a copy.
+			byte[] copy = ArrayPool<byte>.Shared.Rent(encodedData.Length);
+			try
+			{
+				encodedData.CopyTo(copy);
+				return TryDecode(copy.AsSpan(0, encodedData.Length), destination, out bytesWritten);
+			}
+			finally
+			{
+				ArrayPool<byte>.Shared.Return(copy, clearArray: true);
+			}
 		}
 
 		for (int i = 0; i < encodedData.Length; i += 2)

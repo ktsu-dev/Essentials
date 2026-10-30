@@ -53,6 +53,28 @@ public class EncodingProviderTests
 
 	[TestMethod]
 	[DynamicData(nameof(EncodingProviders))]
+	public void Decoding_OverlappingBuffers_MatchesOutOfPlace(IEncodingProvider encoder, string providerName)
+	{
+		byte[] original = Encoding.ASCII.GetBytes("0123456789ab");
+		byte[] encoded = encoder.Encode(original);
+		int maxLength = encoder.GetMaxDecodedLength(encoded.Length);
+
+		// A destination after the source used to overwrite encoded bytes before they were read (issue #166).
+		foreach ((int sourceOffset, int destinationOffset) in new[] { (0, 0), (0, 3), (3, 0) })
+		{
+			byte[] buffer = new byte[Math.Max(sourceOffset + encoded.Length, destinationOffset + maxLength)];
+			encoded.CopyTo(buffer, sourceOffset);
+
+			Assert.IsTrue(
+				encoder.TryDecode(buffer.AsSpan(sourceOffset, encoded.Length), buffer.AsSpan(destinationOffset, maxLength), out int written),
+				$"{providerName} should decode with source at {sourceOffset} and destination at {destinationOffset}");
+			CollectionAssert.AreEqual(original, buffer[destinationOffset..(destinationOffset + written)],
+				$"{providerName} should decode with source at {sourceOffset} and destination at {destinationOffset} as it does out of place");
+		}
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(EncodingProviders))]
 	public void GetMaxEncodedLength_Throws_When_The_Bound_Does_Not_Fit_An_Int(IEncodingProvider encoder, string providerName)
 		=> Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => encoder.GetMaxEncodedLength(int.MaxValue),
 			$"{providerName} must not return a wrapped, negative bound");
