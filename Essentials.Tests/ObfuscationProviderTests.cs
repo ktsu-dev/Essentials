@@ -5,10 +5,12 @@ namespace ktsu.Essentials.Tests;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using ktsu.Essentials;
 using ktsu.Essentials.ObfuscationProviders.Base64;
 using ktsu.Essentials.ObfuscationProviders.Composite;
 using ktsu.Essentials.ObfuscationProviders.Hex;
+using ktsu.Essentials.ObfuscationProviders.Reverse;
 using ktsu.Essentials.ObfuscationProviders.Xor;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -255,5 +257,96 @@ public class ObfuscationProviderTests
 		byte[] original = Encoding.UTF8.GetBytes("composite with a base64 stage");
 
 		CollectionAssert.AreEqual(original, provider.Deobfuscate(provider.Obfuscate(original)));
+	}
+
+	// Base64-encoding then reversing gives different bytes from reversing then encoding, so the pair
+	// is sensitive to stage order, which a round-trip test alone cannot see: a composite that ran
+	// both directions backwards would still undo itself.
+	private static readonly IObfuscationProvider FirstStage = new Base64ObfuscationProvider();
+	private static readonly IObfuscationProvider SecondStage = new ReverseObfuscationProvider();
+
+	private static readonly byte[] OrderSample = Encoding.UTF8.GetBytes("composite stages run in order");
+
+	private static IObfuscationProvider OrderedComposite()
+		=> new CompositeObfuscationProvider([FirstStage, SecondStage]);
+
+	private static byte[] InOrder(byte[] data) => SecondStage.Obfuscate(FirstStage.Obfuscate(data));
+
+	private static byte[] OutOfOrder(byte[] data) => FirstStage.Obfuscate(SecondStage.Obfuscate(data));
+
+	private static byte[] ReverseOrder(byte[] data) => FirstStage.Deobfuscate(SecondStage.Deobfuscate(data));
+
+	[TestMethod]
+	public void Obfuscation_Composite_ChosenStagesAreOrderSensitive()
+		=> CollectionAssert.AreNotEqual(InOrder(OrderSample), OutOfOrder(OrderSample), "The test pair must give different bytes in each order");
+
+	[TestMethod]
+	public void Obfuscation_Composite_Span_AppliesStagesInOrder()
+	{
+		IObfuscationProvider provider = OrderedComposite();
+		byte[] destination = new byte[provider.GetMaxObfuscatedLength(OrderSample.Length)];
+
+		Assert.IsTrue(provider.TryObfuscate(OrderSample, destination, out int bytesWritten));
+
+		CollectionAssert.AreEqual(InOrder(OrderSample), destination.AsSpan(0, bytesWritten).ToArray());
+	}
+
+	[TestMethod]
+	public void Obfuscation_Composite_Span_DeobfuscatesStagesInReverseOrder()
+	{
+		IObfuscationProvider provider = OrderedComposite();
+		byte[] obfuscated = InOrder(OrderSample);
+		byte[] destination = new byte[provider.GetMaxDeobfuscatedLength(obfuscated.Length)];
+
+		Assert.IsTrue(provider.TryDeobfuscate(obfuscated, destination, out int bytesWritten));
+
+		CollectionAssert.AreEqual(ReverseOrder(obfuscated), destination.AsSpan(0, bytesWritten).ToArray());
+		CollectionAssert.AreEqual(OrderSample, destination.AsSpan(0, bytesWritten).ToArray());
+	}
+
+	[TestMethod]
+	public void Obfuscation_Composite_Stream_AppliesStagesInOrder()
+	{
+		IObfuscationProvider provider = OrderedComposite();
+		using MemoryStream input = new(OrderSample);
+		using MemoryStream output = new();
+
+		Assert.IsTrue(provider.TryObfuscate(input, output));
+
+		CollectionAssert.AreEqual(InOrder(OrderSample), output.ToArray());
+	}
+
+	[TestMethod]
+	public void Obfuscation_Composite_Stream_DeobfuscatesStagesInReverseOrder()
+	{
+		IObfuscationProvider provider = OrderedComposite();
+		byte[] obfuscated = InOrder(OrderSample);
+		using MemoryStream input = new(obfuscated);
+		using MemoryStream output = new();
+
+		Assert.IsTrue(provider.TryDeobfuscate(input, output));
+
+		CollectionAssert.AreEqual(ReverseOrder(obfuscated), output.ToArray());
+	}
+
+	[TestMethod]
+	public async Task Obfuscation_Composite_Async_AppliesStagesInOrder()
+	{
+		IObfuscationProvider provider = OrderedComposite();
+
+		byte[] obfuscated = await provider.ObfuscateAsync(OrderSample, TestContext.CancellationToken).ConfigureAwait(false);
+
+		CollectionAssert.AreEqual(InOrder(OrderSample), obfuscated);
+	}
+
+	[TestMethod]
+	public async Task Obfuscation_Composite_Async_DeobfuscatesStagesInReverseOrder()
+	{
+		IObfuscationProvider provider = OrderedComposite();
+		byte[] obfuscated = InOrder(OrderSample);
+
+		byte[] restored = await provider.DeobfuscateAsync(obfuscated, TestContext.CancellationToken).ConfigureAwait(false);
+
+		CollectionAssert.AreEqual(ReverseOrder(obfuscated), restored);
 	}
 }
