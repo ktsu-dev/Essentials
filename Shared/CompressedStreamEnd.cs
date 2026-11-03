@@ -3,6 +3,7 @@
 namespace ktsu.Essentials;
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,9 +23,12 @@ using System.Threading.Tasks;
 /// <para>
 /// The input's last bytes are its trailer only when the compressed data is all the input there is, so data
 /// followed by anything else is reported as a failure. A Gzip file is allowed several members, read back to back
-/// as gzip itself reads them; its trailer then describes only the last member, so a trailer whose size is less
-/// than the whole output is taken for one, the members before it having been checked by the decompressor as it
-/// crossed their trailers.
+/// as gzip itself reads them; its trailer then describes only the last member, the members before it having
+/// been checked by the decompressor as it crossed their trailers. A trailer whose size is less than the whole
+/// output is accepted only when its CRC-32 matches the output that size from the end, and on the stream paths
+/// only when that output began at the start of a read, since the decompressor returns from a read at the end of
+/// each member. Taking any shorter size on trust accepted cut-off input whose last bytes happened to read as a
+/// small number, which binary payloads that deflate stores verbatim make common (issue #171).
 /// </para>
 /// </remarks>
 internal abstract class CompressedStreamEnd
@@ -43,6 +47,12 @@ internal abstract class CompressedStreamEnd
 	/// <returns><see langword="true"/> if the stream reached its own end.</returns>
 	internal abstract bool EndsWith(ReadOnlySpan<byte> inputTail);
 
+	/// <summary>Whether the input ended in the trailer <paramref name="output"/> calls for, with all of the output at hand.</summary>
+	/// <param name="inputTail">The last bytes of the input, up to <see cref="MaxTrailerLength"/> of them.</param>
+	/// <param name="output">Everything the decompressor produced, already passed to <see cref="Append"/>.</param>
+	/// <returns><see langword="true"/> if the stream reached its own end.</returns>
+	internal virtual bool EndsWith(ReadOnlySpan<byte> inputTail, ReadOnlySpan<byte> output) => EndsWith(inputTail);
+
 	/// <summary>
 	/// Whether <paramref name="output"/> is everything <paramref name="input"/> describes, rather than what it
 	/// held before it was cut off.
@@ -59,7 +69,7 @@ internal abstract class CompressedStreamEnd
 		}
 
 		Append(output);
-		return EndsWith(input[Math.Max(0, input.Length - MaxTrailerLength)..]);
+		return EndsWith(input[Math.Max(0, input.Length - MaxTrailerLength)..], output);
 	}
 
 	/// <summary>
@@ -115,25 +125,84 @@ internal abstract class CompressedStreamEnd
 	/// <summary>Gzip's trailer: the CRC-32 of the member's output, then its length modulo 2^32, both little-endian.</summary>
 	internal sealed class Gzip : CompressedStreamEnd
 	{
+		// Where each run passed to Append began, with the CRC-32 of the output before it. GZipStream returns
+		// from a read at the end of each member, so a later member's output starts at one of these.
+		private readonly List<(long Offset, uint Crc)> runStarts = [];
+
 		private uint crc = 0xFFFFFFFFu;
 		private uint length;
+		private long total;
 
 		internal override void Append(ReadOnlySpan<byte> output)
 		{
+			if (output.IsEmpty)
+			{
+				return;
+			}
+
+			runStarts.Add((total, ~crc));
 			crc = Crc32.Update(crc, output);
 			length = unchecked(length + (uint)output.Length);
+			total += output.Length;
 		}
 
 		internal override bool EndsWith(ReadOnlySpan<byte> inputTail)
 		{
-			if (inputTail.Length < 8)
+			if (!TryReadTrailer(inputTail, out uint trailerCrc, out uint trailerLength))
 			{
 				return false;
 			}
 
-			uint trailerCrc = ReadUInt32LittleEndian(inputTail[^8..]);
-			uint trailerLength = ReadUInt32LittleEndian(inputTail[^4..]);
-			return (trailerCrc == ~crc && trailerLength == length) || trailerLength < length;
+			if (trailerCrc == ~crc && trailerLength == length)
+			{
+				return true;
+			}
+
+			// A later member: its trailer covers the output since one of the runs began. CRC-32 is linear, so the
+			// CRC of that suffix follows from the CRC of everything and the CRC of what came before it.
+			for (int i = runStarts.Count - 1; i > 0; i--)
+			{
+				(long offset, uint crcBefore) = runStarts[i];
+				long suffixLength = total - offset;
+				if (unchecked((uint)suffixLength) == trailerLength && (~crc ^ Crc32.Shift(crcBefore, suffixLength)) == trailerCrc)
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		internal override bool EndsWith(ReadOnlySpan<byte> inputTail, ReadOnlySpan<byte> output)
+		{
+			if (!TryReadTrailer(inputTail, out uint trailerCrc, out uint trailerLength))
+			{
+				return false;
+			}
+
+			if (trailerCrc == ~crc && trailerLength == length)
+			{
+				return true;
+			}
+
+			// A later member: with the whole output here, check its trailer against the output it claims to cover.
+			return trailerLength > 0
+				&& trailerLength < (uint)output.Length
+				&& ~Crc32.Update(0xFFFFFFFFu, output[^(int)trailerLength..]) == trailerCrc;
+		}
+
+		private static bool TryReadTrailer(ReadOnlySpan<byte> inputTail, out uint trailerCrc, out uint trailerLength)
+		{
+			if (inputTail.Length < 8)
+			{
+				trailerCrc = 0;
+				trailerLength = 0;
+				return false;
+			}
+
+			trailerCrc = ReadUInt32LittleEndian(inputTail[^8..]);
+			trailerLength = ReadUInt32LittleEndian(inputTail[^4..]);
+			return true;
 		}
 	}
 
@@ -184,7 +253,18 @@ internal abstract class CompressedStreamEnd
 	/// <summary>The CRC-32 Gzip uses (the reflected IEEE 802.3 polynomial), table driven.</summary>
 	private static class Crc32
 	{
+		private const uint Polynomial = 0xEDB88320u;
+
 		private static readonly uint[] Table = CreateTable();
+
+		// x^(2^k) modulo the polynomial, for k = 0 to 31, as zlib's crc32_combine uses.
+		private static readonly uint[] PowersOfX = CreatePowersOfX();
+
+		/// <summary>
+		/// The CRC-32 of <paramref name="crc"/>'s data followed by <paramref name="byteCount"/> zero bytes, less
+		/// the CRC-32 of those zeros alone: XOR with the CRC-32 of any data that long gives the CRC-32 of both.
+		/// </summary>
+		internal static uint Shift(uint crc, long byteCount) => Multiply(XToThe(byteCount, 3), crc);
 
 		internal static uint Update(uint crc, ReadOnlySpan<byte> data)
 		{
@@ -204,13 +284,62 @@ internal abstract class CompressedStreamEnd
 				uint c = n;
 				for (int k = 0; k < 8; k++)
 				{
-					c = (c & 1) != 0 ? 0xEDB88320u ^ (c >> 1) : c >> 1;
+					c = (c & 1) != 0 ? Polynomial ^ (c >> 1) : c >> 1;
 				}
 
 				table[n] = c;
 			}
 
 			return table;
+		}
+
+		/// <summary>Multiplies two polynomials modulo the CRC-32 polynomial, in its reflected bit order.</summary>
+		private static uint Multiply(uint a, uint b)
+		{
+			uint product = 0;
+			for (uint mask = 1u << 31; mask != 0 && a != 0; mask >>= 1)
+			{
+				if ((a & mask) != 0)
+				{
+					product ^= b;
+					a ^= mask;
+				}
+
+				b = (b & 1) != 0 ? (b >> 1) ^ Polynomial : b >> 1;
+			}
+
+			return product;
+		}
+
+		/// <summary>x^(n * 2^k) modulo the CRC-32 polynomial.</summary>
+		private static uint XToThe(long n, int k)
+		{
+			uint power = 1u << 31;
+			while (n != 0)
+			{
+				if ((n & 1) != 0)
+				{
+					power = Multiply(PowersOfX[k & 31], power);
+				}
+
+				n >>= 1;
+				k++;
+			}
+
+			return power;
+		}
+
+		private static uint[] CreatePowersOfX()
+		{
+			uint[] powers = new uint[32];
+			uint power = 1u << 30;
+			powers[0] = power;
+			for (int k = 1; k < powers.Length; k++)
+			{
+				powers[k] = power = Multiply(power, power);
+			}
+
+			return powers;
 		}
 	}
 
