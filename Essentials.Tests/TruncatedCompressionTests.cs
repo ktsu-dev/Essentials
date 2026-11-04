@@ -107,6 +107,119 @@ public sealed class TruncatedCompressionTests
 		CollectionAssert.AreEqual((byte[])[.. first, .. second], gzip.Decompress(concatenated));
 	}
 
+	[TestMethod]
+	public async Task Gzip_Rejects_A_Stored_Block_Payload_Cut_After_A_Zeroed_Field()
+	{
+		// Stored blocks copy the payload verbatim, so a cut just after four zero bytes leaves a "trailer" whose
+		// length field reads as 0 and whose CRC field is payload data (issue #171).
+		ICompressionProvider gzip = new GzipCompressionProvider();
+		byte[] payload = new byte[100_000];
+		new Random(42).NextBytes(payload);
+		payload.AsSpan(50_000, 4).Clear();
+		byte[] compressed = gzip.Compress(payload);
+		int zeros = 20 + compressed.AsSpan(20).IndexOf(new byte[4]);
+		byte[] truncated = compressed[..(zeros + 4)];
+
+		await AssertRejectedOnEveryPath(gzip, truncated, payload.Length, $"cut at {truncated.Length}").ConfigureAwait(false);
+	}
+
+	[TestMethod]
+	public async Task Gzip_Rejects_A_Stored_Block_Payload_Cut_At_Every_Offset()
+	{
+		// Random bytes with zero runs and small little-endian integers in them, which deflate stores verbatim:
+		// whatever the cut, the input's last eight bytes are payload, not a trailer.
+		ICompressionProvider gzip = new GzipCompressionProvider();
+		byte[] payload = StoredBlockPayload(20_000);
+		byte[] compressed = gzip.Compress(payload);
+
+		for (int length = 1; length < compressed.Length; length++)
+		{
+			await AssertRejectedOnEveryPath(gzip, compressed[..length], payload.Length, $"cut at {length} of {compressed.Length}").ConfigureAwait(false);
+		}
+	}
+
+	[TestMethod]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Deliberately exercises the synchronous stream path alongside the asynchronous one.")]
+	public async Task Gzip_Accepts_Concatenated_Members_On_Every_Path()
+	{
+		ICompressionProvider gzip = new GzipCompressionProvider();
+		byte[] first = StoredBlockPayload(150_000);
+		byte[] second = [.. Payload().AsSpan(0, 5000)];
+		byte[] third = StoredBlockPayload(3000);
+		byte[] expected = [.. first, .. second, .. third];
+		byte[] concatenated = [.. gzip.Compress(first), .. gzip.Compress(second), .. gzip.Compress(third)];
+
+		byte[] destination = new byte[expected.Length];
+		Assert.IsTrue(gzip.TryDecompress(concatenated, destination, out int written), "span rejected concatenated members");
+		Assert.AreEqual(expected.Length, written);
+		CollectionAssert.AreEqual(expected, destination);
+
+		using (MemoryStream source = new(concatenated))
+		using (MemoryStream sink = new())
+		{
+			Assert.IsTrue(gzip.TryDecompress(source, sink), "stream rejected concatenated members");
+			CollectionAssert.AreEqual(expected, sink.ToArray());
+		}
+
+		using (AsyncOnlyStream source = new(concatenated))
+		using (AsyncOnlyStream sink = new())
+		{
+			Assert.IsTrue(await gzip.TryDecompressAsync(source, sink, TestContext.CancellationToken).ConfigureAwait(false), "async rejected concatenated members");
+			CollectionAssert.AreEqual(expected, sink.ToArray());
+		}
+	}
+
+	[TestMethod]
+	public async Task Gzip_Rejects_Concatenated_Members_Whose_Last_Member_Is_Cut()
+	{
+		ICompressionProvider gzip = new GzipCompressionProvider();
+		byte[] first = gzip.Compress(Payload());
+		byte[] last = gzip.Compress(StoredBlockPayload(4000));
+		byte[] concatenated = [.. first, .. last];
+
+		for (int length = first.Length + 1; length < concatenated.Length; length++)
+		{
+			await AssertRejectedOnEveryPath(gzip, concatenated[..length], concatenated.Length * 2, $"cut at {length} of {concatenated.Length}").ConfigureAwait(false);
+		}
+	}
+
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Deliberately exercises the synchronous stream path alongside the asynchronous one.")]
+	private async Task AssertRejectedOnEveryPath(ICompressionProvider provider, byte[] truncated, int capacity, string what)
+	{
+		Assert.IsFalse(provider.TryDecompress(truncated, new byte[capacity], out int written), $"span accepted {what}");
+		Assert.AreEqual(0, written, $"span reported output for {what}");
+
+		using (MemoryStream source = new(truncated))
+		using (MemoryStream sink = new())
+		{
+			Assert.IsFalse(provider.TryDecompress(source, sink), $"stream accepted {what}");
+		}
+
+		using (AsyncOnlyStream source = new(truncated))
+		using (AsyncOnlyStream sink = new())
+		{
+			Assert.IsFalse(await provider.TryDecompressAsync(source, sink, TestContext.CancellationToken).ConfigureAwait(false), $"async accepted {what}");
+		}
+
+		Assert.ThrowsExactly<InvalidOperationException>(() => provider.Decompress(truncated), $"Decompress returned short output for {what}");
+	}
+
+	/// <summary>Random bytes, which deflate leaves in stored blocks, with zero runs and small integers through them.</summary>
+	private static byte[] StoredBlockPayload(int length)
+	{
+		Random random = new(171);
+		byte[] payload = new byte[length];
+		random.NextBytes(payload);
+		for (int i = 0; i + 8 <= length; i += 300 + random.Next(300))
+		{
+			// A zeroed 32-bit field after a small little-endian one, as binary formats are full of
+			payload.AsSpan(i, 8).Clear();
+			payload[i] = (byte)random.Next(1, 16);
+		}
+
+		return payload;
+	}
+
 	private static IEnumerable<int> Cuts(int length)
 	{
 		foreach (int cut in new[] { 1, 2, 3, 4, 8, 12, length / 3, length / 2, length - 9, length - 8, length - 5, length - 4, length - 2, length - 1 })
