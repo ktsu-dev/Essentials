@@ -14,6 +14,8 @@ public class FNV1_32HashProvider : IHashProvider
 	private const uint FnvOffsetBasis32 = 0x811c9dc5;
 	private const uint FnvPrime32 = 0x01000193;
 
+	/// <summary>How many bytes the stream path reads at a time.</summary>
+
 	/// <summary>
 	/// The length of the FNV-1 32-bit hash in bytes (4 bytes / 32 bits).
 	/// </summary>
@@ -84,13 +86,16 @@ public class FNV1_32HashProvider : IHashProvider
 		try
 		{
 			uint hash = FnvOffsetBasis32;
-			int b;
-
-			while ((b = data.ReadByte()) != -1)
-			{
-				hash *= FnvPrime32;
-				hash ^= (byte)b;
-			}
+			StreamChunks.ForEach(
+				data,
+				chunk =>
+				{
+					for (int i = 0; i < chunk.Length; i++)
+					{
+						hash *= FnvPrime32;
+						hash ^= chunk[i];
+					}
+				});
 
 			// Write the hash as little-endian bytes
 			destination[0] = (byte)(hash & 0xFF);

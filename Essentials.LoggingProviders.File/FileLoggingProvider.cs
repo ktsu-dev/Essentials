@@ -3,6 +3,7 @@
 namespace ktsu.Essentials.LoggingProviders.File;
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -29,7 +30,9 @@ using ktsu.Essentials;
 /// </para>
 /// <para>
 /// Logging never throws for an I/O failure. An entry that cannot be written, because the disk is
-/// full or the file is locked, is dropped and counted in <see cref="DroppedEntryCount"/>.
+/// full or the file is locked, is dropped and counted in <see cref="DroppedEntryCount"/>. A roll that
+/// cannot be done, because another program holds a file without delete sharing, leaves every file
+/// where it was, and the entry is appended to the active file past the size limit until a roll succeeds.
 /// </para>
 /// </remarks>
 public class FileLoggingProvider : ILoggingProvider
@@ -231,9 +234,11 @@ public class FileLoggingProvider : ILoggingProvider
 			{
 				fileSystem.Directory.CreateDirectory(Directory);
 				long length = fileSystem.File.Exists(FilePath) ? fileSystem.FileInfo.New(FilePath).Length : 0;
+				// A roll that cannot be done, because another program holds the file, leaves every file as it was,
+				// and the entry is appended past the limit rather than dropped: the write itself still succeeds.
 				if (length > 0 && length + bytes.Length > maxFileSizeBytes)
 				{
-					Roll();
+					_ = TryRoll();
 				}
 
 				using Stream stream = fileSystem.FileStream.New(FilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
@@ -250,29 +255,98 @@ public class FileLoggingProvider : ILoggingProvider
 		}
 	}
 
-	private void Roll()
+	/// <summary>
+	/// Moves the active file into slot 1, shifting the rolled files up a slot and discarding the oldest, all or
+	/// nothing. Every move is recorded, and a failure undoes them in reverse, so a roll refused part way leaves
+	/// every file where it was. The oldest file is moved aside rather than deleted, and deleted only once the roll
+	/// is complete: deleting it first meant each refused roll discarded another file, until a log a viewer held
+	/// open had lost all its history (issue #120).
+	/// </summary>
+	/// <returns><see langword="true"/> if the active file was rolled.</returns>
+	private bool TryRoll()
 	{
 		if (maxFileCount == 1)
 		{
-			fileSystem.File.Delete(FilePath);
-			return;
-		}
-
-		string oldest = GetRolledFilePath(maxFileCount - 1);
-		if (fileSystem.File.Exists(oldest))
-		{
-			fileSystem.File.Delete(oldest);
-		}
-
-		for (int index = maxFileCount - 2; index >= 1; index--)
-		{
-			string source = GetRolledFilePath(index);
-			if (fileSystem.File.Exists(source))
+			try
 			{
-				fileSystem.File.Move(source, GetRolledFilePath(index + 1));
+				fileSystem.File.Delete(FilePath);
+				return true;
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+			{
+				return false;
 			}
 		}
 
-		fileSystem.File.Move(FilePath, GetRolledFilePath(1));
+		// Unique names, so a staging file a crash left behind cannot block every later roll.
+		string activeStaging = StagingPath();
+		string? oldestStaging = null;
+		List<(string From, string To)> moves = [];
+
+		try
+		{
+			Move(moves, FilePath, activeStaging);
+
+			string oldest = GetRolledFilePath(maxFileCount - 1);
+			if (fileSystem.File.Exists(oldest))
+			{
+				oldestStaging = StagingPath();
+				Move(moves, oldest, oldestStaging);
+			}
+
+			for (int index = maxFileCount - 2; index >= 1; index--)
+			{
+				string source = GetRolledFilePath(index);
+				if (fileSystem.File.Exists(source))
+				{
+					Move(moves, source, GetRolledFilePath(index + 1));
+				}
+			}
+
+			Move(moves, activeStaging, GetRolledFilePath(1));
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+		{
+			for (int i = moves.Count - 1; i >= 0; i--)
+			{
+				try
+				{
+					fileSystem.File.Move(moves[i].To, moves[i].From);
+				}
+				catch (Exception undo) when (undo is IOException or UnauthorizedAccessException)
+				{
+					// Nothing more can be done for this file; the rest are still put back.
+				}
+			}
+
+			return false;
+		}
+
+		if (oldestStaging is not null)
+		{
+			try
+			{
+				fileSystem.File.Delete(oldestStaging);
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+			{
+				// The roll is complete; a discarded file another program holds open is left for it to release.
+			}
+		}
+
+		return true;
 	}
+
+	/// <summary>Moves a file and records the move, so a roll refused part way can undo it.</summary>
+	/// <param name="moves">The moves made so far.</param>
+	/// <param name="from">The file to move.</param>
+	/// <param name="to">Where it goes.</param>
+	private void Move(List<(string From, string To)> moves, string from, string to)
+	{
+		fileSystem.File.Move(from, to);
+		moves.Add((from, to));
+	}
+
+	private string StagingPath()
+		=> fileSystem.Path.Combine(Directory, string.Format(CultureInfo.InvariantCulture, "{0}.{1:N}.rolling", baseName, Guid.NewGuid()));
 }

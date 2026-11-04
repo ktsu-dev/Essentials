@@ -57,7 +57,11 @@ public class PersistenceNamingTests
 	[TestMethod]
 	public void SafeFileName_Escapes_Windows_Reserved_Device_Names()
 	{
-		foreach (string reserved in new[] { "CON", "PRN", "AUX", "NUL", "COM1", "LPT9", "con", "NuL" })
+		foreach (string reserved in new[]
+		{
+			"CON", "PRN", "AUX", "NUL", "COM1", "LPT9", "con", "NuL",
+			"COM0", "LPT0", "COM\u00B9", "COM\u00B2", "COM\u00B3", "LPT\u00B9", "LPT\u00B2", "LPT\u00B3", "com\u00B9.json",
+		})
 		{
 			string encoded = PersistenceProviderUtilities.GetSafeFileName(reserved);
 

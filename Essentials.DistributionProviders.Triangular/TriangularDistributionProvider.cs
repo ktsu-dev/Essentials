@@ -16,6 +16,10 @@ using System;
 /// </remarks>
 public sealed class TriangularDistributionProvider : IContinuousDistribution
 {
+	// The widths are held at half size when the full range overflows a double, as the uniform distribution's
+	// are (issue #142): halving is exact, and every ratio below is the same at either size.
+	private readonly bool halved;
+	private readonly double scale;
 	private readonly double width;
 	private readonly double lowerWidth;
 	private readonly double upperWidth;
@@ -40,9 +44,11 @@ public sealed class TriangularDistributionProvider : IContinuousDistribution
 		Minimum = minimum;
 		Mode = mode;
 		Maximum = maximum;
-		width = maximum - minimum;
-		lowerWidth = mode - minimum;
-		upperWidth = maximum - mode;
+		halved = double.IsInfinity(maximum - minimum);
+		scale = halved ? 0.5 : 1.0;
+		width = Scaled(maximum) - Scaled(minimum);
+		lowerWidth = Scaled(mode) - Scaled(minimum);
+		upperWidth = Scaled(maximum) - Scaled(mode);
 		modeProbability = lowerWidth / width;
 	}
 
@@ -62,7 +68,9 @@ public sealed class TriangularDistributionProvider : IContinuousDistribution
 	/// Measured from the lower bound rather than as the average of the three raw parameters, so bounds
 	/// near ±<see cref="double.MaxValue"/> cannot overflow the sum.
 	/// </remarks>
-	public double Mean => Minimum + ((lowerWidth + width) / 3.0);
+	public double Mean => halved
+		? (Minimum / 3.0) + (Mode / 3.0) + (Maximum / 3.0)
+		: Minimum + ((lowerWidth + width) / 3.0);
 
 	/// <inheritdoc />
 	/// <remarks>
@@ -73,7 +81,7 @@ public sealed class TriangularDistributionProvider : IContinuousDistribution
 	/// shape of the triangle, not on where it sits.
 	/// </remarks>
 	public double Variance
-		=> ((lowerWidth * lowerWidth) + (upperWidth * upperWidth) + (lowerWidth * upperWidth)) / 18.0;
+		=> ((lowerWidth * lowerWidth) + (upperWidth * upperWidth) + (lowerWidth * upperWidth)) / 18.0 / (scale * scale);
 
 	/// <inheritdoc />
 	public double Pdf(double value)
@@ -87,13 +95,13 @@ public sealed class TriangularDistributionProvider : IContinuousDistribution
 		// of the denominator. Below the mode is safe unguarded: if the lower side is empty then the mode
 		// is the lower bound and no value in range is below it. Above needs the guard, because the mode
 		// itself reaches it, and where the mode is the upper bound that leaves 0/0 rather than the peak.
-		double peak = 2.0 / width;
+		double peak = 2.0 * scale / width;
 		if (value < Mode)
 		{
-			return peak * (value - Minimum) / lowerWidth;
+			return peak * (Scaled(value) - Scaled(Minimum)) / lowerWidth;
 		}
 
-		return upperWidth > 0.0 ? peak * (Maximum - value) / upperWidth : peak;
+		return upperWidth > 0.0 ? peak * (Scaled(Maximum) - Scaled(value)) / upperWidth : peak;
 	}
 
 	/// <inheritdoc />
@@ -113,8 +121,8 @@ public sealed class TriangularDistributionProvider : IContinuousDistribution
 		// zero-width side out of the denominator: a mode sitting on a bound leaves that side empty, and
 		// no value can fall strictly inside it.
 		return value <= Mode
-			? (value - Minimum) * (value - Minimum) / (width * lowerWidth)
-			: 1.0 - ((Maximum - value) * (Maximum - value) / (width * upperWidth));
+			? LowerTail(value)
+			: 1.0 - UpperTail(value);
 	}
 
 	/// <summary>
@@ -142,8 +150,8 @@ public sealed class TriangularDistributionProvider : IContinuousDistribution
 
 		// The same branch test as Cdf, which keeps a zero-width side out of the denominator.
 		return value <= Mode
-			? 1.0 - ((value - Minimum) * (value - Minimum) / (width * lowerWidth))
-			: (Maximum - value) * (Maximum - value) / (width * upperWidth);
+			? 1.0 - LowerTail(value)
+			: UpperTail(value);
 	}
 
 	/// <inheritdoc />
@@ -151,8 +159,32 @@ public sealed class TriangularDistributionProvider : IContinuousDistribution
 	{
 		DistributionArguments.QuantileProbability(probability, nameof(probability));
 
-		return probability < modeProbability
-			? Minimum + Math.Sqrt(probability * width * lowerWidth)
-			: Maximum - Math.Sqrt((1.0 - probability) * width * upperWidth);
+		// Each root is taken of its two factors separately, since their product overflows for wide bounds, and
+		// the offset from the bound is added once per halving rather than doubled, which could overflow too.
+		if (probability < modeProbability)
+		{
+			double offset = Math.Sqrt(probability * width) * Math.Sqrt(lowerWidth);
+			return halved ? Minimum + offset + offset : Minimum + offset;
+		}
+
+		double fromTop = Math.Sqrt((1.0 - probability) * width) * Math.Sqrt(upperWidth);
+		return halved ? Maximum - fromTop - fromTop : Maximum - fromTop;
 	}
+
+	// The CDF below the mode, (v - min)² / (width × lower width), as a product of two ratios no larger than one,
+	// so neither the square nor the product of widths can overflow.
+	private double LowerTail(double value)
+	{
+		double fromBottom = Scaled(value) - Scaled(Minimum);
+		return fromBottom / width * (fromBottom / lowerWidth);
+	}
+
+	// The survival function above the mode, (max - v)² / (width × upper width), in the same form.
+	private double UpperTail(double value)
+	{
+		double fromTop = Scaled(Maximum) - Scaled(value);
+		return fromTop / width * (fromTop / upperWidth);
+	}
+
+	private double Scaled(double value) => value * scale;
 }

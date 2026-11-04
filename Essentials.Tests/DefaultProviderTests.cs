@@ -2,9 +2,11 @@
 
 namespace ktsu.Essentials.Tests;
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using ktsu.Essentials;
 using ktsu.Essentials.All;
@@ -51,6 +53,46 @@ public class DefaultProviderTests
 		Assert.IsInstanceOfType<CryptoRandomProvider>(serviceProvider.GetRequiredService<IRandomProvider>());
 		Assert.IsInstanceOfType<NormalDistributionProvider>(serviceProvider.GetRequiredService<IContinuousDistribution>());
 		Assert.IsInstanceOfType<PoissonDistributionProvider>(serviceProvider.GetRequiredService<IDiscreteDistribution>());
+	}
+
+	[TestMethod]
+	public void A_Default_Registered_Before_AddEssentials_Stays_The_Default()
+	{
+		// The default's own registration added nothing the second time, so whichever provider AddEssentials
+		// registered before it went in last and became what the interface resolved to: JSON became TOML, the
+		// CSPRNG became PCG (issue #149).
+		static void AssertDefault<TService, TDefault>(Action<IServiceCollection> registerFirst)
+			where TService : class
+		{
+			ServiceCollection services = new();
+			registerFirst(services);
+			services.AddEssentials();
+			using ServiceProvider serviceProvider = services.BuildServiceProvider();
+			Assert.IsInstanceOfType<TDefault>(serviceProvider.GetRequiredService<TService>(), $"registering {typeof(TDefault).Name} first changed the {typeof(TService).Name} default");
+			AssertDistinct(serviceProvider.GetServices<TService>());
+		}
+
+		AssertDefault<ISerializationProvider, JsonSerializationProvider>(static s => s.AddJsonSerializationProvider());
+		AssertDefault<IRandomProvider, CryptoRandomProvider>(static s => s.AddCryptoRandomProvider());
+		AssertDefault<ICompressionProvider, GzipCompressionProvider>(static s => s.AddGzipCompressionProvider());
+		AssertDefault<IHashProvider, SHA256HashProvider>(static s => s.AddSHA256HashProvider());
+		AssertDefault<IEncodingProvider, Base64EncodingProvider>(static s => s.AddBase64EncodingProvider());
+		AssertDefault<IKeyedHashProvider, HmacSha256KeyedHashProvider>(static s => s.AddHmacSha256KeyedHashProvider());
+	}
+
+	[TestMethod]
+	public void Json_Options_Registered_Before_AddEssentials_Are_The_Ones_Used()
+	{
+		ServiceCollection services = new();
+		services.AddJsonSerializationProvider(new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+		services.AddEssentials();
+		using ServiceProvider serviceProvider = services.BuildServiceProvider();
+
+		ISerializationProvider serializer = serviceProvider.GetRequiredService<ISerializationProvider>();
+		Assert.IsInstanceOfType<JsonSerializationProvider>(serializer);
+		using StringWriter writer = new();
+		Assert.IsTrue(serializer.TrySerialize(new { DisplayName = "x" }, writer));
+		Assert.AreEqual("{\"displayName\":\"x\"}", writer.ToString());
 	}
 
 	[TestMethod]

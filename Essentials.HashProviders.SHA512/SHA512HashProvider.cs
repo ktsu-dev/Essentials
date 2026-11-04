@@ -92,8 +92,9 @@ public class SHA512HashProvider : IHashProvider
 			bytesWritten = 0;
 			return false;
 		}
-		catch (IOException)
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
 		{
+			// A closed or unreadable stream is a failure to report, not a crash (issue #74).
 			bytesWritten = 0;
 			return false;
 		}

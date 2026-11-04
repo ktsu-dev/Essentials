@@ -11,6 +11,7 @@ using ktsu.Essentials.FileSystemProviders.InMemory;
 using ktsu.Essentials.LoggingProviders.Console;
 using ktsu.Essentials.LoggingProviders.File;
 using Microsoft.Extensions.DependencyInjection;
+using Testably.Abstractions.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 [TestClass]
@@ -110,6 +111,43 @@ public class FileLoggingProviderTests
 		int[] numbers = [.. oldest.Concat(previous).Concat(current).Select(EntryNumber)];
 		CollectionAssert.AreEqual(Enumerable.Range(20 - numbers.Length, numbers.Length).ToArray(), numbers,
 			"the kept files hold the most recent entries in order, with none lost between them");
+	}
+
+	[TestMethod]
+	public void A_Roll_Refused_By_A_Reader_Keeps_Every_File_And_Every_Entry()
+	{
+		// The roll deleted the oldest file and shifted the rest before the active file's move failed, so each
+		// entry logged while a viewer held the log deleted another rolled file (issue #120).
+		InMemoryFileSystemProvider fileSystem = new(new MockFileSystem(o => o.SimulatingOperatingSystem(SimulationMode.Windows)));
+		FileLoggingProvider logger = Create(fileSystem, maxFileSizeBytes: 100, maxFileCount: 5);
+		ILoggingProvider log = logger;
+
+		for (int i = 0; i < 12; i++)
+		{
+			log.LogInformation($"entry {i:00} padded out to a length");
+		}
+
+		string[] rolled = [.. Enumerable.Range(1, 4).Select(logger.GetRolledFilePath)];
+		string[] before = [.. rolled.Select(fileSystem.File.ReadAllText)];
+
+		using (System.IO.Stream viewer = fileSystem.FileStream.New(logger.FilePath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite))
+		{
+			for (int i = 12; i < 18; i++)
+			{
+				log.LogInformation($"entry {i:00} padded out to a length");
+			}
+
+			CollectionAssert.AreEqual(before, rolled.Select(fileSystem.File.ReadAllText).ToArray(), "a refused roll moved or deleted rolled files");
+			Assert.AreEqual(0L, logger.DroppedEntryCount, "entries were dropped although the file could be appended to");
+			Assert.AreEqual(17, EntryNumber(ReadLines(fileSystem, logger.FilePath)[^1]));
+		}
+
+		log.LogInformation("entry 18 padded out to a length");
+
+		Assert.AreEqual(18, EntryNumber(ReadLines(fileSystem, logger.FilePath).Single()), "the next entry after the reader closed did not roll");
+		StringAssert.Contains(ReadLines(fileSystem, logger.GetRolledFilePath(1))[^1], "entry 17");
+		Assert.AreEqual(before[0], fileSystem.File.ReadAllText(logger.GetRolledFilePath(2)), "history did not shift up a slot");
+		Assert.IsEmpty(fileSystem.Directory.GetFiles(LogDirectory, "*.rolling"), "a staging file was left behind");
 	}
 
 	[TestMethod]

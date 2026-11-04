@@ -15,7 +15,7 @@
     <PackageReference Include="Testably.Abstractions.FileSystem.Interface" /></ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\Shared\PersistenceDefaults.cs" Link="PersistenceDefaults.cs" />
+    <Compile Include="..\Shared\FileRecordStore.cs" Link="FileRecordStore.cs" />
     <Compile Include="..\Shared\AtomicFile.cs" Link="AtomicFile.cs" />
   </ItemGroup>
 

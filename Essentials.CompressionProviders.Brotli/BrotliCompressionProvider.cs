@@ -4,6 +4,7 @@ namespace ktsu.Essentials.CompressionProviders.Brotli;
 
 using ktsu.Essentials;
 using System;
+using System.Buffers;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
@@ -102,6 +103,10 @@ public class BrotliCompressionProvider : ICompressionProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <summary>
@@ -153,6 +158,10 @@ public class BrotliCompressionProvider : ICompressionProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <summary>
@@ -168,11 +177,16 @@ public class BrotliCompressionProvider : ICompressionProvider
 
 		try
 		{
-			return BoundedDecompression.TryDecompress(
-				compressedData,
-				destination,
-				static input => new BrotliStream(input, CompressionMode.Decompress, leaveOpen: true),
-				out bytesWritten);
+			// BrotliDecoder writes straight into the destination, so the destination bounds the work (issue #122),
+			// and it reports whether the final block arrived, which BrotliStream does not: input cut off part way
+			// read as a clean end and decompressed to a shorter output (issue #80).
+			if (!BrotliDecoder.TryDecompress(compressedData, destination, out bytesWritten))
+			{
+				bytesWritten = 0;
+				return false;
+			}
+
+			return true;
 		}
 		catch (ArgumentException)
 		{
@@ -203,9 +217,36 @@ public class BrotliCompressionProvider : ICompressionProvider
 
 		try
 		{
-			using BrotliStream brotliStream = new(compressedData, CompressionMode.Decompress, leaveOpen: true);
-			brotliStream.CopyTo(destination);
-			return true;
+			BrotliDecoder decoder = new();
+			try
+			{
+				byte[] input = new byte[BufferSize];
+				byte[] output = new byte[BufferSize];
+				int offset = 0;
+				int available = 0;
+				bool ended = false;
+				while (true)
+				{
+					if (offset == available && !ended)
+					{
+						available = compressedData.Read(input, 0, input.Length);
+						offset = 0;
+						ended = available == 0;
+					}
+
+					OperationStatus status = decoder.Decompress(input.AsSpan(offset, available - offset), output, out int consumed, out int written);
+					offset += consumed;
+					destination.Write(output, 0, written);
+					if (IsFinished(status, ended, out bool complete))
+					{
+						return complete;
+					}
+				}
+			}
+			finally
+			{
+				decoder.Dispose();
+			}
 		}
 		catch (ArgumentException)
 		{
@@ -220,6 +261,10 @@ public class BrotliCompressionProvider : ICompressionProvider
 			return false;
 		}
 		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+		catch (NotSupportedException)
 		{
 			return false;
 		}
@@ -251,13 +296,36 @@ public class BrotliCompressionProvider : ICompressionProvider
 
 		try
 		{
-			BrotliStream brotliStream = new(compressedData, CompressionMode.Decompress, leaveOpen: true);
-			await using (brotliStream.ConfigureAwait(false))
+			BrotliDecoder decoder = new();
+			try
 			{
-				await brotliStream.CopyToAsync(destination, 81920, cancellationToken).ConfigureAwait(false);
-			}
+				byte[] input = new byte[BufferSize];
+				byte[] output = new byte[BufferSize];
+				int offset = 0;
+				int available = 0;
+				bool ended = false;
+				while (true)
+				{
+					if (offset == available && !ended)
+					{
+						available = await compressedData.ReadAsync(input.AsMemory(), cancellationToken).ConfigureAwait(false);
+						offset = 0;
+						ended = available == 0;
+					}
 
-			return true;
+					OperationStatus status = decoder.Decompress(input.AsSpan(offset, available - offset), output, out int consumed, out int written);
+					offset += consumed;
+					await destination.WriteAsync(output.AsMemory(0, written), cancellationToken).ConfigureAwait(false);
+					if (IsFinished(status, ended, out bool complete))
+					{
+						return complete;
+					}
+				}
+			}
+			finally
+			{
+				decoder.Dispose();
+			}
 		}
 		catch (ArgumentException)
 		{
@@ -274,6 +342,40 @@ public class BrotliCompressionProvider : ICompressionProvider
 		catch (ObjectDisposedException)
 		{
 			return false;
+		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
+	}
+
+	/// <summary>How many bytes of input and of output the stream paths work through at a time.</summary>
+	private const int BufferSize = 81920;
+
+	/// <summary>
+	/// Reads one step of a <see cref="BrotliDecoder"/> stream loop. Decoding is driven by the decoder rather than
+	/// <see cref="BrotliStream"/> because only the decoder says whether the final block arrived: input that ends
+	/// before it is truncated, which <see cref="BrotliStream"/> reports as a clean end (issue #80).
+	/// </summary>
+	/// <param name="status">What the decoder reported.</param>
+	/// <param name="ended">Whether the input has run out.</param>
+	/// <param name="complete">When finished, whether the whole stream was decoded.</param>
+	/// <returns><see langword="true"/> when the loop is done, with <paramref name="complete"/> as its answer.</returns>
+	private static bool IsFinished(OperationStatus status, bool ended, out bool complete)
+	{
+		switch (status)
+		{
+			case OperationStatus.Done:
+				complete = true;
+				return true;
+			case OperationStatus.NeedMoreData when ended:
+			case OperationStatus.InvalidData:
+				complete = false;
+				return true;
+			default:
+				// More output to collect, or more input to read.
+				complete = false;
+				return false;
 		}
 	}
 }

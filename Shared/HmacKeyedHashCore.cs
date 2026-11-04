@@ -119,8 +119,10 @@ internal static class HmacKeyedHashCore
 			bytesWritten = 0;
 			return false;
 		}
-		catch (IOException)
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
 		{
+			// A closed stream, or one that cannot be read, is a failure to report rather than a crash, as it is
+			// for every other hash provider (issue #74).
 			bytesWritten = 0;
 			return false;
 		}

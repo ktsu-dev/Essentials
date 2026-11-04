@@ -47,6 +47,8 @@ public sealed class CategoricalDistributionProvider : IDiscreteDistribution
 		}
 
 		double total = 0.0;
+		double largest = 0.0;
+		int lastNonZero = 0;
 		for (int i = 0; i < weights.Count; i++)
 		{
 			double weight = weights[i];
@@ -56,11 +58,29 @@ public sealed class CategoricalDistributionProvider : IDiscreteDistribution
 			}
 
 			total += weight;
+			largest = Math.Max(largest, weight);
+			if (weight > 0.0)
+			{
+				lastNonZero = i;
+			}
 		}
 
 		if (total <= 0.0)
 		{
 			throw new ArgumentException("At least one weight must be greater than zero.", nameof(weights));
+		}
+
+		// Every weight is finite but the sum need not be, and every share of an infinite total is zero (issue #78).
+		// Divided by the largest, the weights sum to at most their count.
+		double divisor = 1.0;
+		if (double.IsInfinity(total))
+		{
+			divisor = largest;
+			total = 0.0;
+			for (int i = 0; i < weights.Count; i++)
+			{
+				total += weights[i] / divisor;
+			}
 		}
 
 		probabilities = new double[weights.Count];
@@ -70,7 +90,7 @@ public sealed class CategoricalDistributionProvider : IDiscreteDistribution
 		double secondMoment = 0.0;
 		for (int i = 0; i < weights.Count; i++)
 		{
-			double probability = weights[i] / total;
+			double probability = weights[i] / divisor / total;
 			probabilities[i] = probability;
 			running += probability;
 			cumulative[i] = running;
@@ -78,9 +98,13 @@ public sealed class CategoricalDistributionProvider : IDiscreteDistribution
 			secondMoment += (double)i * i * probability;
 		}
 
-		// The running total lands a rounding step either side of one; pinning the last entry keeps the
-		// CDF from ever reporting a value below one at the top of the support.
-		cumulative[^1] = 1.0;
+		// The running total lands a rounding step either side of one. Pinning it from the last outcome that can
+		// occur keeps the CDF from reporting a value below one at the top of the support, and gives no mass to
+		// trailing outcomes weighted zero, which pinning only the last entry handed the rounding gap (issue #78).
+		for (int i = lastNonZero; i < cumulative.Length; i++)
+		{
+			cumulative[i] = 1.0;
+		}
 
 		upper = new double[weights.Count];
 		double above = 0.0;

@@ -15,11 +15,16 @@ using SysBase64 = System.Buffers.Text.Base64;
 /// </summary>
 /// <remarks>
 /// The span paths use the UTF8 Base64 primitives directly, so they neither allocate an intermediate
-/// string nor copy through a temporary array, except that encoding copies the source to a pooled buffer
-/// first when it overlaps the destination.
+/// string nor copy through a temporary array, except that encoding and decoding copy the source to a pooled
+/// buffer first when it overlaps the destination.
 /// </remarks>
 public class Base64EncodingProvider : IEncodingProvider
 {
+#if !NET8_0_OR_GREATER
+	// The whitespace .NET 8's decoder skips.
+	private static ReadOnlySpan<byte> Whitespace => " \t\r\n"u8;
+#endif
+
 	/// <inheritdoc/>
 	public int GetMaxEncodedLength(int sourceLength) => SysBase64.GetMaxEncodedToUtf8Length(sourceLength);
 
@@ -91,11 +96,59 @@ public class Base64EncodingProvider : IEncodingProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>
+	/// <remarks>
+	/// ASCII whitespace (space, tab, carriage return and line feed) is skipped wherever it appears, so line-wrapped
+	/// MIME or PEM-style input decodes. .NET 8's decoder skips it itself; earlier targets strip it first, so every
+	/// target framework decodes the same input the same way.
+	/// </remarks>
 	public bool TryDecode(ReadOnlySpan<byte> encodedData, Span<byte> destination, out int bytesWritten)
 	{
+		if (encodedData.Overlaps(destination))
+		{
+			// Base64.DecodeFromUtf8 does not support overlapping buffers, so decode from a copy.
+			byte[] copy = ArrayPool<byte>.Shared.Rent(encodedData.Length);
+			try
+			{
+				encodedData.CopyTo(copy);
+				return TryDecode(copy.AsSpan(0, encodedData.Length), destination, out bytesWritten);
+			}
+			finally
+			{
+				ArrayPool<byte>.Shared.Return(copy, clearArray: true);
+			}
+		}
+
+#if !NET8_0_OR_GREATER
+		if (encodedData.IndexOfAny(Whitespace) >= 0)
+		{
+			byte[] stripped = ArrayPool<byte>.Shared.Rent(encodedData.Length);
+			try
+			{
+				int length = 0;
+				foreach (byte b in encodedData)
+				{
+					if (Whitespace.IndexOf(b) < 0)
+					{
+						stripped[length++] = b;
+					}
+				}
+
+				return TryDecode(stripped.AsSpan(0, length), destination, out bytesWritten);
+			}
+			finally
+			{
+				ArrayPool<byte>.Shared.Return(stripped, clearArray: true);
+			}
+		}
+#endif
+
 		OperationStatus status = SysBase64.DecodeFromUtf8(encodedData, destination, out int consumed, out bytesWritten);
 
 		if (status == OperationStatus.Done && consumed == encodedData.Length)
@@ -143,6 +196,10 @@ public class Base64EncodingProvider : IEncodingProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>
@@ -186,6 +243,10 @@ public class Base64EncodingProvider : IEncodingProvider
 		{
 			return false;
 		}
+		catch (NotSupportedException)
+		{
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>
@@ -217,6 +278,10 @@ public class Base64EncodingProvider : IEncodingProvider
 			return false;
 		}
 		catch (ObjectDisposedException)
+		{
+			return false;
+		}
+		catch (NotSupportedException)
 		{
 			return false;
 		}

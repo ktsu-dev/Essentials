@@ -45,12 +45,21 @@ public class ReverseObfuscationProvider : IObfuscationProvider
 			return false;
 		}
 
-		using MemoryStream buffer = new();
-		data.CopyTo(buffer);
-		byte[] bytes = buffer.ToArray();
-		Array.Reverse(bytes);
-		destination.Write(bytes, 0, bytes.Length);
-		return true;
+		try
+		{
+			using MemoryStream buffer = new();
+			data.CopyTo(buffer);
+			byte[] bytes = buffer.ToArray();
+			Array.Reverse(bytes);
+			destination.Write(bytes, 0, bytes.Length);
+			return true;
+		}
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
+		{
+			// A stream that cannot be read or written is a failure to report, as the encoder-backed
+			// obfuscators already do (issue #86).
+			return false;
+		}
 	}
 
 	/// <inheritdoc/>

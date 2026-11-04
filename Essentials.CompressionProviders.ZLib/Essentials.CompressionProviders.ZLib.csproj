@@ -15,6 +15,7 @@
   <ItemGroup>
     <Compile Include="..\Shared\DeflateBound.cs" Link="DeflateBound.cs" />
     <Compile Include="..\Shared\BoundedDecompression.cs" Link="BoundedDecompression.cs" />
+    <Compile Include="..\Shared\CompressedStreamEnd.cs" Link="CompressedStreamEnd.cs" />
   </ItemGroup>
 
   <ItemGroup>

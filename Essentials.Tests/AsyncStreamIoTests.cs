@@ -70,15 +70,28 @@ public class AsyncStreamIoTests
 		Assert.AreNotEqual(0, destination.ToArray().Length, "Expected compressed bytes to be written.");
 	}
 
+	public static IEnumerable<object[]> AllCompressionProviders =>
+	[
+		[new GzipCompressionProvider()],
+		[new DeflateCompressionProvider()],
+		[new ZLibCompressionProvider()],
+		[new BrotliCompressionProvider()],
+	];
+
+	/// <summary>
+	/// A round trip only shows that async compression and async decompression agree with each other; data written
+	/// asynchronously and read back synchronously needs the two compressors to write the same stream (issue #83).
+	/// </summary>
+	/// <param name="provider">The provider under test.</param>
 	[TestMethod]
+	[DynamicData(nameof(AllCompressionProviders))]
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Deliberately exercises the synchronous path to compare its output against the asynchronous path.")]
-	public async Task GzipAsyncCompression_ProducesTheSameBytesAsTheSynchronousPathAsync()
+	public async Task AsyncCompression_ProducesTheSameBytesAsTheSynchronousPathAsync(ICompressionProvider provider)
 	{
-		ICompressionProvider provider = new GzipCompressionProvider();
-		byte[] payload = new byte[4096];
+		byte[] payload = new byte[100_000];
 		for (int i = 0; i < payload.Length; i++)
 		{
-			payload[i] = (byte)(i % 251);
+			payload[i] = (byte)(i * 7 % 251);
 		}
 
 		using MemoryStream syncSource = new(payload);
@@ -89,6 +102,42 @@ public class AsyncStreamIoTests
 		using AsyncOnlyStream asyncDestination = new();
 		Assert.IsTrue(await provider
 			.TryCompressAsync(asyncSource, asyncDestination, TestContext.CancellationTokenSource.Token)
+			.ConfigureAwait(false));
+
+		CollectionAssert.AreEqual(syncDestination.ToArray(), asyncDestination.ToArray(), $"{provider.GetType().Name} wrote different bytes asynchronously");
+	}
+
+	[TestMethod]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Deliberately exercises the synchronous path to compare its output against the asynchronous path.")]
+	public async Task AesAsyncEncryption_ProducesTheSameBytesAsTheSynchronousPathAsync()
+	{
+		IEncryptionProvider provider = new AesEncryptionProvider();
+		byte[] key = new byte[32];
+		byte[] iv = new byte[16];
+		for (int i = 0; i < key.Length; i++)
+		{
+			key[i] = (byte)(i * 3);
+		}
+
+		for (int i = 0; i < iv.Length; i++)
+		{
+			iv[i] = (byte)(200 - i);
+		}
+
+		byte[] payload = new byte[10_000];
+		for (int i = 0; i < payload.Length; i++)
+		{
+			payload[i] = (byte)(i % 253);
+		}
+
+		using MemoryStream syncSource = new(payload);
+		using MemoryStream syncDestination = new();
+		Assert.IsTrue(provider.TryEncrypt(syncSource, key, iv, syncDestination));
+
+		using AsyncOnlyStream asyncSource = new(payload);
+		using AsyncOnlyStream asyncDestination = new();
+		Assert.IsTrue(await provider
+			.TryEncryptAsync(asyncSource, key, iv, asyncDestination, TestContext.CancellationTokenSource.Token)
 			.ConfigureAwait(false));
 
 		CollectionAssert.AreEqual(syncDestination.ToArray(), asyncDestination.ToArray());

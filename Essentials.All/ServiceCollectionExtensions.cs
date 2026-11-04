@@ -132,7 +132,7 @@ public static class ServiceCollectionExtensions
 #endif
 
 		// Registered last so that it is the provider an ICompressionProvider resolves to.
-		return services.AddGzipCompressionProvider();
+		return services.AddDefaultOrKeep<ICompressionProvider, GzipCompressionProvider>(static s => s.AddGzipCompressionProvider());
 	}
 
 	/// <summary>
@@ -184,7 +184,7 @@ public static class ServiceCollectionExtensions
 			.AddXoshiroRandomProvider()
 			.AddPcgRandomProvider()
 			// Registered last so that it is the provider an IRandomProvider resolves to.
-			.AddCryptoRandomProvider();
+			.AddDefaultOrKeep<IRandomProvider, CryptoRandomProvider>(static s => s.AddCryptoRandomProvider());
 	}
 
 	/// <summary>
@@ -199,7 +199,7 @@ public static class ServiceCollectionExtensions
 		return services
 			.AddHexEncodingProvider()
 			// Registered last so that it is the provider an IEncodingProvider resolves to.
-			.AddBase64EncodingProvider();
+			.AddDefaultOrKeep<IEncodingProvider, Base64EncodingProvider>(static s => s.AddBase64EncodingProvider());
 	}
 
 	/// <summary>
@@ -239,7 +239,7 @@ public static class ServiceCollectionExtensions
 			.AddXxHash3HashProvider()
 			.AddXxHash128HashProvider()
 			// Registered last so that it is the provider an IHashProvider resolves to.
-			.AddSHA256HashProvider();
+			.AddDefaultOrKeep<IHashProvider, SHA256HashProvider>(static s => s.AddSHA256HashProvider());
 	}
 
 	/// <summary>
@@ -255,7 +255,7 @@ public static class ServiceCollectionExtensions
 			.AddHmacSha384KeyedHashProvider()
 			.AddHmacSha512KeyedHashProvider()
 			// Registered last so that it is the provider an IKeyedHashProvider resolves to.
-			.AddHmacSha256KeyedHashProvider();
+			.AddDefaultOrKeep<IKeyedHashProvider, HmacSha256KeyedHashProvider>(static s => s.AddHmacSha256KeyedHashProvider());
 	}
 
 	/// <summary>
@@ -296,7 +296,7 @@ public static class ServiceCollectionExtensions
 			.AddTomlSerializationProvider()
 			// Registered last so that it is the provider an ISerializationProvider resolves to, which
 			// also makes it the format the file-backed persistence providers write.
-			.AddJsonSerializationProvider();
+			.AddDefaultOrKeep<ISerializationProvider, JsonSerializationProvider>(static s => s.AddJsonSerializationProvider());
 	}
 
 	/// <summary>

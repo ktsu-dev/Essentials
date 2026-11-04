@@ -587,6 +587,39 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Triangular_Handles_Bounds_Whose_Width_Overflows()
+	{
+		// max - min overflowed to infinity, which made the mean infinite, the CDF NaN and every sample
+		// -Infinity, outside the bounds (issue #142).
+		IContinuousDistribution symmetric = new TriangularDistributionProvider(-1e308, 0.0, 1e308);
+		Assert.AreEqual(0.0, symmetric.Mean, 1e293);
+		Assert.AreEqual(0.5, symmetric.Cdf(0.0), Tight);
+		Assert.AreEqual(0.5, symmetric.SurvivalFunction(0.0), Tight);
+		Assert.AreEqual(0.0, symmetric.Median, 1e293);
+		Assert.AreEqual(1e-308, symmetric.Pdf(0.0), 1e-320);
+
+		IRandomProvider random = SeededRandom();
+		foreach (double sample in symmetric.Sample(random, 1000))
+		{
+			Assert.IsTrue(sample is >= -1e308 and <= 1e308, $"sample {sample} is outside the bounds");
+		}
+
+		IContinuousDistribution skewed = new TriangularDistributionProvider(-1e308, -5e307, 1e308);
+		double previous = 0.0;
+		for (int i = 1; i < 20; i++)
+		{
+			double value = (i - 10) / 10.0 * 1e308;
+			double cdf = skewed.Cdf(value);
+			Assert.IsTrue(cdf >= previous, $"the CDF fell at {value}");
+			Assert.AreEqual(1.0, cdf + skewed.SurvivalFunction(value), 1e-12, $"the survival function does not complement the CDF at {value}");
+			Assert.AreEqual(value, skewed.Quantile(cdf), 1e295, $"the quantile does not invert the CDF at {value}");
+			previous = cdf;
+		}
+
+		Assert.AreEqual(0.25, skewed.Cdf(-5e307), 1e-12, "the mode carries the lower side's share of the mass");
+	}
+
+	[TestMethod]
 	public void Bernoulli_Matches_Its_Closed_Form()
 	{
 		BernoulliDistributionProvider distribution = new(0.3);
@@ -911,6 +944,45 @@ public class DistributionProviderTests
 		{
 			Assert.AreNotEqual(1, distribution.Sample(random));
 		}
+	}
+
+	[TestMethod]
+	public void Categorical_Splits_Weights_Whose_Total_Overflows()
+	{
+		// The weights summed to infinity, so every mass was zero and the pinned last entry took every draw,
+		// though its weight was zero (issue #78).
+		CategoricalDistributionProvider distribution = new([1e308, 1e308, 0.0]);
+
+		Assert.AreEqual(0.5, distribution.Pmf(0), Tight);
+		Assert.AreEqual(0.5, distribution.Pmf(1), Tight);
+		Assert.AreEqual(0.0, distribution.Pmf(2));
+		Assert.AreEqual(1.0, distribution.Pmf(0) + distribution.Pmf(1) + distribution.Pmf(2), Tight);
+		Assert.AreEqual(0.5, distribution.Mean, Tight);
+
+		IDiscreteDistribution discrete = distribution;
+		IRandomProvider random = SeededRandom();
+		int first = 0;
+		for (int i = 0; i < 20000; i++)
+		{
+			int sample = discrete.Sample(random);
+			Assert.AreNotEqual(2, sample);
+			first += sample == 0 ? 1 : 0;
+		}
+
+		Assert.IsTrue(Math.Abs(first - 10000) < 400, $"drew the first outcome {first} times out of 20000");
+	}
+
+	[TestMethod]
+	public void Categorical_Gives_A_Trailing_Zero_Weight_None_Of_The_Rounding_Gap()
+	{
+		// These weights sum to a CDF of 0.9999999999999998 at outcome 6, and the last entry was pinned to one, so
+		// the quantile just below one named outcome 7, whose weight is zero (issue #78).
+		IDiscreteDistribution distribution = new CategoricalDistributionProvider(
+			[0.79, 0.37, 0.58, 0.01, 0.05, 0.18, 0.96, 0.0]);
+
+		Assert.AreEqual(1.0, distribution.Cdf(6));
+		Assert.AreEqual(6, distribution.Quantile(1.0 - Math.Pow(2, -53)));
+		Assert.AreEqual(6, distribution.Quantile(1.0));
 	}
 
 	// ---- argument validation -------------------------------------------------------------------

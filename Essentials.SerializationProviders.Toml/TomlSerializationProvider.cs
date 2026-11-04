@@ -13,13 +13,62 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Text;
 using Tomlyn;
-using Tomlyn.Model;
 
 /// <summary>
 /// A serialization provider that uses Tomlyn for serializing and deserializing objects.
 /// </summary>
+/// <remarks>
+/// Both directions go through Tomlyn's model binding with the same options, so a property is written and read
+/// under one name: <c>DisplayName</c> becomes <c>display_name</c> on the way out and is matched by it on the way
+/// back, and lists and nested objects round trip. Keys with no matching property are ignored. Deserializing
+/// needs a class with a public parameterless constructor; any other type, such as a positional record or a
+/// struct, deserializes to <see langword="default"/>.
+/// </remarks>
 public class TomlSerializationProvider : ISerializationProvider
 {
+	/// <summary>The options both directions bind with, so names and values convert the same way in each.</summary>
+	private static readonly TomlModelOptions ModelOptions = new()
+	{
+		IgnoreMissingProperties = true,
+		ConvertToToml = ToTomlValue,
+		ConvertToModel = ToModelValue,
+	};
+
+	/// <summary>
+	/// Writes the scalars TOML has no type for as strings. Tomlyn would otherwise write a <see cref="Guid"/>,
+	/// <see cref="decimal"/>, <see cref="TimeSpan"/> or <see cref="Uri"/> as an empty table, which reads back as
+	/// the default, and throws on a <see cref="char"/>. A decimal is a string rather than a float so it keeps
+	/// every digit.
+	/// </summary>
+	private static string? ToTomlValue(object value) => value switch
+	{
+		Guid guid => guid.ToString("D", CultureInfo.InvariantCulture),
+		decimal number => number.ToString(CultureInfo.InvariantCulture),
+		TimeSpan span => span.ToString("c", CultureInfo.InvariantCulture),
+		Uri uri => uri.OriginalString,
+		char character => character.ToString(),
+		_ => null,
+	};
+
+	/// <summary>
+	/// Reads back the scalars <see cref="ToTomlValue"/> writes as strings, and a decimal written by hand as a
+	/// TOML integer or float. Anything else is left to Tomlyn.
+	/// </summary>
+	private static object? ToModelValue(object value, Type targetType)
+	{
+		Type type = Nullable.GetUnderlyingType(targetType) ?? targetType;
+		return value switch
+		{
+			string text when type == typeof(Guid) => Guid.Parse(text),
+			string text when type == typeof(decimal) => decimal.Parse(text, NumberStyles.Number | NumberStyles.AllowExponent, CultureInfo.InvariantCulture),
+			string text when type == typeof(TimeSpan) => TimeSpan.ParseExact(text, "c", CultureInfo.InvariantCulture),
+			string text when type == typeof(Uri) => new Uri(text, UriKind.RelativeOrAbsolute),
+			string { Length: 1 } text when type == typeof(char) => text[0],
+			long or double when type == typeof(decimal) => Convert.ToDecimal(value, CultureInfo.InvariantCulture),
+			_ => null,
+		};
+	}
+
 	/// <summary>
 	/// Gets the conventional file extension for TOML, including the leading dot.
 	/// </summary>
@@ -47,7 +96,7 @@ public class TomlSerializationProvider : ISerializationProvider
 
 		try
 		{
-			string toml = Tomlyn.Toml.FromModel(obj);
+			string toml = Tomlyn.Toml.FromModel(obj, ModelOptions);
 			writer.Write(toml);
 			return true;
 		}
@@ -61,6 +110,16 @@ public class TomlSerializationProvider : ISerializationProvider
 		}
 		catch (ObjectDisposedException)
 		{
+			return false;
+		}
+		catch (InvalidOperationException)
+		{
+			// Tomlyn rejects a value it has no TOML type for this way, as System.Text.Json does
+			return false;
+		}
+		catch (TargetInvocationException)
+		{
+			// A property getter threw while Tomlyn read it
 			return false;
 		}
 	}
@@ -78,23 +137,34 @@ public class TomlSerializationProvider : ISerializationProvider
 			return default;
 		}
 
+		Func<string, T?>? bind = ModelBinder<T>.Bind;
+		if (bind is null)
+		{
+			return default;
+		}
+
 		try
 		{
 			string content = Encoding.UTF8.GetString(Utf8Bom.Skip(data));
-			TomlTable table = Tomlyn.Toml.ToModel(content);
-			object? result = ConvertToModel<T>(table);
-			if (result is T typedResult)
-			{
-				return typedResult;
-			}
-
-			return default;
+			return bind(content);
 		}
 		catch (TomlException)
 		{
 			return default;
 		}
 		catch (ArgumentException)
+		{
+			return default;
+		}
+		catch (InvalidOperationException)
+		{
+			return default;
+		}
+		catch (InvalidCastException)
+		{
+			return default;
+		}
+		catch (MissingMethodException)
 		{
 			return default;
 		}
@@ -218,36 +288,36 @@ public class TomlSerializationProvider : ISerializationProvider
 		public int GetHashCode(object obj) => RuntimeHelpers.GetHashCode(obj);
 	}
 
-	private static T? ConvertToModel<T>(TomlTable table)
+	private static TModel BindModel<TModel>(string content)
+		where TModel : class, new()
+		=> Tomlyn.Toml.ToModel<TModel>(content, sourcePath: null, ModelOptions);
+
+	/// <summary>
+	/// Tomlyn's typed <c>ToModel</c> for <typeparamref name="T"/>, made once per type, or <see langword="null"/>
+	/// when <typeparamref name="T"/> is not a class with a public parameterless constructor, which Tomlyn needs to
+	/// create it. A delegate rather than a reflected call each time, so a binding failure arrives as itself rather
+	/// than wrapped in a <see cref="TargetInvocationException"/>.
+	/// </summary>
+	private static class ModelBinder<T>
 	{
-		Type type = typeof(T);
-		object instance = Activator.CreateInstance(type)!;
+		internal static readonly Func<string, T?>? Bind = Create();
 
-		foreach (KeyValuePair<string, object> kvp in table)
+		private static Func<string, T?>? Create()
 		{
-			PropertyInfo? property = type.GetProperty(kvp.Key, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-			if (property is not null && property.CanWrite)
+			Type type = typeof(T);
+			if (!type.IsClass || type.IsAbstract || type.GetConstructor(Type.EmptyTypes) is null)
 			{
-				try
-				{
-					object? value = Convert.ChangeType(kvp.Value, property.PropertyType, CultureInfo.InvariantCulture);
-					property.SetValue(instance, value);
-				}
-				catch (InvalidCastException)
-				{
-					// Skip properties that can't be converted
-				}
-				catch (FormatException)
-				{
-					// Skip properties that can't be converted
-				}
-				catch (OverflowException)
-				{
-					// Skip properties that can't be converted
-				}
+				return null;
 			}
-		}
 
-		return (T)instance;
+			MethodInfo method = typeof(TomlSerializationProvider)
+				.GetMethod(nameof(BindModel), BindingFlags.NonPublic | BindingFlags.Static)!
+				.MakeGenericMethod(type);
+#if NET5_0_OR_GREATER
+			return method.CreateDelegate<Func<string, T?>>();
+#else
+			return (Func<string, T?>)method.CreateDelegate(typeof(Func<string, T?>));
+#endif
+		}
 	}
 }

@@ -89,15 +89,24 @@ public class CompositeObfuscationProvider : IObfuscationProvider
 			return false;
 		}
 
-		using MemoryStream buffer = new();
-		data.CopyTo(buffer);
-		if (!TryRunForward(buffer.ToArray(), out byte[] current))
+		try
 		{
+			using MemoryStream buffer = new();
+			data.CopyTo(buffer);
+			if (!TryRunForward(buffer.ToArray(), out byte[] current))
+			{
+				return false;
+			}
+
+			destination.Write(current, 0, current.Length);
+			return true;
+		}
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
+		{
+			// A stream that cannot be read or written is a failure to report, as the encoder-backed
+			// obfuscators already do (issue #86).
 			return false;
 		}
-
-		destination.Write(current, 0, current.Length);
-		return true;
 	}
 
 	/// <inheritdoc/>
@@ -128,15 +137,24 @@ public class CompositeObfuscationProvider : IObfuscationProvider
 			return false;
 		}
 
-		using MemoryStream buffer = new();
-		obfuscatedData.CopyTo(buffer);
-		if (!TryRunReverse(buffer.ToArray(), out byte[] current))
+		try
 		{
+			using MemoryStream buffer = new();
+			obfuscatedData.CopyTo(buffer);
+			if (!TryRunReverse(buffer.ToArray(), out byte[] current))
+			{
+				return false;
+			}
+
+			destination.Write(current, 0, current.Length);
+			return true;
+		}
+		catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
+		{
+			// A stream that cannot be read or written is a failure to report, as the encoder-backed
+			// obfuscators already do (issue #86).
 			return false;
 		}
-
-		destination.Write(current, 0, current.Length);
-		return true;
 	}
 
 	/// <summary>

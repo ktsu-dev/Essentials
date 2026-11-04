@@ -77,8 +77,10 @@ public class JsonSerializationProvider : ISerializationProvider
 		{
 			return false;
 		}
-		catch (ObjectDisposedException)
+		catch (InvalidOperationException)
 		{
+			// System.Text.Json reports a type it cannot map (two members with one JSON name, say) this way,
+			// and a disposed writer's ObjectDisposedException derives from it.
 			return false;
 		}
 	}
@@ -110,6 +112,12 @@ public class JsonSerializationProvider : ISerializationProvider
 		}
 		catch (ArgumentException)
 		{
+			return default;
+		}
+		catch (InvalidOperationException)
+		{
+			// A type System.Text.Json cannot map, such as one whose constructor parameters do not bind to
+			// its properties.
 			return default;
 		}
 	}

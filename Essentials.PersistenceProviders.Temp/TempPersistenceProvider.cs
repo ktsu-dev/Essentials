@@ -6,8 +6,6 @@ using ktsu.Essentials;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -29,8 +27,16 @@ public sealed class TempPersistenceProvider<TKey>(
 	where TKey : notnull
 {
 	private readonly IFileSystemProvider _fileSystemProvider = Ensure.NotNull(fileSystemProvider);
-	private readonly ISerializationProvider _serializationProvider = Ensure.NotNull(serializationProvider);
-	private readonly string _tempDirectory = CreateTempDirectory(fileSystemProvider, applicationName);
+	private readonly FileRecordStore<TKey> _records = new(
+		Ensure.NotNull(fileSystemProvider),
+		Ensure.NotNull(serializationProvider),
+		CreateTempDirectory(fileSystemProvider, applicationName),
+		"temp directory");
+
+	/// <summary>
+	/// Gets the directory this provider stores objects in: a fresh subdirectory of the system temporary directory.
+	/// </summary>
+	public string BaseDirectory => _records.Directory;
 
 	/// <inheritdoc/>
 	public string ProviderName => "Temp";
@@ -39,75 +45,37 @@ public sealed class TempPersistenceProvider<TKey>(
 	public bool IsPersistent => false; // Temp files can be cleaned up by the system
 
 	/// <inheritdoc/>
-	public async Task StoreAsync<T>(TKey key, T obj, CancellationToken cancellationToken = default)
+	public Task StoreAsync<T>(TKey key, T obj, CancellationToken cancellationToken = default)
 	{
 #pragma warning disable KTSU0003 // Ensure.NotNull requires class constraint, but TKey is notnull
 		ArgumentNullException.ThrowIfNull(key);
 #pragma warning restore KTSU0003
-
-		if (obj is null)
-		{
-			await RemoveAsync(key, cancellationToken).ConfigureAwait(false);
-			return;
-		}
-
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			string filePath = GetFilePath(key);
-			string serializedData = await _serializationProvider.SerializeAsync(obj, cancellationToken).ConfigureAwait(false);
-
-			// Ensure directory exists
-			string? directory = _fileSystemProvider.Path.GetDirectoryName(filePath);
-			if (!string.IsNullOrEmpty(directory))
-			{
-				_fileSystemProvider.Directory.CreateDirectory(directory);
-			}
-
-			await AtomicFile.WriteAllTextAsync(_fileSystemProvider, filePath, serializedData, cancellationToken).ConfigureAwait(false);
-		}
-		catch (Exception ex)
-		{
-			throw new PersistenceProviderException($"Failed to store object with key '{key}' to temp directory", ex);
-		}
+		return _records.StoreAsync(key, obj, cancellationToken);
 	}
 
 	/// <inheritdoc/>
-	public async Task<T?> RetrieveAsync<T>(TKey key, CancellationToken cancellationToken = default)
+	/// <exception cref="PersistenceProviderException">The record is there but cannot be read as <typeparamref name="T"/>, or reading it failed.</exception>
+	public Task<T?> RetrieveAsync<T>(TKey key, CancellationToken cancellationToken = default)
 	{
 #pragma warning disable KTSU0003 // Ensure.NotNull requires class constraint, but TKey is notnull
 		ArgumentNullException.ThrowIfNull(key);
 #pragma warning restore KTSU0003
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			string filePath = GetFilePath(key);
-
-			if (!_fileSystemProvider.File.Exists(filePath))
-			{
-				return default;
-			}
-
-			string serializedData = await AtomicFile.ReadAllTextAsync(_fileSystemProvider, filePath, cancellationToken).ConfigureAwait(false);
-
-			if (string.IsNullOrEmpty(serializedData))
-			{
-				return default;
-			}
-
-			return await _serializationProvider.DeserializeAsync<T>(serializedData, cancellationToken).ConfigureAwait(false);
-		}
-		catch (Exception ex)
-		{
-			throw new PersistenceProviderException($"Failed to retrieve object with key '{key}' from temp directory", ex);
-		}
+		return _records.RetrieveAsync<T>(key, cancellationToken);
 	}
 
 	/// <inheritdoc/>
+	/// <remarks>
+	/// The new instance is stored only if no record has appeared under the key in the meantime; if one has, it is
+	/// returned instead. A record that is there but cannot be read is left untouched and throws.
+	/// </remarks>
+	/// <exception cref="PersistenceProviderException">The record is there but cannot be read as <typeparamref name="T"/>, or reading or storing it failed.</exception>
 	public Task<T> RetrieveOrCreateAsync<T>(TKey key, CancellationToken cancellationToken = default) where T : new()
-		=> PersistenceDefaults.RetrieveOrCreateAsync<TKey, T>(this, key, cancellationToken);
+	{
+#pragma warning disable KTSU0003 // Ensure.NotNull requires class constraint, but TKey is notnull
+		ArgumentNullException.ThrowIfNull(key);
+#pragma warning restore KTSU0003
+		return _records.RetrieveOrCreateAsync<T>(key, cancellationToken);
+	}
 
 	/// <inheritdoc/>
 	public Task<bool> ExistsAsync(TKey key, CancellationToken cancellationToken = default)
@@ -116,10 +84,7 @@ public sealed class TempPersistenceProvider<TKey>(
 		ArgumentNullException.ThrowIfNull(key);
 #pragma warning restore KTSU0003
 		cancellationToken.ThrowIfCancellationRequested();
-
-		string filePath = GetFilePath(key);
-		bool exists = _fileSystemProvider.File.Exists(filePath);
-		return Task.FromResult(exists);
+		return Task.FromResult(_records.Exists(key));
 	}
 
 	/// <inheritdoc/>
@@ -128,90 +93,22 @@ public sealed class TempPersistenceProvider<TKey>(
 #pragma warning disable KTSU0003 // Ensure.NotNull requires class constraint, but TKey is notnull
 		ArgumentNullException.ThrowIfNull(key);
 #pragma warning restore KTSU0003
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			string filePath = GetFilePath(key);
-
-			if (!_fileSystemProvider.File.Exists(filePath))
-			{
-				return Task.FromResult(false);
-			}
-
-			_fileSystemProvider.File.Delete(filePath);
-			return Task.FromResult(true);
-		}
-		catch (Exception ex)
-		{
-			throw new PersistenceProviderException($"Failed to remove object with key '{key}' from temp directory", ex);
-		}
+		return _records.RemoveAsync(key, cancellationToken);
 	}
 
 	/// <inheritdoc/>
 	public Task<IEnumerable<TKey>> GetAllKeysAsync(CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			if (!_fileSystemProvider.Directory.Exists(_tempDirectory))
-			{
-				return Task.FromResult(Enumerable.Empty<TKey>());
-			}
-
-			string[] files = _fileSystemProvider.Directory.GetFiles(_tempDirectory, "*" + _serializationProvider.FileExtension, SearchOption.TopDirectoryOnly);
-			List<TKey> keys = [];
-			foreach (string file in files)
-			{
-				string? name = _fileSystemProvider.Path.GetFileNameWithoutExtension(file);
-				if (string.IsNullOrEmpty(name))
-				{
-					continue;
-				}
-
-				// Names are percent-encoded, so the original key is recovered exactly. Truncated
-				// names cannot be decoded and are skipped rather than reported as a wrong key.
-				string? decoded = PersistenceProviderUtilities.GetKeyFromFileName(name!);
-				if (decoded is not null && PersistenceProviderUtilities.TryConvertToKey(decoded, out TKey key))
-				{
-					keys.Add(key);
-				}
-			}
-
-			return Task.FromResult<IEnumerable<TKey>>(keys);
-		}
-		catch (Exception ex)
-		{
-			throw new PersistenceProviderException("Failed to retrieve all keys from temp directory", ex);
-		}
+		return Task.FromResult(_records.GetAllKeys());
 	}
 
 	/// <inheritdoc/>
-	public Task ClearAsync(CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			if (!_fileSystemProvider.Directory.Exists(_tempDirectory))
-			{
-				return Task.CompletedTask;
-			}
-
-			string[] files = _fileSystemProvider.Directory.GetFiles(_tempDirectory, "*" + _serializationProvider.FileExtension, SearchOption.TopDirectoryOnly);
-			foreach (string file in files)
-			{
-				_fileSystemProvider.File.Delete(file);
-			}
-
-			return Task.CompletedTask;
-		}
-		catch (Exception ex)
-		{
-			throw new PersistenceProviderException("Failed to clear all objects from temp directory", ex);
-		}
-	}
+	/// <remarks>
+	/// Also removes staging files that writes interrupted by a crash or power loss left behind, each of which
+	/// holds a whole record. Staging files younger than a minute belong to writes still in progress and are kept.
+	/// </remarks>
+	public Task ClearAsync(CancellationToken cancellationToken = default) => _records.ClearAsync(cancellationToken);
 
 	/// <summary>
 	/// Releases resources. Does not automatically clean up the temporary directory.
@@ -228,9 +125,9 @@ public sealed class TempPersistenceProvider<TKey>(
 	{
 		try
 		{
-			if (_fileSystemProvider.Directory.Exists(_tempDirectory))
+			if (_fileSystemProvider.Directory.Exists(_records.Directory))
 			{
-				_fileSystemProvider.Directory.Delete(_tempDirectory, recursive: true);
+				_fileSystemProvider.Directory.Delete(_records.Directory, recursive: true);
 			}
 		}
 		catch (Exception)
@@ -238,12 +135,6 @@ public sealed class TempPersistenceProvider<TKey>(
 			// Ignore cleanup errors - temp directories may be cleaned up by the system
 			// Intentionally catching all exceptions during cleanup
 		}
-	}
-
-	private string GetFilePath(TKey key)
-	{
-		string fileName = PersistenceProviderUtilities.GetSafeFileName(PersistenceProviderUtilities.FormatKey(key)) + _serializationProvider.FileExtension;
-		return _fileSystemProvider.Path.Combine(_tempDirectory, fileName);
 	}
 
 	private static string CreateTempDirectory(IFileSystemProvider fileSystemProvider, string? applicationName)

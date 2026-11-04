@@ -86,6 +86,40 @@ public class JsonSerializationOptionsTests
 		Assert.AreEqual("{\"displayName\":\"x\",\"theme\":0}", Serialize(contract, new Settings { DisplayName = "x" }));
 	}
 
+	[TestMethod]
+	public void A_Type_With_Colliding_Names_Fails_Without_Throwing()
+	{
+		ISerializationProvider provider = new JsonSerializationProvider();
+		using StringWriter writer = new();
+
+		Assert.IsFalse(provider.TrySerialize(new Colliding { A = 1, B = 2 }, writer));
+		Assert.AreEqual(string.Empty, writer.ToString(), "nothing reaches the writer when serialization fails");
+		Assert.IsNull(provider.Deserialize<Colliding>("{\"x\":1}"u8));
+		Assert.ThrowsExactly<InvalidOperationException>(() => provider.Serialize(new Colliding()));
+	}
+
+	[TestMethod]
+	public void A_Constructor_That_Does_Not_Bind_Fails_Without_Throwing()
+	{
+		ISerializationProvider provider = new JsonSerializationProvider();
+		Assert.IsNull(provider.Deserialize<Unbindable>("{\"Value\":1}"u8));
+	}
+
+	public sealed class Colliding
+	{
+		[JsonPropertyName("x")]
+		public int A { get; set; }
+
+		[JsonPropertyName("x")]
+		public int B { get; set; }
+	}
+
+	// The only constructor's parameter is not named after a property, so it cannot be bound.
+	public sealed class Unbindable(int p)
+	{
+		public int Value { get; } = p;
+	}
+
 	private static string Serialize(ISerializationProvider provider, object value)
 	{
 		using StringWriter writer = new();
