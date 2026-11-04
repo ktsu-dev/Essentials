@@ -2,6 +2,11 @@
 
 Changes since v2.11.0:
 
+- Test that the Composite obfuscator runs its stages in order [patch] (#175) (matt-edmondson)
+- Check a later Gzip member's CRC before accepting a short trailer [patch] (#173) (matt-edmondson)
+- Cover TOML's hand-written decimals, nullable scalars and throwing getters (Claude)
+- Check the Gzip and ZLib trailer against a copy when the source overlaps the destination [patch] (matt-edmondson)
+- Round-trip Guid, decimal, TimeSpan, Uri and char through TOML, and report what Tomlyn rejects as a failed serialize [patch] (Claude)
 - Decode Hex and Base64 from a copy when the source overlaps the destination [patch] (Claude)
 - Share the chunked stream loop and make the roll's moves visible to analysis (Claude)
 - Retry a Windows read refused while a replace is pending (Claude)
