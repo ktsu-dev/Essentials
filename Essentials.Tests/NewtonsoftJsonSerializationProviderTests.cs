@@ -31,6 +31,18 @@ public class NewtonsoftJsonSerializationProviderTests
 	}
 
 	[TestMethod]
+	public void TrySerialize_CyclicObject_ReturnsFalseAndWritesNothing()
+	{
+		NewtonsoftJsonSerializationProvider provider = new();
+		Node node = new() { Name = "a" };
+		node.Next = node;
+		using StringWriter writer = new();
+
+		Assert.IsFalse(provider.TrySerialize(node, writer));
+		Assert.AreEqual(string.Empty, writer.ToString());
+	}
+
+	[TestMethod]
 	[DataRow(64)]
 	[DataRow(65)]
 	[DataRow(200)]
