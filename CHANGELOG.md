@@ -2,6 +2,7 @@
 
 Changes since v2.11.0:
 
+- Add a SessionStart hook for Claude Code cloud sessions (#163) (matt-edmondson)
 - Test that the Composite obfuscator runs its stages in order [patch] (#175) (matt-edmondson)
 - Check a later Gzip member's CRC before accepting a short trailer [patch] (#173) (matt-edmondson)
 - Cover TOML's hand-written decimals, nullable scalars and throwing getters (Claude)
