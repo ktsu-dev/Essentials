@@ -252,15 +252,9 @@ public class BrotliCompressionProvider : ICompressionProvider
 					OperationStatus status = decoder.Decompress(input.AsSpan(offset, available - offset), output, out int consumed, out int written);
 					offset += consumed;
 					destination.Write(output, 0, written);
-					if (status == OperationStatus.Done)
-					{
-						// Anything after the end of the stream, still buffered or yet to be read, is a failure (issue #178).
-						return offset == available && (ended || compressedData.Read(input, 0, 1) == 0);
-					}
-
 					if (IsFinished(status, ended, out bool complete))
 					{
-						return complete;
+						return complete && NothingFollows(compressedData, input, offset, available, ended);
 					}
 				}
 			}
@@ -337,15 +331,9 @@ public class BrotliCompressionProvider : ICompressionProvider
 					OperationStatus status = decoder.Decompress(input.AsSpan(offset, available - offset), output, out int consumed, out int written);
 					offset += consumed;
 					await destination.WriteAsync(output.AsMemory(0, written), cancellationToken).ConfigureAwait(false);
-					if (status == OperationStatus.Done)
-					{
-						// Anything after the end of the stream, still buffered or yet to be read, is a failure (issue #178).
-						return offset == available && (ended || await compressedData.ReadAsync(input.AsMemory(0, 1), cancellationToken).ConfigureAwait(false) == 0);
-					}
-
 					if (IsFinished(status, ended, out bool complete))
 					{
-						return complete;
+						return complete && await NothingFollowsAsync(compressedData, input, offset, available, ended, cancellationToken).ConfigureAwait(false);
 					}
 				}
 			}
@@ -385,10 +373,10 @@ public class BrotliCompressionProvider : ICompressionProvider
 	/// before it is truncated, which <see cref="BrotliStream"/> reports as a clean end (issue #80).
 	/// </summary>
 	/// <remarks>
-	/// <see cref="OperationStatus.Done"/> is handled by the callers before this, since whether it is a success
-	/// depends on whether any input follows the stream (issue #178).
+	/// A complete stream is a success only if no input follows it, which the callers check with
+	/// <see cref="NothingFollows"/> or <see cref="NothingFollowsAsync"/> (issue #178).
 	/// </remarks>
-	/// <param name="status">What the decoder reported, other than <see cref="OperationStatus.Done"/>.</param>
+	/// <param name="status">What the decoder reported.</param>
 	/// <param name="ended">Whether the input has run out.</param>
 	/// <param name="complete">When finished, whether the whole stream was decoded.</param>
 	/// <returns><see langword="true"/> when the loop is done, with <paramref name="complete"/> as its answer.</returns>
@@ -396,6 +384,9 @@ public class BrotliCompressionProvider : ICompressionProvider
 	{
 		switch (status)
 		{
+			case OperationStatus.Done:
+				complete = true;
+				return true;
 			case OperationStatus.NeedMoreData when ended:
 			case OperationStatus.InvalidData:
 				complete = false;
@@ -406,4 +397,28 @@ public class BrotliCompressionProvider : ICompressionProvider
 				return false;
 		}
 	}
+
+	/// <summary>
+	/// Whether the input ends where the Brotli stream did. Bytes still buffered after its end, or one more read of
+	/// the source that returns any, are data the stream did not describe, so the decompression fails rather than
+	/// dropping them (issue #178).
+	/// </summary>
+	/// <param name="source">The compressed input.</param>
+	/// <param name="input">The input buffer, reused for the extra read.</param>
+	/// <param name="offset">How much of the buffer the decoder consumed.</param>
+	/// <param name="available">How much of the buffer holds input.</param>
+	/// <param name="ended">Whether a read of the source has already returned nothing.</param>
+	/// <returns><see langword="true"/> when no input follows the stream.</returns>
+	private static bool NothingFollows(Stream source, byte[] input, int offset, int available, bool ended)
+		=> offset == available && (ended || source.Read(input, 0, 1) == 0);
+
+	/// <inheritdoc cref="NothingFollows"/>
+	/// <param name="source">The compressed input.</param>
+	/// <param name="input">The input buffer, reused for the extra read.</param>
+	/// <param name="offset">How much of the buffer the decoder consumed.</param>
+	/// <param name="available">How much of the buffer holds input.</param>
+	/// <param name="ended">Whether a read of the source has already returned nothing.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	private static async ValueTask<bool> NothingFollowsAsync(Stream source, byte[] input, int offset, int available, bool ended, CancellationToken cancellationToken)
+		=> offset == available && (ended || await source.ReadAsync(input.AsMemory(0, 1), cancellationToken).ConfigureAwait(false) == 0);
 }
