@@ -179,13 +179,28 @@ public class BrotliCompressionProvider : ICompressionProvider
 		{
 			// BrotliDecoder writes straight into the destination, so the destination bounds the work (issue #122),
 			// and it reports whether the final block arrived, which BrotliStream does not: input cut off part way
-			// read as a clean end and decompressed to a shorter output (issue #80).
-			if (!BrotliDecoder.TryDecompress(compressedData, destination, out bytesWritten))
+			// read as a clean end and decompressed to a shorter output (issue #80). The instance decoder also says
+			// how much input the stream took, so bytes after its end, whether a second stream or anything else,
+			// are a failure rather than silently dropped (issue #178).
+			using BrotliDecoder decoder = new();
+
+			// The decoder answers DestinationTooSmall for any empty destination without looking at the input, so an
+			// empty payload would never reach its final block. A one-byte scratch buffer lets it; any output written
+			// there means the payload was not empty and did not fit.
+			Span<byte> scratch = stackalloc byte[1];
+			Span<byte> target = destination.IsEmpty ? scratch : destination;
+			OperationStatus status = decoder.Decompress(compressedData, target, out int consumed, out int written);
+			if (destination.IsEmpty && written != 0)
 			{
-				bytesWritten = 0;
 				return false;
 			}
 
+			if (status != OperationStatus.Done || consumed != compressedData.Length)
+			{
+				return false;
+			}
+
+			bytesWritten = written;
 			return true;
 		}
 		catch (ArgumentException)
@@ -237,6 +252,12 @@ public class BrotliCompressionProvider : ICompressionProvider
 					OperationStatus status = decoder.Decompress(input.AsSpan(offset, available - offset), output, out int consumed, out int written);
 					offset += consumed;
 					destination.Write(output, 0, written);
+					if (status == OperationStatus.Done)
+					{
+						// Anything after the end of the stream, still buffered or yet to be read, is a failure (issue #178).
+						return offset == available && (ended || compressedData.Read(input, 0, 1) == 0);
+					}
+
 					if (IsFinished(status, ended, out bool complete))
 					{
 						return complete;
@@ -316,6 +337,12 @@ public class BrotliCompressionProvider : ICompressionProvider
 					OperationStatus status = decoder.Decompress(input.AsSpan(offset, available - offset), output, out int consumed, out int written);
 					offset += consumed;
 					await destination.WriteAsync(output.AsMemory(0, written), cancellationToken).ConfigureAwait(false);
+					if (status == OperationStatus.Done)
+					{
+						// Anything after the end of the stream, still buffered or yet to be read, is a failure (issue #178).
+						return offset == available && (ended || await compressedData.ReadAsync(input.AsMemory(0, 1), cancellationToken).ConfigureAwait(false) == 0);
+					}
+
 					if (IsFinished(status, ended, out bool complete))
 					{
 						return complete;
@@ -357,7 +384,11 @@ public class BrotliCompressionProvider : ICompressionProvider
 	/// <see cref="BrotliStream"/> because only the decoder says whether the final block arrived: input that ends
 	/// before it is truncated, which <see cref="BrotliStream"/> reports as a clean end (issue #80).
 	/// </summary>
-	/// <param name="status">What the decoder reported.</param>
+	/// <remarks>
+	/// <see cref="OperationStatus.Done"/> is handled by the callers before this, since whether it is a success
+	/// depends on whether any input follows the stream (issue #178).
+	/// </remarks>
+	/// <param name="status">What the decoder reported, other than <see cref="OperationStatus.Done"/>.</param>
 	/// <param name="ended">Whether the input has run out.</param>
 	/// <param name="complete">When finished, whether the whole stream was decoded.</param>
 	/// <returns><see langword="true"/> when the loop is done, with <paramref name="complete"/> as its answer.</returns>
@@ -365,9 +396,6 @@ public class BrotliCompressionProvider : ICompressionProvider
 	{
 		switch (status)
 		{
-			case OperationStatus.Done:
-				complete = true;
-				return true;
 			case OperationStatus.NeedMoreData when ended:
 			case OperationStatus.InvalidData:
 				complete = false;

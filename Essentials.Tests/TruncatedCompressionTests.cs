@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2026 ktsu-dev contributors
+﻿// Copyright (c) 2023-2026 ktsu-dev contributors
 
 namespace ktsu.Essentials.Tests;
 
@@ -180,6 +180,38 @@ public sealed class TruncatedCompressionTests
 		for (int length = first.Length + 1; length < concatenated.Length; length++)
 		{
 			await AssertRejectedOnEveryPath(gzip, concatenated[..length], concatenated.Length * 2, $"cut at {length} of {concatenated.Length}").ConfigureAwait(false);
+		}
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(Providers))]
+	public async Task Trailing_Bytes_After_The_Stream_Are_Reported_As_A_Failure_On_Every_Path(ICompressionProvider provider)
+	{
+		// A shortened payload reported as a success is the failure #80 ruled out for truncation; bytes after
+		// the end of the stream must not produce one either (issue #178).
+		string name = provider.GetType().Name;
+		foreach (byte[] payload in (byte[][])[[], [97, 97, 97], Payload()])
+		{
+			byte[] compressed = provider.Compress(payload);
+			foreach (byte[] junk in (byte[][])[[0xDE, 0xAD, 0xBE, 0xEF], [0], new byte[100_000]])
+			{
+				await AssertRejectedOnEveryPath(provider, [.. compressed, .. junk], payload.Length + junk.Length, $"{name}: {payload.Length}-byte payload with {junk.Length} trailing bytes").ConfigureAwait(false);
+			}
+		}
+	}
+
+	[TestMethod]
+	public async Task Brotli_Rejects_Concatenated_Streams_On_Every_Path()
+	{
+		// Unlike gzip members, Brotli streams do not concatenate, so a second one is trailing data rather than
+		// more output (issue #178).
+		ICompressionProvider brotli = new BrotliCompressionProvider();
+		byte[] first = Payload();
+		byte[] second = [.. Payload().AsSpan(0, 5000)];
+		foreach ((byte[] a, byte[] b) in new[] { ("aaa"u8.ToArray(), "bbb"u8.ToArray()), (first, second) })
+		{
+			byte[] concatenated = [.. brotli.Compress(a), .. brotli.Compress(b)];
+			await AssertRejectedOnEveryPath(brotli, concatenated, a.Length + b.Length, $"{a.Length}+{b.Length} bytes in two streams").ConfigureAwait(false);
 		}
 	}
 
