@@ -76,6 +76,12 @@ public sealed class SerializationRoundTripTests
 			Letter = 'q',
 			When = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero),
 			Kind = ScalarKind.B,
+
+			// TOML moved an offset to UTC at millisecond precision, and wrote a Version as an empty table that
+			// read back as 0.0 (issue #177). DateTimeOffset equality compares instants only, so the offset is
+			// checked on its own.
+			Recorded = new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.FromHours(-7)).AddTicks(1234567),
+			Schema = new Version(1, 2, 3),
 		};
 
 		using StringWriter writer = new();
@@ -91,6 +97,9 @@ public sealed class SerializationRoundTripTests
 		Assert.AreEqual(original.Letter, back.Letter, $"{name} lost a char:\n{text}");
 		Assert.AreEqual(original.When, back.When, $"{name} lost a DateTimeOffset:\n{text}");
 		Assert.AreEqual(original.Kind, back.Kind, $"{name} lost an enum:\n{text}");
+		Assert.AreEqual(original.Recorded, back.Recorded, $"{name} lost a DateTimeOffset's instant:\n{text}");
+		Assert.AreEqual(original.Recorded.Offset, back.Recorded.Offset, $"{name} lost a DateTimeOffset's offset:\n{text}");
+		Assert.AreEqual(original.Schema, back.Schema, $"{name} lost a Version:\n{text}");
 	}
 
 	[TestMethod]
@@ -214,5 +223,9 @@ public sealed class SerializationRoundTripTests
 		public DateTimeOffset When { get; set; }
 
 		public ScalarKind Kind { get; set; }
+
+		public DateTimeOffset Recorded { get; set; }
+
+		public Version? Schema { get; set; }
 	}
 }
