@@ -495,6 +495,210 @@ public class KeyedHashProviderTests
 
 	#endregion
 
+	#region Shipped provider contract
+
+	/// <summary>
+	/// Every shipped HMAC provider, with the block size of its underlying hash. The block size matters
+	/// because the incremental path is driven one byte past it, where the HMAC's internal buffering
+	/// crosses from one compression block into the next.
+	/// </summary>
+	public static IEnumerable<object[]> ShippedProviders =>
+	[
+		[new HmacSha256KeyedHashProvider(), nameof(HmacSha256KeyedHashProvider), 64],
+		[new HmacSha384KeyedHashProvider(), nameof(HmacSha384KeyedHashProvider), 128],
+		[new HmacSha512KeyedHashProvider(), nameof(HmacSha512KeyedHashProvider), 128],
+	];
+
+	private static readonly byte[] ContractKey = Encoding.UTF8.GetBytes("shipped provider contract key");
+
+	private const byte Sentinel = 0xCD;
+
+	private static byte[] ContractPayload(int length)
+	{
+		byte[] payload = new byte[length];
+		for (int i = 0; i < length; i++)
+		{
+			payload[i] = (byte)((i * 31) + 7);
+		}
+
+		return payload;
+	}
+
+	private static void AssertTailUntouched(byte[] buffer, int written, string context)
+	{
+		for (int i = written; i < buffer.Length; i++)
+		{
+			Assert.AreEqual(Sentinel, buffer[i], $"{context}: byte {i}, past the tag, must not be touched");
+		}
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(ShippedProviders))]
+	public void Shipped_TryHash_Span_Rejects_Undersized_Destination(IKeyedHashProvider provider, string name, int blockSize)
+	{
+		_ = blockSize;
+		byte[] tooSmall = new byte[provider.HashLengthBytes - 1];
+
+		Assert.IsFalse(provider.TryHash(ContractKey, ContractPayload(40), tooSmall, out int written), name);
+		Assert.AreEqual(0, written, name);
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(ShippedProviders))]
+	public void Shipped_TryHash_Stream_Rejects_Undersized_Destination(IKeyedHashProvider provider, string name, int blockSize)
+	{
+		_ = blockSize;
+		byte[] tooSmall = new byte[provider.HashLengthBytes - 1];
+		using MemoryStream stream = new(ContractPayload(40));
+
+		Assert.IsFalse(provider.TryHash(ContractKey, stream, tooSmall, out int written), name);
+		Assert.AreEqual(0, written, name);
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(ShippedProviders))]
+	public async Task Shipped_TryHashAsync_Rejects_Undersized_Destination(IKeyedHashProvider provider, string name, int blockSize)
+	{
+		_ = blockSize;
+		byte[] tooSmall = new byte[provider.HashLengthBytes - 1];
+		using MemoryStream stream = new(ContractPayload(40));
+
+		bool ok = await provider.TryHashAsync(ContractKey, stream, tooSmall).ConfigureAwait(false);
+
+		Assert.IsFalse(ok, name);
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(ShippedProviders))]
+	public void Shipped_Incremental_Rejects_Undersized_Destination_And_Keeps_Its_State(IKeyedHashProvider provider, string name, int blockSize)
+	{
+		_ = blockSize;
+		byte[] payload = ContractPayload(40);
+		byte[] tooSmall = new byte[provider.HashLengthBytes - 1];
+		using IIncrementalHash incremental = provider.CreateIncremental(ContractKey);
+		incremental.Append(payload);
+
+		Assert.IsFalse(incremental.TryGetHashAndReset(tooSmall, out int written), name);
+		Assert.AreEqual(0, written, name);
+
+		// IIncrementalHash promises the failed call leaves the appended data in place for a retry.
+		CollectionAssert.AreEqual(provider.Hash(ContractKey, payload), incremental.GetHashAndReset(), $"{name} lost its state on a short buffer");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(ShippedProviders))]
+	public void Shipped_TryHash_Span_Reports_Exact_Length_And_Leaves_Tail_Untouched(IKeyedHashProvider provider, string name, int blockSize)
+	{
+		_ = blockSize;
+		byte[] buffer = new byte[provider.HashLengthBytes + 16];
+		buffer.AsSpan().Fill(Sentinel);
+
+		Assert.IsTrue(provider.TryHash(ContractKey, ContractPayload(40), buffer, out int written), name);
+
+		Assert.AreEqual(provider.HashLengthBytes, written, name);
+		AssertTailUntouched(buffer, written, $"{name} span TryHash");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(ShippedProviders))]
+	public void Shipped_TryHash_Stream_Reports_Exact_Length_And_Leaves_Tail_Untouched(IKeyedHashProvider provider, string name, int blockSize)
+	{
+		_ = blockSize;
+		byte[] buffer = new byte[provider.HashLengthBytes + 16];
+		buffer.AsSpan().Fill(Sentinel);
+		using MemoryStream stream = new(ContractPayload(40));
+
+		Assert.IsTrue(provider.TryHash(ContractKey, stream, buffer, out int written), name);
+
+		Assert.AreEqual(provider.HashLengthBytes, written, name);
+		AssertTailUntouched(buffer, written, $"{name} stream TryHash");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(ShippedProviders))]
+	public async Task Shipped_TryHashAsync_Leaves_Tail_Untouched(IKeyedHashProvider provider, string name, int blockSize)
+	{
+		_ = blockSize;
+		byte[] payload = ContractPayload(40);
+		byte[] buffer = new byte[provider.HashLengthBytes + 16];
+		buffer.AsSpan().Fill(Sentinel);
+		using MemoryStream stream = new(payload);
+
+		Assert.IsTrue(await provider.TryHashAsync(ContractKey, stream, buffer).ConfigureAwait(false), name);
+
+		// TryHashAsync has no bytesWritten; a true result promises exactly HashLengthBytes were written.
+		CollectionAssert.AreEqual(provider.Hash(ContractKey, payload), buffer.AsSpan(0, provider.HashLengthBytes).ToArray(), name);
+		AssertTailUntouched(buffer, provider.HashLengthBytes, $"{name} TryHashAsync");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(ShippedProviders))]
+	public void Shipped_Incremental_Reports_Exact_Length_And_Leaves_Tail_Untouched(IKeyedHashProvider provider, string name, int blockSize)
+	{
+		_ = blockSize;
+		byte[] buffer = new byte[provider.HashLengthBytes + 16];
+		buffer.AsSpan().Fill(Sentinel);
+		using IIncrementalHash incremental = provider.CreateIncremental(ContractKey);
+		incremental.Append(ContractPayload(40));
+
+		Assert.IsTrue(incremental.TryGetHashAndReset(buffer, out int written), name);
+
+		Assert.AreEqual(provider.HashLengthBytes, written, name);
+		AssertTailUntouched(buffer, written, $"{name} incremental TryGetHashAndReset");
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(ShippedProviders))]
+	public async Task Shipped_All_Four_Paths_Agree(IKeyedHashProvider provider, string name, int blockSize)
+	{
+		// Long enough to hold three blocks, so every chunk size below crosses at least one block boundary.
+		byte[] data = ContractPayload((blockSize * 3) + 5);
+		byte[] oneShot = provider.Hash(ContractKey, data);
+
+		using MemoryStream syncStream = new(data);
+		CollectionAssert.AreEqual(oneShot, provider.Hash(ContractKey, syncStream), $"{name} stream");
+
+		// Typed as Stream so HashAsync binds to its Stream overload, not the ReadOnlyMemory one (spec L169-171).
+		Stream hashAsyncStream = new MemoryStream(data);
+		await using (hashAsyncStream.ConfigureAwait(false))
+		{
+			byte[] fromHashAsync = await provider.HashAsync(ContractKey, hashAsyncStream).ConfigureAwait(false);
+			Assert.AreEqual(data.Length, hashAsyncStream.Position, $"{name} HashAsync did not read the stream");
+			CollectionAssert.AreEqual(oneShot, fromHashAsync, $"{name} HashAsync(Stream)");
+		}
+
+		Stream tryHashAsyncStream = new MemoryStream(data);
+		await using (tryHashAsyncStream.ConfigureAwait(false))
+		{
+			byte[] fromTryHashAsync = new byte[provider.HashLengthBytes];
+			Assert.IsTrue(await provider.TryHashAsync(ContractKey, tryHashAsyncStream, fromTryHashAsync).ConfigureAwait(false), name);
+			Assert.AreEqual(data.Length, tryHashAsyncStream.Position, $"{name} TryHashAsync did not read the stream");
+			CollectionAssert.AreEqual(oneShot, fromTryHashAsync, $"{name} TryHashAsync(Stream)");
+		}
+
+		int[] chunkSizes = [1, 7, blockSize - 1, blockSize, blockSize + 1];
+		foreach (int chunkSize in chunkSizes)
+		{
+			using IIncrementalHash incremental = provider.CreateIncremental(ContractKey);
+			for (int offset = 0; offset < data.Length; offset += chunkSize)
+			{
+				// An empty append between every chunk must be a no-op.
+				incremental.Append([]);
+				incremental.Append(data.AsSpan(offset, Math.Min(chunkSize, data.Length - offset)));
+			}
+
+			CollectionAssert.AreEqual(oneShot, incremental.GetHashAndReset(), $"{name} incremental in {chunkSize}-byte chunks");
+		}
+
+		// A single split one byte past the block size, the boundary the spec names.
+		using IIncrementalHash split = provider.CreateIncremental(ContractKey);
+		split.Append(data.AsSpan(0, blockSize + 1));
+		split.Append(data.AsSpan(blockSize + 1));
+		CollectionAssert.AreEqual(oneShot, split.GetHashAndReset(), $"{name} incremental split at {blockSize + 1}");
+	}
+
+	#endregion
+
 	#region Dependency injection
 
 	[TestMethod]
