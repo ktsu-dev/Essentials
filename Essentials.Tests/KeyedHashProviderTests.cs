@@ -659,22 +659,16 @@ public class KeyedHashProviderTests
 		CollectionAssert.AreEqual(oneShot, provider.Hash(ContractKey, syncStream), $"{name} stream");
 
 		// Typed as Stream so HashAsync binds to its Stream overload, not the ReadOnlyMemory one (spec L169-171).
-		Stream hashAsyncStream = new MemoryStream(data);
-		await using (hashAsyncStream.ConfigureAwait(false))
-		{
-			byte[] fromHashAsync = await provider.HashAsync(ContractKey, hashAsyncStream).ConfigureAwait(false);
-			Assert.AreEqual(data.Length, hashAsyncStream.Position, $"{name} HashAsync did not read the stream");
-			CollectionAssert.AreEqual(oneShot, fromHashAsync, $"{name} HashAsync(Stream)");
-		}
+		using Stream hashAsyncStream = new MemoryStream(data);
+		byte[] fromHashAsync = await provider.HashAsync(ContractKey, hashAsyncStream).ConfigureAwait(false);
+		Assert.AreEqual(data.Length, hashAsyncStream.Position, $"{name} HashAsync did not read the stream");
+		CollectionAssert.AreEqual(oneShot, fromHashAsync, $"{name} HashAsync(Stream)");
 
-		Stream tryHashAsyncStream = new MemoryStream(data);
-		await using (tryHashAsyncStream.ConfigureAwait(false))
-		{
-			byte[] fromTryHashAsync = new byte[provider.HashLengthBytes];
-			Assert.IsTrue(await provider.TryHashAsync(ContractKey, tryHashAsyncStream, fromTryHashAsync).ConfigureAwait(false), name);
-			Assert.AreEqual(data.Length, tryHashAsyncStream.Position, $"{name} TryHashAsync did not read the stream");
-			CollectionAssert.AreEqual(oneShot, fromTryHashAsync, $"{name} TryHashAsync(Stream)");
-		}
+		using Stream tryHashAsyncStream = new MemoryStream(data);
+		byte[] fromTryHashAsync = new byte[provider.HashLengthBytes];
+		Assert.IsTrue(await provider.TryHashAsync(ContractKey, tryHashAsyncStream, fromTryHashAsync).ConfigureAwait(false), name);
+		Assert.AreEqual(data.Length, tryHashAsyncStream.Position, $"{name} TryHashAsync did not read the stream");
+		CollectionAssert.AreEqual(oneShot, fromTryHashAsync, $"{name} TryHashAsync(Stream)");
 
 		int[] chunkSizes = [1, 7, blockSize - 1, blockSize, blockSize + 1];
 		foreach (int chunkSize in chunkSizes)
