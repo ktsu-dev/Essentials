@@ -124,6 +124,20 @@ public sealed class SerializationRoundTripTests
 		Assert.AreEqual(original.Price, back?.Price);
 	}
 
+	// A getter that throws is an object the provider cannot serialize, whichever provider it is: TrySerialize
+	// reports it as false and leaves the writer empty, and Serialize throws the InvalidOperationException it
+	// documents. YAML let YamlDotNet's TargetInvocationException escape both (issue #183).
+	[TestMethod]
+	[DynamicData(nameof(Serializers))]
+	public void A_Throwing_Getter_Is_A_Failed_Serialize(ISerializationProvider serializer, string name)
+	{
+		using StringWriter writer = new();
+
+		Assert.IsFalse(serializer.TrySerialize(new ThrowingGetter(), writer), $"{name} reported success");
+		Assert.AreEqual(string.Empty, writer.ToString(), $"{name} left partial output in the writer");
+		Assert.ThrowsExactly<InvalidOperationException>(() => serializer.Serialize(new ThrowingGetter()), name);
+	}
+
 	[TestMethod]
 	public void Toml_Reports_A_Throwing_Getter_As_A_Failed_Serialize()
 	{
