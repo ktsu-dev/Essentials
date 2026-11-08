@@ -30,11 +30,18 @@ using System.Threading.Tasks;
 /// each member. Taking any shorter size on trust accepted cut-off input whose last bytes happened to read as a
 /// small number, which binary payloads that deflate stores verbatim make common (issue #171).
 /// </para>
+/// <para>
+/// A last member that holds nothing, as <c>cat data.gz empty.gz</c> ends with, has a trailer of CRC 0 and length
+/// 0, which no run of output ends in. That trailer is accepted only when the input ends in the whole of such a
+/// member: a ten-byte header with no optional fields, the empty final block <c>03 00</c> that gzip, zlib and .NET
+/// write for no data, then the zero trailer. Eight zero bytes alone, or after <c>03 00</c>, are as common in a
+/// stored payload as the small numbers above (issue #186).
+/// </para>
 /// </remarks>
 internal abstract class CompressedStreamEnd
 {
-	/// <summary>How many bytes of trailer the longest format here ends with.</summary>
-	internal const int MaxTrailerLength = 8;
+	/// <summary>How many of the input's last bytes the checks here read: the whole of Gzip's smallest member.</summary>
+	internal const int TailLength = 20;
 
 	private const int CopyBufferSize = 81920;
 
@@ -43,12 +50,12 @@ internal abstract class CompressedStreamEnd
 	internal abstract void Append(ReadOnlySpan<byte> output);
 
 	/// <summary>Whether the input ended in the trailer the output so far calls for.</summary>
-	/// <param name="inputTail">The last bytes of the input, up to <see cref="MaxTrailerLength"/> of them.</param>
+	/// <param name="inputTail">The last bytes of the input, up to <see cref="TailLength"/> of them.</param>
 	/// <returns><see langword="true"/> if the stream reached its own end.</returns>
 	internal abstract bool EndsWith(ReadOnlySpan<byte> inputTail);
 
 	/// <summary>Whether the input ended in the trailer <paramref name="output"/> calls for, with all of the output at hand.</summary>
-	/// <param name="inputTail">The last bytes of the input, up to <see cref="MaxTrailerLength"/> of them.</param>
+	/// <param name="inputTail">The last bytes of the input, up to <see cref="TailLength"/> of them.</param>
 	/// <param name="output">Everything the decompressor produced, already passed to <see cref="Append"/>.</param>
 	/// <returns><see langword="true"/> if the stream reached its own end.</returns>
 	internal virtual bool EndsWith(ReadOnlySpan<byte> inputTail, ReadOnlySpan<byte> output) => EndsWith(inputTail);
@@ -69,7 +76,7 @@ internal abstract class CompressedStreamEnd
 		}
 
 		Append(output);
-		return EndsWith(input[Math.Max(0, input.Length - MaxTrailerLength)..], output);
+		return EndsWith(input[Math.Max(0, input.Length - TailLength)..], output);
 	}
 
 	/// <summary>
@@ -158,6 +165,11 @@ internal abstract class CompressedStreamEnd
 				return true;
 			}
 
+			if (trailerCrc == 0 && trailerLength == 0)
+			{
+				return EndsInEmptyMember(inputTail);
+			}
+
 			// A later member: its trailer covers the output since one of the runs began. CRC-32 is linear, so the
 			// CRC of that suffix follows from the CRC of everything and the CRC of what came before it.
 			for (int i = runStarts.Count - 1; i > 0; i--)
@@ -185,10 +197,36 @@ internal abstract class CompressedStreamEnd
 				return true;
 			}
 
+			if (trailerCrc == 0 && trailerLength == 0)
+			{
+				return EndsInEmptyMember(inputTail);
+			}
+
 			// A later member: with the whole output here, check its trailer against the output it claims to cover.
 			return trailerLength > 0
 				&& trailerLength < (uint)output.Length
 				&& ~Crc32.Update(0xFFFFFFFFu, output[^(int)trailerLength..]) == trailerCrc;
+		}
+
+		/// <summary>
+		/// Whether the input ends in a whole member that holds nothing: the magic bytes and deflate method, flags
+		/// naming no optional field (FTEXT aside), any time, extra flags and system, then the empty final block.
+		/// The caller has already read the eight bytes after it as a zero trailer.
+		/// </summary>
+		private static bool EndsInEmptyMember(ReadOnlySpan<byte> inputTail)
+		{
+			if (inputTail.Length < TailLength)
+			{
+				return false;
+			}
+
+			ReadOnlySpan<byte> member = inputTail[^TailLength..];
+			return member[0] == 0x1F
+				&& member[1] == 0x8B
+				&& member[2] == 0x08
+				&& (member[3] & ~0x01) == 0
+				&& member[10] == 0x03
+				&& member[11] == 0x00;
 		}
 
 		private static bool TryReadTrailer(ReadOnlySpan<byte> inputTail, out uint trailerCrc, out uint trailerLength)
@@ -344,16 +382,16 @@ internal abstract class CompressedStreamEnd
 	}
 
 	/// <summary>
-	/// Passes reads through to the compressed input, keeping the last <see cref="MaxTrailerLength"/> bytes read.
+	/// Passes reads through to the compressed input, keeping the last <see cref="TailLength"/> bytes read.
 	/// Disposing it leaves the input open, as the providers' decompressors are told to.
 	/// </summary>
 	private sealed class TailRecordingStream(Stream inner) : Stream
 	{
-		private readonly byte[] tail = new byte[MaxTrailerLength];
+		private readonly byte[] tail = new byte[TailLength];
 		private int tailLength;
 
 		/// <summary>Gets the last bytes read, oldest first.</summary>
-		internal ReadOnlySpan<byte> Tail => tail.AsSpan(MaxTrailerLength - tailLength);
+		internal ReadOnlySpan<byte> Tail => tail.AsSpan(TailLength - tailLength);
 
 		public override bool CanRead => true;
 
@@ -402,17 +440,17 @@ internal abstract class CompressedStreamEnd
 
 		private void Record(ReadOnlySpan<byte> read)
 		{
-			if (read.Length >= MaxTrailerLength)
+			if (read.Length >= TailLength)
 			{
-				read[^MaxTrailerLength..].CopyTo(tail);
-				tailLength = MaxTrailerLength;
+				read[^TailLength..].CopyTo(tail);
+				tailLength = TailLength;
 				return;
 			}
 
 			// Shift the kept bytes down to make room, keeping them in the order they were read.
 			tail.AsSpan(read.Length).CopyTo(tail);
-			read.CopyTo(tail.AsSpan(MaxTrailerLength - read.Length));
-			tailLength = Math.Min(MaxTrailerLength, tailLength + read.Length);
+			read.CopyTo(tail.AsSpan(TailLength - read.Length));
+			tailLength = Math.Min(TailLength, tailLength + read.Length);
 		}
 	}
 }

@@ -183,6 +183,77 @@ public sealed class TruncatedCompressionTests
 		}
 	}
 
+	[TestMethod]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Deliberately exercises the synchronous stream path alongside the asynchronous one.")]
+	public async Task Gzip_Accepts_A_Final_Member_That_Holds_Nothing_On_Every_Path()
+	{
+		// `cat data.gz empty.gz`: the last member's trailer is CRC 0, length 0, which no run of output ends in,
+		// yet gzip and GZipStream both read it back as data.gz's contents (issue #186).
+		ICompressionProvider gzip = new GzipCompressionProvider();
+		foreach (byte[] payload in (byte[][])[[.. "hello\n"u8], Payload(), StoredBlockPayload(150_000)])
+		{
+			foreach (byte[] empty in (byte[][])[EmptyGzipMember, EmptyGzipMemberFromGZipStream()])
+			{
+				byte[] concatenated = [.. gzip.Compress(payload), .. empty];
+				string what = $"{payload.Length} bytes then an empty {(empty == EmptyGzipMember ? "gzip" : "GZipStream")} member";
+
+				byte[] destination = new byte[payload.Length];
+				Assert.IsTrue(gzip.TryDecompress(concatenated, destination, out int written), $"span rejected {what}");
+				Assert.AreEqual(payload.Length, written);
+				CollectionAssert.AreEqual(payload, destination);
+
+				using (MemoryStream source = new(concatenated))
+				using (MemoryStream sink = new())
+				{
+					Assert.IsTrue(gzip.TryDecompress(source, sink), $"stream rejected {what}");
+					CollectionAssert.AreEqual(payload, sink.ToArray());
+				}
+
+				using (AsyncOnlyStream source = new(concatenated))
+				using (AsyncOnlyStream sink = new())
+				{
+					Assert.IsTrue(await gzip.TryDecompressAsync(source, sink, TestContext.CancellationToken).ConfigureAwait(false), $"async rejected {what}");
+					CollectionAssert.AreEqual(payload, sink.ToArray());
+				}
+
+				CollectionAssert.AreEqual(payload, gzip.Decompress(concatenated), $"Decompress for {what}");
+			}
+		}
+	}
+
+	[TestMethod]
+	public async Task Gzip_Rejects_A_Stored_Block_Payload_Cut_After_Zero_Bytes_That_Look_Like_An_Empty_Member()
+	{
+		// A zero trailer is trusted only after a whole empty member: eight zero bytes alone, or after the `03 00`
+		// of an empty deflate block, are payload a stored block copied verbatim before the cut (issues #171, #186).
+		ICompressionProvider gzip = new GzipCompressionProvider();
+		foreach (byte[] marker in (byte[][])[new byte[8], [0x03, 0x00, .. new byte[8]], [.. EmptyGzipMember.AsSpan(3)]])
+		{
+			byte[] payload = new byte[100_000];
+			new Random(186).NextBytes(payload);
+			marker.CopyTo(payload, 50_000);
+			byte[] compressed = gzip.Compress(payload);
+			int at = 20 + compressed.AsSpan(20).IndexOf(marker);
+			Assert.IsTrue(at >= 20, "the marker was not stored verbatim");
+			byte[] truncated = compressed[..(at + marker.Length)];
+
+			await AssertRejectedOnEveryPath(gzip, truncated, payload.Length, $"cut after {marker.Length} marker bytes at {truncated.Length}").ConfigureAwait(false);
+		}
+	}
+
+	/// <summary>What <c>: | gzip -c</c> writes: a ten-byte header, an empty fixed-Huffman final block, and a zero trailer.</summary>
+	private static readonly byte[] EmptyGzipMember = [0x1F, 0x8B, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+
+	private static byte[] EmptyGzipMemberFromGZipStream()
+	{
+		using MemoryStream member = new();
+		using (System.IO.Compression.GZipStream gzip = new(member, System.IO.Compression.CompressionLevel.Optimal, leaveOpen: true))
+		{
+		}
+
+		return member.ToArray();
+	}
+
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Deliberately exercises the synchronous stream path alongside the asynchronous one.")]
 	private async Task AssertRejectedOnEveryPath(ICompressionProvider provider, byte[] truncated, int capacity, string what)
 	{
