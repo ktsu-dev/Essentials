@@ -173,6 +173,23 @@ public class BrotliCompressionProvider : ICompressionProvider
 	/// <returns>True if the decompression was successful, false otherwise.</returns>
 	public bool TryDecompress(ReadOnlySpan<byte> compressedData, Span<byte> destination, out int bytesWritten)
 	{
+		if (compressedData.Overlaps(destination))
+		{
+			// The decoder flushes its ring buffer, a 4 MiB window by default, into the destination while input is
+			// still unread, so output past the window overwrote compressed bytes it had yet to read and valid
+			// input failed (issue #185). Decompress from a copy, as the other providers and decoders do (#166, #169).
+			byte[] copy = ArrayPool<byte>.Shared.Rent(compressedData.Length);
+			try
+			{
+				compressedData.CopyTo(copy);
+				return TryDecompress(copy.AsSpan(0, compressedData.Length), destination, out bytesWritten);
+			}
+			finally
+			{
+				ArrayPool<byte>.Shared.Return(copy, clearArray: true);
+			}
+		}
+
 		bytesWritten = 0;
 
 		try

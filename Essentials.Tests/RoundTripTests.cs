@@ -108,6 +108,38 @@ public class RoundTripTests
 
 	[TestMethod]
 	[DynamicData(nameof(CompressionProviders))]
+	public void Compression_TryDecompress_Span_OverlappingBuffers_Past_The_Brotli_Window_MatchesOutOfPlace(ICompressionProvider compressor, string providerName)
+	{
+		// Brotli's decoder flushes its 4 MiB ring buffer into the destination while compressed input is still
+		// unread, so an overlapping destination longer than that overwrote input the decoder had yet to read
+		// and valid input was reported as a failure (issue #185). Six megabytes of words from a small vocabulary.
+		string[] words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel"];
+		Random random = new(185);
+		StringBuilder text = new();
+		while (text.Length < 6_000_000)
+		{
+			text.Append(words[random.Next(words.Length)]).Append(' ');
+		}
+
+		byte[] original = Encoding.UTF8.GetBytes(text.ToString());
+		byte[] compressed = compressor.Compress(original);
+
+		foreach ((int sourceOffset, int destinationOffset) in new[] { (0, 0), (0, 3), (3, 0) })
+		{
+			byte[] buffer = new byte[Math.Max(sourceOffset + compressed.Length, destinationOffset + original.Length)];
+			compressed.CopyTo(buffer, sourceOffset);
+
+			Assert.IsTrue(
+				compressor.TryDecompress(buffer.AsSpan(sourceOffset, compressed.Length), buffer.AsSpan(destinationOffset, original.Length), out int written),
+				$"{providerName} should decompress {original.Length} bytes with source at {sourceOffset} and destination at {destinationOffset}");
+			Assert.AreEqual(original.Length, written, $"{providerName} should report the decompressed length with source at {sourceOffset} and destination at {destinationOffset}");
+			Assert.IsTrue(original.AsSpan().SequenceEqual(buffer.AsSpan(destinationOffset, written)),
+				$"{providerName} should decompress with source at {sourceOffset} and destination at {destinationOffset} as it does out of place");
+		}
+	}
+
+	[TestMethod]
+	[DynamicData(nameof(CompressionProviders))]
 	public void Compression_TryDecompress_Span_Fails_When_The_Output_Is_One_Byte_Too_Long(ICompressionProvider compressor, string providerName)
 	{
 		byte[] original = Encoding.UTF8.GetBytes("payload whose exact length is the boundary for " + providerName);
