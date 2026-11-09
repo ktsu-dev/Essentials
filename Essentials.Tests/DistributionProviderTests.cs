@@ -542,6 +542,61 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void StandardDeviation_Stays_Finite_Where_Only_The_Variance_Overflows_Or_Underflows()
+	{
+		// Each of these took the root of a variance that squared a quantity, so the standard deviation came
+		// out as infinity or zero though its true value is an ordinary double (issue #195).
+		double rootTwelve = Math.Sqrt(12.0);
+
+		IContinuousDistribution wideUniform = new UniformDistributionProvider(0.0, 1e200);
+		Assert.AreEqual(1e200 / rootTwelve, wideUniform.StandardDeviation, 1e200 * 1e-15);
+
+		IContinuousDistribution narrowUniform = new UniformDistributionProvider(0.0, 1e-170);
+		Assert.AreEqual(1e-170 / rootTwelve, narrowUniform.StandardDeviation, 1e-170 * 1e-15);
+
+		// A width that itself overflows still has a finite standard deviation.
+		IContinuousDistribution overflowingUniform = new UniformDistributionProvider(-1e308, 1e308);
+		Assert.AreEqual(2.0 * (1e308 / rootTwelve), overflowingUniform.StandardDeviation, 1e308 * 1e-15);
+
+		IContinuousDistribution slowExponential = new ExponentialDistributionProvider(1e-200);
+		Assert.AreEqual(1e200, slowExponential.StandardDeviation, 1e200 * 1e-15);
+		Assert.AreEqual(slowExponential.Mean, slowExponential.StandardDeviation, 1e200 * 1e-15);
+
+		IContinuousDistribution fastExponential = new ExponentialDistributionProvider(1e200);
+		Assert.AreEqual(1e-200, fastExponential.StandardDeviation, 1e-200 * 1e-15);
+
+		// Var(0, 1, 2) is 1/6; the shape is scaled by 1e200.
+		IContinuousDistribution wideTriangular = new TriangularDistributionProvider(0.0, 1e200, 2e200);
+		Assert.AreEqual(1e200 * Math.Sqrt(1.0 / 6.0), wideTriangular.StandardDeviation, 1e200 * 1e-15);
+
+		IContinuousDistribution narrowTriangular = new TriangularDistributionProvider(0.0, 1e-170, 2e-170);
+		Assert.AreEqual(1e-170 * Math.Sqrt(1.0 / 6.0), narrowTriangular.StandardDeviation, 1e-170 * 1e-15);
+
+		IContinuousDistribution overflowingTriangular = new TriangularDistributionProvider(-1e308, 0.0, 1e308);
+		Assert.AreEqual(1e308 * Math.Sqrt(1.0 / 6.0), overflowingTriangular.StandardDeviation, 1e308 * 1e-15);
+
+		IDiscreteDistribution rareGeometric = new GeometricDistributionProvider(1e-200);
+		Assert.AreEqual(1e200, rareGeometric.StandardDeviation, 1e200 * 1e-15);
+
+		// Where nothing overflows the standard deviation is still the root of the variance.
+		IContinuousDistribution[] ordinary =
+		[
+			new UniformDistributionProvider(1.0, 4.0),
+			new ExponentialDistributionProvider(2.5),
+			new TriangularDistributionProvider(1.0, 2.0, 6.0),
+			new TriangularDistributionProvider(0.0, 0.0, 4.0),
+			new TriangularDistributionProvider(0.0, 4.0, 4.0),
+		];
+		foreach (IContinuousDistribution distribution in ordinary)
+		{
+			Assert.AreEqual(Math.Sqrt(distribution.Variance), distribution.StandardDeviation, 1e-15);
+		}
+
+		IDiscreteDistribution geometric = new GeometricDistributionProvider(0.25);
+		Assert.AreEqual(Math.Sqrt(geometric.Variance), geometric.StandardDeviation, 1e-15);
+	}
+
+	[TestMethod]
 	public void Triangular_Matches_Its_Closed_Form()
 	{
 		TriangularDistributionProvider distribution = new(1.0, 2.0, 6.0);

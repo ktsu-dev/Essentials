@@ -120,6 +120,11 @@ subtracts the CDF from one, which discards the tail to cancellation: the normal 
 sigma is 6.2e-16, and `1 - 0.9999999999999994` keeps about one digit of it. All ten
 providers compute the tail directly, and the tests assert the difference.
 
+`StandardDeviation` is declared the same way wherever the variance squares a quantity (Uniform,
+Exponential, Triangular, Geometric). The default `Math.Sqrt(Variance)` turns a square that overflows
+or underflows into a standard deviation of infinity or zero, though the true value is an ordinary
+double (issue #195).
+
 `ICommandExecutor` is the one interface with the mirror-image concern: synchronous methods layered over an
 asynchronous one. It declares a synchronous primitive, `Execute(string, IReadOnlyDictionary<string, string>?,
 string?, CancellationToken)`, that the other two synchronous members compose over. Its default body bridges to

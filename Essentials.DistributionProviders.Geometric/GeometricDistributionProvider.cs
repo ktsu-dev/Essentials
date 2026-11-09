@@ -88,6 +88,13 @@ public sealed class GeometricDistributionProvider : IDiscreteDistribution
 	public double Variance => failureProbability / (Probability * Probability);
 
 	/// <inheritdoc />
+	/// <remarks>
+	/// Declared rather than left to take the root of <see cref="Variance"/>: squaring a success probability
+	/// below about 1e-154 makes the variance infinite, while the standard deviation is still finite (issue #195).
+	/// </remarks>
+	public double StandardDeviation => Math.Sqrt(failureProbability) / Probability;
+
+	/// <inheritdoc />
 	public double Pmf(int value)
 	{
 		if (value < 0)
