@@ -935,6 +935,33 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Categorical_Variance_Keeps_Its_Digits_For_Mass_At_A_High_Index()
+	{
+		// A unit weight at n and 1e-6 at n + 1: the variance is p(1 - p) for p = 1e-6 / (1 + 1e-6) wherever n
+		// is. Summed as E[i²] − mean², it lost 3% by n = 10,000 and was clamped to 0 from n = 100,000.
+		double small = 1e-6 / (1.0 + 1e-6);
+		double expected = small * (1.0 - small);
+		foreach (int n in new[] { 1_000, 10_000, 100_000, 1_000_000 })
+		{
+			double[] weights = new double[n + 2];
+			weights[n] = 1.0;
+			weights[n + 1] = 1e-6;
+			IDiscreteDistribution distribution = new CategoricalDistributionProvider(weights);
+			Assert.AreEqual(expected, distribution.Variance, expected * 1e-12, $"mass at {n}");
+			Assert.AreEqual(n + small, distribution.Mean, (n + small) * 1e-15, $"mass at {n}");
+		}
+
+		// Three equal weights from 4,000,000 vary by 2/3, and gave 0.666016.
+		double[] spread = new double[4_000_003];
+		spread[4_000_000] = 1.0;
+		spread[4_000_001] = 1.0;
+		spread[4_000_002] = 1.0;
+		IDiscreteDistribution three = new CategoricalDistributionProvider(spread);
+		Assert.AreEqual(2.0 / 3.0, three.Variance, 2.0 / 3.0 * 1e-12);
+		Assert.AreEqual(4_000_001.0, three.Mean, 4_000_001.0 * 1e-15);
+	}
+
+	[TestMethod]
 	public void Categorical_Never_Draws_A_Zero_Weighted_Outcome()
 	{
 		IDiscreteDistribution distribution = new CategoricalDistributionProvider([1.0, 0.0, 1.0]);
