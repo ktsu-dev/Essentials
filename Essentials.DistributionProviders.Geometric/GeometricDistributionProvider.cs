@@ -107,6 +107,29 @@ public sealed class GeometricDistributionProvider : IDiscreteDistribution
 
 	/// <inheritdoc />
 	/// <remarks>
+	/// Declared rather than left to take the logarithm of <see cref="Pmf(int)"/>, which underflows to
+	/// zero near a thousand failures at an even chance and turns every log-likelihood over such data into
+	/// negative infinity. The closed form <c>log(p) + k log1p(-p)</c> stays finite for every count.
+	/// </remarks>
+	public double LogPmf(int value)
+	{
+		if (value < 0)
+		{
+			return double.NegativeInfinity;
+		}
+
+		// As in Pmf, zero failures is the success probability itself: a certain success has an infinite
+		// log failure probability, and a zero count times it would be a NaN rather than nothing.
+		if (value == 0)
+		{
+			return Math.Log(Probability);
+		}
+
+		return Math.Log(Probability) + (value * logFailureProbability);
+	}
+
+	/// <inheritdoc />
+	/// <remarks>
 	/// One minus <c>(1 - p)^(k + 1)</c>, written as <c>-expm1((k + 1) log1p(-p))</c> so that neither the
 	/// failure probability nor the subtraction from one throws away the digits a small CDF lives in.
 	/// </remarks>
