@@ -4,7 +4,9 @@ namespace ktsu.Essentials.SerializationProviders.Yaml;
 
 using ktsu.Essentials;
 using System;
+using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using YamlDotNet.Core;
 using YamlDotNet.Serialization;
@@ -49,7 +51,11 @@ public class YamlSerializationProvider : ISerializationProvider
 
 		try
 		{
-			serializer.Serialize(writer, obj);
+			// Serialize into a local buffer and copy it to the caller's writer only on success, so a
+			// failure partway through leaves the writer as it was rather than holding half a document.
+			using StringWriter buffer = new(CultureInfo.InvariantCulture);
+			serializer.Serialize(buffer, obj);
+			writer.Write(buffer.ToString());
 			return true;
 		}
 		catch (YamlException)
@@ -62,6 +68,11 @@ public class YamlSerializationProvider : ISerializationProvider
 		}
 		catch (ObjectDisposedException)
 		{
+			return false;
+		}
+		catch (TargetInvocationException)
+		{
+			// A property getter threw while YamlDotNet read it
 			return false;
 		}
 	}

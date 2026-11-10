@@ -88,6 +88,13 @@ public sealed class GeometricDistributionProvider : IDiscreteDistribution
 	public double Variance => failureProbability / (Probability * Probability);
 
 	/// <inheritdoc />
+	/// <remarks>
+	/// Declared rather than left to take the root of <see cref="Variance"/>: squaring a success probability
+	/// below about 1e-154 makes the variance infinite, while the standard deviation is still finite (issue #195).
+	/// </remarks>
+	public double StandardDeviation => Math.Sqrt(failureProbability) / Probability;
+
+	/// <inheritdoc />
 	public double Pmf(int value)
 	{
 		if (value < 0)
@@ -103,6 +110,29 @@ public sealed class GeometricDistributionProvider : IDiscreteDistribution
 		}
 
 		return Math.Exp(value * logFailureProbability) * Probability;
+	}
+
+	/// <inheritdoc />
+	/// <remarks>
+	/// Declared rather than left to take the logarithm of <see cref="Pmf(int)"/>, which underflows to
+	/// zero near a thousand failures at an even chance and turns every log-likelihood over such data into
+	/// negative infinity. The closed form <c>log(p) + k log1p(-p)</c> stays finite for every count.
+	/// </remarks>
+	public double LogPmf(int value)
+	{
+		if (value < 0)
+		{
+			return double.NegativeInfinity;
+		}
+
+		// As in Pmf, zero failures is the success probability itself: a certain success has an infinite
+		// log failure probability, and a zero count times it would be a NaN rather than nothing.
+		if (value == 0)
+		{
+			return Math.Log(Probability);
+		}
+
+		return Math.Log(Probability) + (value * logFailureProbability);
 	}
 
 	/// <inheritdoc />

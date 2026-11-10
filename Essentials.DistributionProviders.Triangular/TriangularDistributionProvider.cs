@@ -84,6 +84,23 @@ public sealed class TriangularDistributionProvider : IContinuousDistribution
 		=> ((lowerWidth * lowerWidth) + (upperWidth * upperWidth) + (lowerWidth * upperWidth)) / 18.0 / (scale * scale);
 
 	/// <inheritdoc />
+	/// <remarks>
+	/// Declared rather than left to take the root of <see cref="Variance"/>, whose squared side widths overflow
+	/// from widths near 1e154 and underflow below about 1e-154 (issue #195). Dividing both widths by the larger
+	/// before squaring keeps every square at most one, so only the final product can leave the range of a double.
+	/// </remarks>
+	public double StandardDeviation
+	{
+		get
+		{
+			double larger = Math.Max(lowerWidth, upperWidth);
+			double lower = lowerWidth / larger;
+			double upper = upperWidth / larger;
+			return larger / scale * Math.Sqrt(((lower * lower) + (upper * upper) + (lower * upper)) / 18.0);
+		}
+	}
+
+	/// <inheritdoc />
 	public double Pdf(double value)
 	{
 		if (value < Minimum || value > Maximum)
