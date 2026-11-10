@@ -449,6 +449,33 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Normal_Quantile_Is_As_Accurate_In_The_Upper_Tail_As_In_The_Lower()
+	{
+		// Refined against a CDF near one, the upper tail cancelled to noise: Quantile(1 - 1e-12) came back
+		// as 7.0344869026843. Each 1 - e below is a double whose distance from one is exactly the tail
+		// taken here, so the two quantiles are reflections of each other.
+		NormalDistributionProvider standard = new();
+		foreach (double e in new[] { 1e-3, 1e-6, 1e-8, 1e-10, 1e-12, 1e-14, 1e-16 })
+		{
+			double upper = 1.0 - e;
+			double tail = 1.0 - upper;
+			double high = standard.Quantile(upper);
+			Assert.AreEqual(-standard.Quantile(tail), high, Math.Abs(high) * 1e-15, $"1 - {e}");
+		}
+
+		// References from mpmath at 60 digits, for the exact tail each double leaves.
+		Assert.AreEqual(3.0902323061678132778, standard.Quantile(0.999), 3.09 * 1e-15);
+		Assert.AreEqual(4.7534243088170877657, standard.Quantile(0.999999), 4.75 * 1e-14);
+		Assert.AreEqual(6.3613408896974218642, standard.Quantile(0.9999999999), 6.36 * 1e-13);
+		Assert.AreEqual(7.0344869100478352057, standard.Quantile(0.999999999999), 7.03 * 1e-13);
+
+		// LogNormal inherits the quantile, with its error multiplied by the log standard deviation.
+		LogNormalDistributionProvider wide = new(0.0, 2.0);
+		Assert.AreEqual(1288480.0426052651132, wide.Quantile(0.999999999999), 1288480.0 * 1e-12);
+		Assert.AreEqual(483.21641251222810159, wide.Quantile(0.999), 483.2 * 1e-14);
+	}
+
+	[TestMethod]
 	public void Uniform_Matches_Its_Closed_Form()
 	{
 		UniformDistributionProvider unit = new();
