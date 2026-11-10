@@ -44,6 +44,13 @@ public sealed class ExponentialDistributionProvider(double rate) : IContinuousDi
 	public double Variance => 1.0 / (Rate * Rate);
 
 	/// <inheritdoc />
+	/// <remarks>
+	/// Declared rather than left to take the root of <see cref="Variance"/>, whose squared rate overflows or
+	/// underflows for rates beyond about 1e±154 while the standard deviation, the mean, stays finite (issue #195).
+	/// </remarks>
+	public double StandardDeviation => 1.0 / Rate;
+
+	/// <inheritdoc />
 	public double Pdf(double value) => value < 0.0 ? 0.0 : Rate * Math.Exp(-Rate * value);
 
 	/// <inheritdoc />
