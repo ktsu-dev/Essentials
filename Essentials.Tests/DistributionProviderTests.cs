@@ -919,6 +919,26 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Geometric_LogMass_Stays_Finite_Where_The_Mass_Underflows()
+	{
+		IDiscreteDistribution even = new GeometricDistributionProvider(0.5);
+
+		// Pmf underflows to zero at about 1074 failures, but the log-mass is 1075 log(1/2) there.
+		Assert.AreEqual(0.0, even.Pmf(1075), Tight);
+		Assert.AreEqual(-745.1332191019412, even.LogPmf(1074), 745.1332191019412 * 1e-15);
+		Assert.AreEqual(-3466.4290499802864, even.LogPmf(5000), 3466.4290499802864 * 1e-15);
+
+		IDiscreteDistribution quarter = new GeometricDistributionProvider(0.25);
+		Assert.AreEqual(-11508.669192432357, quarter.LogPmf(40_000), 11508.669192432357 * 1e-15);
+
+		// The edges agree with Pmf: nothing below the support, and a certain success never fails first.
+		Assert.AreEqual(double.NegativeInfinity, even.LogPmf(-1));
+		IDiscreteDistribution certain = new GeometricDistributionProvider(1.0);
+		Assert.AreEqual(0.0, certain.LogPmf(0), Tight);
+		Assert.AreEqual(double.NegativeInfinity, certain.LogPmf(1));
+	}
+
+	[TestMethod]
 	public void Geometric_Keeps_Its_Precision_For_A_Rare_Success()
 	{
 		// Below p of about 1e-16, 1 - p rounds to exactly one, so a CDF built on it is zero everywhere and
