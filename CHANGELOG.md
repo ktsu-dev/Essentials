@@ -2,6 +2,15 @@
 
 Changes since v2.11.0:
 
+- Keep a DateTimeOffset's offset and a Version through TOML [patch] (#180) (matt-edmondson)
+- Test the length guards, buffer tail and four-path agreement of every HMAC provider [patch] (#182) (matt-edmondson)
+- Report a throwing getter as a failed YAML serialize [patch] (#184) (matt-edmondson)
+- Decompress Brotli from a copy when the source overlaps the destination [patch] (#188) (matt-edmondson)
+- Give Geometric a closed-form LogPmf that stays finite where Pmf underflows [patch] (#192) (matt-edmondson)
+- Take Categorical's variance in two passes about its heaviest outcome [patch] (#193) (matt-edmondson)
+- Answer the normal quantile's upper half as the reflection of the lower [patch] (#194) (matt-edmondson)
+- Declare StandardDeviation where the variance squares a quantity [patch] (#197) (matt-edmondson)
+- Build the async validation and cache defaults on the async primitives [patch] (#198) (matt-edmondson)
 - Leave the writer empty when Newtonsoft TrySerialize fails [patch] (#157) (matt-edmondson)
 - Add a SessionStart hook for Claude Code cloud sessions (#163) (matt-edmondson)
 - Test that the Composite obfuscator runs its stages in order [patch] (#175) (matt-edmondson)
