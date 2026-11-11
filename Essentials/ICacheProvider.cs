@@ -107,8 +107,21 @@ public interface ICacheProvider<TKey, TValue> where TKey : notnull
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The cached value.</returns>
 	/// <exception cref="KeyNotFoundException">Thrown when the key is not found in the cache.</exception>
-	public Task<TValue> GetAsync(TKey key, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => Get(key), cancellationToken);
+	/// <remarks>
+	/// Built on <see cref="TryGetAsync"/> rather than <see cref="Get"/>, so a cache that does real I/O by
+	/// overriding the async primitives never blocks on, or depends on, its synchronous ones (issue #196).
+	/// As with <see cref="Get"/>, a key cached with a <see langword="null"/> value returns that null.
+	/// </remarks>
+	public async Task<TValue> GetAsync(TKey key, CancellationToken cancellationToken = default)
+	{
+		(bool found, TValue? value) = await TryGetAsync(key, cancellationToken).ConfigureAwait(false);
+		if (!found)
+		{
+			throw new KeyNotFoundException($"The key '{key}' was not found in the cache.");
+		}
+
+		return value!;
+	}
 
 	/// <summary>
 	/// Sets a value in the cache asynchronously with an optional expiration time.
@@ -146,6 +159,22 @@ public interface ICacheProvider<TKey, TValue> where TKey : notnull
 	/// <param name="expiration">The optional time-to-live for the cached entry if it is created.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The cached or newly created value.</returns>
-	public Task<TValue> GetOrAddAsync(TKey key, Func<TKey, TValue> factory, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => GetOrAdd(key, factory, expiration), cancellationToken);
+	/// <remarks>
+	/// Built on <see cref="TryGetAsync"/> and <see cref="SetAsync"/> rather than <see cref="GetOrAdd"/>, for the
+	/// same reason as <see cref="GetAsync"/>. As with <see cref="GetOrAdd"/>, a key cached with a
+	/// <see langword="null"/> value is returned as-is and the factory is not invoked.
+	/// </remarks>
+	public async Task<TValue> GetOrAddAsync(TKey key, Func<TKey, TValue> factory, TimeSpan? expiration = null, CancellationToken cancellationToken = default)
+	{
+		(bool found, TValue? value) = await TryGetAsync(key, cancellationToken).ConfigureAwait(false);
+		if (found)
+		{
+			return value!;
+		}
+
+		Ensure.NotNull(factory);
+		TValue newValue = factory(key);
+		await SetAsync(key, newValue, expiration, cancellationToken).ConfigureAwait(false);
+		return newValue;
+	}
 }

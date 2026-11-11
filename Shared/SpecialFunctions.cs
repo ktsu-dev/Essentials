@@ -306,9 +306,10 @@ internal static class SpecialFunctions
 	/// <remarks>
 	/// Acklam's rational approximation, which is good to about nine significant figures, followed by one
 	/// step of Halley's method against <see cref="StandardNormalCdf(double)"/> that takes it to the
-	/// accuracy of the CDF itself, a few parts in 10^13. The refinement is skipped where the density
-	/// underflows, far out in either
-	/// tail, because the correction term there is a zero multiplied by an infinity rather than a number.
+	/// accuracy of the CDF itself, a few parts in 10^13. The upper half is answered as the reflection of
+	/// the lower, so <c>Q(p) == -Q(1 - p)</c> exactly. The refinement is skipped where the density
+	/// underflows, far out in the tail, because the correction term there is a zero multiplied by an
+	/// infinity rather than a number.
 	/// </remarks>
 	/// <param name="probability">The probability to invert, in the range [0, 1].</param>
 	/// <returns>The z-score whose cumulative probability is <paramref name="probability"/>.</returns>
@@ -324,19 +325,18 @@ internal static class SpecialFunctions
 			return double.PositiveInfinity;
 		}
 
-		double estimate;
-		if (probability < TailBoundary)
+		// The upper half is the lower half reflected. Refined in place, its residual was a CDF near one less a
+		// probability near one, which cancels to rounding noise and left the tail estimate barely refined:
+		// Quantile(1 - 1e-12) was off by a part in 10^9 (issue #189). For p of at least a half, 1 - p is
+		// exact, so the reflection costs nothing and the refinement works against a value near zero instead.
+		if (probability > 0.5)
 		{
-			estimate = TailBranch(Math.Sqrt(-2.0 * Math.Log(probability)));
+			return -StandardNormalQuantile(1.0 - probability);
 		}
-		else if (probability > 1.0 - TailBoundary)
-		{
-			estimate = -TailBranch(Math.Sqrt(-2.0 * Math.Log(1.0 - probability)));
-		}
-		else
-		{
-			estimate = CentralBranch(probability);
-		}
+
+		double estimate = probability < TailBoundary
+			? TailBranch(Math.Sqrt(-2.0 * Math.Log(probability)))
+			: CentralBranch(probability);
 
 		// A residual of zero needs no special case. Where the density is representable the correction
 		// works out to zero and the estimate is returned unchanged; where it has underflowed the product

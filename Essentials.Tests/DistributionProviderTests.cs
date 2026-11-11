@@ -449,6 +449,33 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Normal_Quantile_Is_As_Accurate_In_The_Upper_Tail_As_In_The_Lower()
+	{
+		// Refined against a CDF near one, the upper tail cancelled to noise: Quantile(1 - 1e-12) came back
+		// as 7.0344869026843. Each 1 - e below is a double whose distance from one is exactly the tail
+		// taken here, so the two quantiles are reflections of each other.
+		NormalDistributionProvider standard = new();
+		foreach (double e in new[] { 1e-3, 1e-6, 1e-8, 1e-10, 1e-12, 1e-14, 1e-16 })
+		{
+			double upper = 1.0 - e;
+			double tail = 1.0 - upper;
+			double high = standard.Quantile(upper);
+			Assert.AreEqual(-standard.Quantile(tail), high, Math.Abs(high) * 1e-15, $"1 - {e}");
+		}
+
+		// References from mpmath at 60 digits, for the exact tail each double leaves.
+		Assert.AreEqual(3.0902323061678132778, standard.Quantile(0.999), 3.09 * 1e-15);
+		Assert.AreEqual(4.7534243088170877657, standard.Quantile(0.999999), 4.75 * 1e-14);
+		Assert.AreEqual(6.3613408896974218642, standard.Quantile(0.9999999999), 6.36 * 1e-13);
+		Assert.AreEqual(7.0344869100478352057, standard.Quantile(0.999999999999), 7.03 * 1e-13);
+
+		// LogNormal inherits the quantile, with its error multiplied by the log standard deviation.
+		LogNormalDistributionProvider wide = new(0.0, 2.0);
+		Assert.AreEqual(1288480.0426052651132, wide.Quantile(0.999999999999), 1288480.0 * 1e-12);
+		Assert.AreEqual(483.21641251222810159, wide.Quantile(0.999), 483.2 * 1e-14);
+	}
+
+	[TestMethod]
 	public void Uniform_Matches_Its_Closed_Form()
 	{
 		UniformDistributionProvider unit = new();
@@ -539,6 +566,61 @@ public class DistributionProviderTests
 
 		// The textbook value is unchanged where the expression never cancelled.
 		Assert.AreEqual((Math.E - 1.0) * Math.E, new LogNormalDistributionProvider().Variance, 1e-14);
+	}
+
+	[TestMethod]
+	public void StandardDeviation_Stays_Finite_Where_Only_The_Variance_Overflows_Or_Underflows()
+	{
+		// Each of these took the root of a variance that squared a quantity, so the standard deviation came
+		// out as infinity or zero though its true value is an ordinary double (issue #195).
+		double rootTwelve = Math.Sqrt(12.0);
+
+		IContinuousDistribution wideUniform = new UniformDistributionProvider(0.0, 1e200);
+		Assert.AreEqual(1e200 / rootTwelve, wideUniform.StandardDeviation, 1e200 * 1e-15);
+
+		IContinuousDistribution narrowUniform = new UniformDistributionProvider(0.0, 1e-170);
+		Assert.AreEqual(1e-170 / rootTwelve, narrowUniform.StandardDeviation, 1e-170 * 1e-15);
+
+		// A width that itself overflows still has a finite standard deviation.
+		IContinuousDistribution overflowingUniform = new UniformDistributionProvider(-1e308, 1e308);
+		Assert.AreEqual(2.0 * (1e308 / rootTwelve), overflowingUniform.StandardDeviation, 1e308 * 1e-15);
+
+		IContinuousDistribution slowExponential = new ExponentialDistributionProvider(1e-200);
+		Assert.AreEqual(1e200, slowExponential.StandardDeviation, 1e200 * 1e-15);
+		Assert.AreEqual(slowExponential.Mean, slowExponential.StandardDeviation, 1e200 * 1e-15);
+
+		IContinuousDistribution fastExponential = new ExponentialDistributionProvider(1e200);
+		Assert.AreEqual(1e-200, fastExponential.StandardDeviation, 1e-200 * 1e-15);
+
+		// Var(0, 1, 2) is 1/6; the shape is scaled by 1e200.
+		IContinuousDistribution wideTriangular = new TriangularDistributionProvider(0.0, 1e200, 2e200);
+		Assert.AreEqual(1e200 * Math.Sqrt(1.0 / 6.0), wideTriangular.StandardDeviation, 1e200 * 1e-15);
+
+		IContinuousDistribution narrowTriangular = new TriangularDistributionProvider(0.0, 1e-170, 2e-170);
+		Assert.AreEqual(1e-170 * Math.Sqrt(1.0 / 6.0), narrowTriangular.StandardDeviation, 1e-170 * 1e-15);
+
+		IContinuousDistribution overflowingTriangular = new TriangularDistributionProvider(-1e308, 0.0, 1e308);
+		Assert.AreEqual(1e308 * Math.Sqrt(1.0 / 6.0), overflowingTriangular.StandardDeviation, 1e308 * 1e-15);
+
+		IDiscreteDistribution rareGeometric = new GeometricDistributionProvider(1e-200);
+		Assert.AreEqual(1e200, rareGeometric.StandardDeviation, 1e200 * 1e-15);
+
+		// Where nothing overflows the standard deviation is still the root of the variance.
+		IContinuousDistribution[] ordinary =
+		[
+			new UniformDistributionProvider(1.0, 4.0),
+			new ExponentialDistributionProvider(2.5),
+			new TriangularDistributionProvider(1.0, 2.0, 6.0),
+			new TriangularDistributionProvider(0.0, 0.0, 4.0),
+			new TriangularDistributionProvider(0.0, 4.0, 4.0),
+		];
+		foreach (IContinuousDistribution distribution in ordinary)
+		{
+			Assert.AreEqual(Math.Sqrt(distribution.Variance), distribution.StandardDeviation, 1e-15);
+		}
+
+		IDiscreteDistribution geometric = new GeometricDistributionProvider(0.25);
+		Assert.AreEqual(Math.Sqrt(geometric.Variance), geometric.StandardDeviation, 1e-15);
 	}
 
 	[TestMethod]
@@ -837,6 +919,26 @@ public class DistributionProviderTests
 	}
 
 	[TestMethod]
+	public void Geometric_LogMass_Stays_Finite_Where_The_Mass_Underflows()
+	{
+		IDiscreteDistribution even = new GeometricDistributionProvider(0.5);
+
+		// Pmf underflows to zero at about 1074 failures, but the log-mass is 1075 log(1/2) there.
+		Assert.AreEqual(0.0, even.Pmf(1075), Tight);
+		Assert.AreEqual(-745.1332191019412, even.LogPmf(1074), 745.1332191019412 * 1e-15);
+		Assert.AreEqual(-3466.4290499802864, even.LogPmf(5000), 3466.4290499802864 * 1e-15);
+
+		IDiscreteDistribution quarter = new GeometricDistributionProvider(0.25);
+		Assert.AreEqual(-11508.669192432357, quarter.LogPmf(40_000), 11508.669192432357 * 1e-15);
+
+		// The edges agree with Pmf: nothing below the support, and a certain success never fails first.
+		Assert.AreEqual(double.NegativeInfinity, even.LogPmf(-1));
+		IDiscreteDistribution certain = new GeometricDistributionProvider(1.0);
+		Assert.AreEqual(0.0, certain.LogPmf(0), Tight);
+		Assert.AreEqual(double.NegativeInfinity, certain.LogPmf(1));
+	}
+
+	[TestMethod]
 	public void Geometric_Keeps_Its_Precision_For_A_Rare_Success()
 	{
 		// Below p of about 1e-16, 1 - p rounds to exactly one, so a CDF built on it is zero everywhere and
@@ -932,6 +1034,33 @@ public class DistributionProviderTests
 		{
 			Assert.AreEqual(distribution.Pmf(k), scaled.Pmf(k), Tight);
 		}
+	}
+
+	[TestMethod]
+	public void Categorical_Variance_Keeps_Its_Digits_For_Mass_At_A_High_Index()
+	{
+		// A unit weight at n and 1e-6 at n + 1: the variance is p(1 - p) for p = 1e-6 / (1 + 1e-6) wherever n
+		// is. Summed as E[i²] − mean², it lost 3% by n = 10,000 and was clamped to 0 from n = 100,000.
+		double small = 1e-6 / (1.0 + 1e-6);
+		double expected = small * (1.0 - small);
+		foreach (int n in new[] { 1_000, 10_000, 100_000, 1_000_000 })
+		{
+			double[] weights = new double[n + 2];
+			weights[n] = 1.0;
+			weights[n + 1] = 1e-6;
+			IDiscreteDistribution distribution = new CategoricalDistributionProvider(weights);
+			Assert.AreEqual(expected, distribution.Variance, expected * 1e-12, $"mass at {n}");
+			Assert.AreEqual(n + small, distribution.Mean, (n + small) * 1e-15, $"mass at {n}");
+		}
+
+		// Three equal weights from 4,000,000 vary by 2/3, and gave 0.666016.
+		double[] spread = new double[4_000_003];
+		spread[4_000_000] = 1.0;
+		spread[4_000_001] = 1.0;
+		spread[4_000_002] = 1.0;
+		IDiscreteDistribution three = new CategoricalDistributionProvider(spread);
+		Assert.AreEqual(2.0 / 3.0, three.Variance, 2.0 / 3.0 * 1e-12);
+		Assert.AreEqual(4_000_001.0, three.Mean, 4_000_001.0 * 1e-15);
 	}
 
 	[TestMethod]

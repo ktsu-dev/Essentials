@@ -36,10 +36,16 @@ public class TomlSerializationProvider : ISerializationProvider
 
 	/// <summary>
 	/// Writes the scalars TOML has no type for as strings. Tomlyn would otherwise write a <see cref="Guid"/>,
-	/// <see cref="decimal"/>, <see cref="TimeSpan"/> or <see cref="Uri"/> as an empty table, which reads back as
-	/// the default, and throws on a <see cref="char"/>. A decimal is a string rather than a float so it keeps
-	/// every digit.
+	/// <see cref="decimal"/>, <see cref="TimeSpan"/>, <see cref="Uri"/> or <see cref="Version"/> as an empty
+	/// table, which reads back as the default, and throws on a <see cref="char"/>. A decimal is a string rather
+	/// than a float so it keeps every digit.
 	/// </summary>
+	/// <remarks>
+	/// A <see cref="DateTimeOffset"/> is a round-trip (<c>"O"</c>) string too. Tomlyn writes an offset
+	/// date-time converted to the machine's local offset and to millisecond precision, so the offset and the
+	/// ticks below a millisecond would be lost (issue #177). A date-time written by hand is still read by Tomlyn,
+	/// which keeps its offset.
+	/// </remarks>
 	private static string? ToTomlValue(object value) => value switch
 	{
 		Guid guid => guid.ToString("D", CultureInfo.InvariantCulture),
@@ -47,12 +53,15 @@ public class TomlSerializationProvider : ISerializationProvider
 		TimeSpan span => span.ToString("c", CultureInfo.InvariantCulture),
 		Uri uri => uri.OriginalString,
 		char character => character.ToString(),
+		Version version => version.ToString(),
+		DateTimeOffset moment => moment.ToString("O", CultureInfo.InvariantCulture),
 		_ => null,
 	};
 
 	/// <summary>
 	/// Reads back the scalars <see cref="ToTomlValue"/> writes as strings, and a decimal written by hand as a
-	/// TOML integer or float. Anything else is left to Tomlyn.
+	/// TOML integer or float. Anything else, including a date-time written by hand as a TOML date-time, is left
+	/// to Tomlyn.
 	/// </summary>
 	private static object? ToModelValue(object value, Type targetType)
 	{
@@ -64,6 +73,8 @@ public class TomlSerializationProvider : ISerializationProvider
 			string text when type == typeof(TimeSpan) => TimeSpan.ParseExact(text, "c", CultureInfo.InvariantCulture),
 			string text when type == typeof(Uri) => new Uri(text, UriKind.RelativeOrAbsolute),
 			string { Length: 1 } text when type == typeof(char) => text[0],
+			string text when type == typeof(Version) => Version.Parse(text),
+			string text when type == typeof(DateTimeOffset) => DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
 			long or double when type == typeof(decimal) => Convert.ToDecimal(value, CultureInfo.InvariantCulture),
 			_ => null,
 		};

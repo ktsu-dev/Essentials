@@ -59,6 +59,14 @@ public sealed class UniformDistributionProvider : IContinuousDistribution
 	public double Variance => width * width / 12.0;
 
 	/// <inheritdoc />
+	/// <remarks>
+	/// Declared rather than left to take the root of <see cref="Variance"/>: squaring the width overflows to
+	/// infinity from a width near 1e154, and underflows to zero below about 1e-154, while the standard
+	/// deviation itself is an ordinary double (issue #195). Where the width overflows, the half width does not.
+	/// </remarks>
+	public double StandardDeviation => double.IsInfinity(width) ? 2.0 * (halfWidth / Math.Sqrt(12.0)) : width / Math.Sqrt(12.0);
+
+	/// <inheritdoc />
 	public double Pdf(double value) => value >= Minimum && value <= Maximum ? 0.5 / halfWidth : 0.0;
 
 	/// <inheritdoc />

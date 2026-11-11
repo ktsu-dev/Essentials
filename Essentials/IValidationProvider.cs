@@ -155,8 +155,12 @@ public interface IValidationProvider<in T>
 	/// <param name="value">The value to validate.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>True if the value passes all validation rules, false otherwise.</returns>
-	public Task<bool> IsValidAsync(T value, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => IsValid(value), cancellationToken);
+	/// <remarks>
+	/// Built on <see cref="ValidateAsync"/> rather than <see cref="IsValid"/>, so a validator that adds an
+	/// asynchronous rule by overriding <see cref="ValidateAsync"/> gets the same answer here (issue #196).
+	/// </remarks>
+	public async Task<bool> IsValidAsync(T value, CancellationToken cancellationToken = default)
+		=> (await ValidateAsync(value, cancellationToken).ConfigureAwait(false)).IsValid;
 
 	/// <summary>
 	/// Validates the specified value asynchronously and throws a <see cref="ValidationException"/> if validation fails.
@@ -164,6 +168,16 @@ public interface IValidationProvider<in T>
 	/// <param name="value">The value to validate.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <exception cref="ValidationException">Thrown when the value fails validation.</exception>
-	public Task ValidateAndThrowAsync(T value, CancellationToken cancellationToken = default)
-		=> ProviderHelpers.RunAsync(() => ValidateAndThrow(value), cancellationToken);
+	/// <remarks>
+	/// Built on <see cref="ValidateAsync"/> rather than <see cref="ValidateAndThrow"/>, for the same reason as
+	/// <see cref="IsValidAsync"/>.
+	/// </remarks>
+	public async Task ValidateAndThrowAsync(T value, CancellationToken cancellationToken = default)
+	{
+		ValidationResult result = await ValidateAsync(value, cancellationToken).ConfigureAwait(false);
+		if (!result.IsValid)
+		{
+			throw new ValidationException(result);
+		}
+	}
 }

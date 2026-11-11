@@ -49,6 +49,7 @@ public sealed class CategoricalDistributionProvider : IDiscreteDistribution
 		double total = 0.0;
 		double largest = 0.0;
 		int lastNonZero = 0;
+		int heaviest = 0;
 		for (int i = 0; i < weights.Count; i++)
 		{
 			double weight = weights[i];
@@ -58,7 +59,12 @@ public sealed class CategoricalDistributionProvider : IDiscreteDistribution
 			}
 
 			total += weight;
-			largest = Math.Max(largest, weight);
+			if (weight > largest)
+			{
+				largest = weight;
+				heaviest = i;
+			}
+
 			if (weight > 0.0)
 			{
 				lastNonZero = i;
@@ -86,16 +92,27 @@ public sealed class CategoricalDistributionProvider : IDiscreteDistribution
 		probabilities = new double[weights.Count];
 		cumulative = new double[weights.Count];
 		double running = 0.0;
-		double mean = 0.0;
-		double secondMoment = 0.0;
+
+		// The moments are taken about the heaviest outcome rather than about zero. Summed about zero, mass at
+		// a high index makes the mean a large number carrying a small fraction, and the one-pass E[i²] − mean²
+		// subtracted two numbers of about i² to find one of about one, so a distribution that varies reported
+		// a variance of zero (issue #190, the cancellation #49 fixed for Triangular). The offsets from the
+		// heaviest outcome are small where the mass is, and the second pass sums squared deviations directly.
+		double meanOffset = 0.0;
 		for (int i = 0; i < weights.Count; i++)
 		{
 			double probability = weights[i] / divisor / total;
 			probabilities[i] = probability;
 			running += probability;
 			cumulative[i] = running;
-			mean += i * probability;
-			secondMoment += (double)i * i * probability;
+			meanOffset += (i - heaviest) * probability;
+		}
+
+		double variance = 0.0;
+		for (int i = 0; i < probabilities.Length; i++)
+		{
+			double deviation = i - heaviest - meanOffset;
+			variance += probabilities[i] * deviation * deviation;
 		}
 
 		// The running total lands a rounding step either side of one. Pinning it from the last outcome that can
@@ -114,8 +131,8 @@ public sealed class CategoricalDistributionProvider : IDiscreteDistribution
 			above += probabilities[i];
 		}
 
-		Mean = mean;
-		Variance = Math.Max(0.0, secondMoment - (mean * mean));
+		Mean = heaviest + meanOffset;
+		Variance = variance;
 	}
 
 	/// <summary>
