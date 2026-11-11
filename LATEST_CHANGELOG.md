@@ -2,6 +2,7 @@
 
 Changes since v2.11.0:
 
+- Accept a gzip input whose last member holds nothing [patch] (#187) (matt-edmondson)
 - Keep a DateTimeOffset's offset and a Version through TOML [patch] (#180) (matt-edmondson)
 - Test the length guards, buffer tail and four-path agreement of every HMAC provider [patch] (#182) (matt-edmondson)
 - Report a throwing getter as a failed YAML serialize [patch] (#184) (matt-edmondson)
