@@ -65,22 +65,11 @@ public class JsonSerializationProvider : ISerializationProvider
 			writer.Write(json);
 			return true;
 		}
-		catch (JsonException)
+		catch (Exception ex) when (IsFailure(ex))
 		{
-			return false;
-		}
-		catch (NotSupportedException)
-		{
-			return false;
-		}
-		catch (IOException)
-		{
-			return false;
-		}
-		catch (InvalidOperationException)
-		{
-			// System.Text.Json reports a type it cannot map (two members with one JSON name, say) this way,
-			// and a disposed writer's ObjectDisposedException derives from it.
+			// System.Text.Json reports malformed input, an unsupported or unmappable type and a disposed writer
+			// with its own exceptions, but a member's getter runs through a compiled delegate, so whatever it
+			// throws escapes unwrapped (issue #201).
 			return false;
 		}
 	}
@@ -102,23 +91,17 @@ public class JsonSerializationProvider : ISerializationProvider
 		{
 			return JsonSerializer.Deserialize<T>(Utf8Bom.Skip(data), options);
 		}
-		catch (JsonException)
+		catch (Exception ex) when (IsFailure(ex))
 		{
-			return default;
-		}
-		catch (NotSupportedException)
-		{
-			return default;
-		}
-		catch (ArgumentException)
-		{
-			return default;
-		}
-		catch (InvalidOperationException)
-		{
-			// A type System.Text.Json cannot map, such as one whose constructor parameters do not bind to
-			// its properties.
+			// As for TrySerialize: a member's setter or constructor throws through a compiled delegate, so
+			// its own exception escapes unless it is caught here (issue #201).
 			return default;
 		}
 	}
+
+	/// <summary>
+	/// Whether an exception thrown while serializing or deserializing is a failure to report as false or
+	/// default, rather than one that leaves the process in no state to carry on.
+	/// </summary>
+	private static bool IsFailure(Exception ex) => ex is not (OutOfMemoryException or AccessViolationException);
 }
