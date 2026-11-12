@@ -67,6 +67,65 @@ public sealed class PersistenceRobustnessTests
 	}
 
 	[TestMethod]
+	public async Task A_Value_Type_Record_That_Cannot_Be_Parsed_Throws_And_Is_Never_Overwritten()
+	{
+		// For a struct or a primitive the serializer's failure is default(T), which is never null, so #82's guard
+		// let a zeroed value through and the next store wrote it over the record (issue #200).
+		foreach ((IPersistenceProvider<string> persistence, string directory) in FileBackedProviders(new JsonSerializationProvider()))
+		{
+			string name = persistence.ProviderName;
+
+			string structPath = Path.Join(directory, "screen.json");
+			const string malformedStruct = "{\"Width\":1920,\"Height\":1080,}";
+			await File.WriteAllTextAsync(structPath, malformedStruct, TestContext.CancellationToken).ConfigureAwait(false);
+
+			await Assert.ThrowsExactlyAsync<PersistenceProviderException>(
+				() => persistence.RetrieveOrCreateAsync<Dimensions>("screen", TestContext.CancellationToken),
+				$"{name} took an unreadable struct record for a missing one").ConfigureAwait(false);
+			await Assert.ThrowsExactlyAsync<PersistenceProviderException>(
+				() => persistence.RetrieveAsync<Dimensions>("screen", TestContext.CancellationToken),
+				$"{name} read an unreadable struct record as zeros").ConfigureAwait(false);
+			Assert.AreEqual(malformedStruct, await File.ReadAllTextAsync(structPath, TestContext.CancellationToken).ConfigureAwait(false), $"{name} changed the unreadable struct record");
+
+			string intPath = Path.Join(directory, "count.json");
+			const string malformedInt = "\"not a number\"";
+			await File.WriteAllTextAsync(intPath, malformedInt, TestContext.CancellationToken).ConfigureAwait(false);
+
+			await Assert.ThrowsExactlyAsync<PersistenceProviderException>(
+				() => persistence.RetrieveOrCreateAsync<int>("count", TestContext.CancellationToken),
+				$"{name} took an unreadable int record for a missing one").ConfigureAwait(false);
+			await Assert.ThrowsExactlyAsync<PersistenceProviderException>(
+				() => persistence.RetrieveAsync<int>("count", TestContext.CancellationToken),
+				$"{name} read an unreadable int record as 0").ConfigureAwait(false);
+			Assert.AreEqual(malformedInt, await File.ReadAllTextAsync(intPath, TestContext.CancellationToken).ConfigureAwait(false), $"{name} changed the unreadable int record");
+		}
+	}
+
+	[TestMethod]
+	public async Task A_Stored_Zero_Or_Default_Struct_Still_Reads_Back()
+	{
+		// default(T) is a legitimate stored value, so telling a failed parse apart must not reject it.
+		foreach ((IPersistenceProvider<string> persistence, string _) in FileBackedProviders(new JsonSerializationProvider()))
+		{
+			string name = persistence.ProviderName;
+
+			await persistence.StoreAsync("zero", 0, TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.AreEqual(0, await persistence.RetrieveAsync<int>("zero", TestContext.CancellationToken).ConfigureAwait(false), $"{name} did not read back a stored 0");
+			Assert.AreEqual(0, await persistence.RetrieveOrCreateAsync<int>("zero", TestContext.CancellationToken).ConfigureAwait(false), $"{name} did not read back a stored 0");
+
+			await persistence.StoreAsync("origin", default(Dimensions), TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.AreEqual(default, await persistence.RetrieveAsync<Dimensions>("origin", TestContext.CancellationToken).ConfigureAwait(false), $"{name} did not read back a default struct");
+
+			Dimensions screen = new(1920, 1080);
+			await persistence.StoreAsync("screen", screen, TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.AreEqual(screen, await persistence.RetrieveAsync<Dimensions>("screen", TestContext.CancellationToken).ConfigureAwait(false), $"{name} did not read back a struct");
+
+			await persistence.StoreAsync("nullable", (int?)7, TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.AreEqual(7, await persistence.RetrieveAsync<int?>("nullable", TestContext.CancellationToken).ConfigureAwait(false), $"{name} did not read back a nullable int");
+		}
+	}
+
+	[TestMethod]
 	public async Task A_Missing_Record_Is_Still_Created()
 	{
 		foreach ((IPersistenceProvider<string> persistence, string _) in FileBackedProviders(new JsonSerializationProvider()))
@@ -222,6 +281,8 @@ public sealed class PersistenceRobustnessTests
 		temps.Add(temp);
 		yield return (temp, temp.BaseDirectory);
 	}
+
+	public readonly record struct Dimensions(int Width, int Height);
 
 	public sealed class Settings
 	{

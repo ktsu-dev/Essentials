@@ -278,14 +278,47 @@ internal sealed class FileRecordStore<TKey>(IFileSystemProvider fileSystem, ISer
 
 	private async Task<T?> DeserializeAsync<T>(TKey key, string serializedData, CancellationToken cancellationToken)
 	{
-		T? value = await serializer.DeserializeAsync<T>(serializedData, cancellationToken).ConfigureAwait(false);
-
 		// The serializers report content they cannot parse as default rather than throwing, which for a
 		// reference type is indistinguishable from a missing key. Content is there, so it is a failure: returning
-		// null would invite RetrieveOrCreateAsync, or the caller, to write a fresh default over the record.
+		// null would invite RetrieveOrCreateAsync, or the caller, to write a fresh default over the record (#82).
+		// For a value type, default is a zeroed struct or 0, which is never null and is also a legitimate stored
+		// value, so it is read as Nullable<T> instead, where a failure is null and a stored 0 is not (#200).
+		object? value = typeof(T).IsValueType && Nullable.GetUnderlyingType(typeof(T)) is null
+			? await ValueTypeReader<T>.Read(serializer, serializedData, cancellationToken).ConfigureAwait(false)
+			: await serializer.DeserializeAsync<T>(serializedData, cancellationToken).ConfigureAwait(false);
+
 		return value is null
 			? throw new PersistenceProviderException($"The object stored with key '{key}' in {location} could not be read as {typeof(T).Name}")
-			: value;
+			: (T)value;
+	}
+
+	private static async Task<object?> ReadNullableAsync<TValue>(ISerializationProvider serializer, string serializedData, CancellationToken cancellationToken)
+		where TValue : struct
+	{
+		TValue? value = await serializer.DeserializeAsync<TValue?>(serializedData, cancellationToken).ConfigureAwait(false);
+		return value.HasValue ? value.Value : null;
+	}
+
+	/// <summary>
+	/// <see cref="ReadNullableAsync{TValue}"/> for a non-nullable value type <typeparamref name="T"/>, made once per
+	/// type. A delegate rather than a reflected call each time, so a serializer's exception arrives as itself rather
+	/// than wrapped in a <see cref="System.Reflection.TargetInvocationException"/>.
+	/// </summary>
+	private static class ValueTypeReader<T>
+	{
+		internal static readonly Func<ISerializationProvider, string, CancellationToken, Task<object?>> Read = Create();
+
+		private static Func<ISerializationProvider, string, CancellationToken, Task<object?>> Create()
+		{
+			System.Reflection.MethodInfo method = typeof(FileRecordStore<TKey>)
+				.GetMethod(nameof(ReadNullableAsync), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
+				.MakeGenericMethod(typeof(T));
+#if NET5_0_OR_GREATER
+			return method.CreateDelegate<Func<ISerializationProvider, string, CancellationToken, Task<object?>>>();
+#else
+			return (Func<ISerializationProvider, string, CancellationToken, Task<object?>>)method.CreateDelegate(typeof(Func<ISerializationProvider, string, CancellationToken, Task<object?>>));
+#endif
+		}
 	}
 
 	private void EnsureDirectory() => fileSystem.Directory.CreateDirectory(Directory);
