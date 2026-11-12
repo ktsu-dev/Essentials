@@ -5,6 +5,7 @@ namespace ktsu.Essentials.Tests;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -642,6 +643,88 @@ public class CommandExecutorTests
 		RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
 			? $"ping -n {seconds + 1} 127.0.0.1 > nul"
 			: $"sleep {seconds}";
+
+	/// <summary>
+	/// Regression test for issue #199. The child inherited the host's standard input, so a command that reads
+	/// it, such as <c>cat</c>, consumed the host's input and then waited for more until it was cancelled. The
+	/// test host's input is replaced with a pipe that holds a line and stays open, which is what an
+	/// interactive or piped host gives a child. Both paths must finish at once with nothing read, and leave
+	/// the line for the host. Not parallelized, because the host's input is process-wide.
+	/// </summary>
+	/// <param name="asynchronous">Whether to run the command through <c>ExecuteAsync</c> or <c>Execute</c>.</param>
+	[TestMethod]
+	[DoNotParallelize]
+	[OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+	[DataRow(true)]
+	[DataRow(false)]
+	public void NativeCommandExecutor_Runs_A_Command_With_Empty_Standard_Input(bool asynchronous)
+	{
+		const string HostInput = "host-input-line\n";
+		ICommandExecutor executor = new NativeCommandExecutor();
+		int[] pipe = new int[2];
+		Assert.AreEqual(0, NativeMethods.Pipe(pipe), "pipe() failed");
+		int savedInput = NativeMethods.Dup(0);
+		Assert.IsGreaterThanOrEqualTo(0, savedInput, "dup(0) failed");
+
+		CommandResult result;
+		try
+		{
+			byte[] bytes = System.Text.Encoding.ASCII.GetBytes(HostInput);
+			Assert.AreEqual(bytes.Length, (int)NativeMethods.Write(pipe[1], bytes, bytes.Length), "write() failed");
+			Assert.AreEqual(0, NativeMethods.Dup2(pipe[0], 0), "dup2() failed");
+
+			using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+			timeout.CancelAfter(TimeSpan.FromSeconds(10));
+			result = asynchronous
+				? executor.ExecuteAsync("cat", cancellationToken: timeout.Token).Result
+				: executor.Execute("cat", cancellationToken: timeout.Token);
+		}
+		finally
+		{
+			_ = NativeMethods.Dup2(savedInput, 0);
+			_ = NativeMethods.Close(savedInput);
+			_ = NativeMethods.Close(pipe[1]);
+		}
+
+		byte[] left = new byte[64];
+		int leftLength = (int)NativeMethods.Read(pipe[0], left, left.Length);
+		_ = NativeMethods.Close(pipe[0]);
+
+		Assert.AreEqual(0, result.ExitCode, $"cat should see end of input and exit (stderr: {result.StandardError})");
+		Assert.AreEqual(string.Empty, result.StandardOutput, "cat should read nothing");
+		Assert.AreEqual(HostInput, System.Text.Encoding.ASCII.GetString(left, 0, Math.Max(leftLength, 0)), "the host's input should be left for the host");
+	}
+
+	/// <summary>
+	/// The libc calls the standard input test uses to give the test host an input that stays open.
+	/// </summary>
+	[SuppressMessage("Interoperability", "SYSLIB1054:Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time", Justification = "The generated marshalling for these array parameters needs unsafe code, which the test project does not allow; the runtime marshalling of a few blittable calls is all a test needs.")]
+	private static class NativeMethods
+	{
+		[DllImport("libc", EntryPoint = "pipe", SetLastError = true)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+		internal static extern int Pipe([Out] int[] fds);
+
+		[DllImport("libc", EntryPoint = "dup", SetLastError = true)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+		internal static extern int Dup(int fd);
+
+		[DllImport("libc", EntryPoint = "dup2", SetLastError = true)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+		internal static extern int Dup2(int oldFd, int newFd);
+
+		[DllImport("libc", EntryPoint = "close", SetLastError = true)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+		internal static extern int Close(int fd);
+
+		[DllImport("libc", EntryPoint = "read", SetLastError = true)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+		internal static extern nint Read(int fd, [Out] byte[] buffer, nint count);
+
+		[DllImport("libc", EntryPoint = "write", SetLastError = true)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+		internal static extern nint Write(int fd, byte[] buffer, nint count);
+	}
 
 	/// <summary>
 	/// An executor that declares only the asynchronous members, so it inherits every synchronous default
