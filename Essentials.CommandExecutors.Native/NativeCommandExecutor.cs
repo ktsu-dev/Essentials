@@ -198,19 +198,10 @@ public class NativeCommandExecutor : ICommandExecutor
 
 	/// <summary>
 	/// Closes the child's standard input, so a command that reads it sees end of input rather than waiting.
+	/// Nothing has been written, so closing writes nothing and cannot fail on a child that has already exited.
 	/// </summary>
 	/// <param name="process">The started process.</param>
-	private static void CloseStandardInput(Process process)
-	{
-		try
-		{
-			process.StandardInput.Close();
-		}
-		catch (IOException)
-		{
-			// The child has already exited and closed its end of the pipe, which is all closing it here is for.
-		}
-	}
+	private static void CloseStandardInput(Process process) => process.StandardInput.Close();
 
 	/// <summary>
 	/// Builds the <see cref="ProcessStartInfo"/> that runs <paramref name="command"/> through the platform shell.
