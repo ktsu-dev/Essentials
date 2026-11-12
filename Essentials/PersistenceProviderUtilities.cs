@@ -90,6 +90,22 @@ public static class PersistenceProviderUtilities
 			char c = input[i];
 			bool isLast = i == input.Length - 1;
 
+			if (char.IsHighSurrogate(c) && !isLast && char.IsLowSurrogate(input[i + 1]))
+			{
+				builder.Append(c).Append(input[i + 1]);
+				i++;
+				continue;
+			}
+
+			// On Unix .NET writes a path as UTF-8, which turns an unpaired surrogate into U+FFFD, so keys
+			// differing only in one would share a file whose name reads back as neither. Two hex digits
+			// can't hold a surrogate, so it gets the longer %uXXXX form. See issue #202.
+			if (char.IsSurrogate(c))
+			{
+				builder.Append(EscapeSurrogate(c));
+				continue;
+			}
+
 			if (Array.IndexOf(ReservedCharacters, c) >= 0
 				|| char.IsControl(c)
 				|| (isLast && c is '.' or ' ')
@@ -148,6 +164,20 @@ public static class PersistenceProviderUtilities
 			if (fileName[i] != '%')
 			{
 				builder.Append(fileName[i]);
+				continue;
+			}
+
+			if (i + 1 < fileName.Length && fileName[i + 1] == 'u')
+			{
+				if (i + 5 >= fileName.Length
+					|| !int.TryParse(fileName.AsSpan(i + 2, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int surrogate)
+					|| !char.IsSurrogate((char)surrogate))
+				{
+					return null;
+				}
+
+				builder.Append((char)surrogate);
+				i += 5;
 				continue;
 			}
 
@@ -313,6 +343,8 @@ public static class PersistenceProviderUtilities
 
 	private static string Escape(char c) => string.Format(CultureInfo.InvariantCulture, "%{0:X2}", (int)c);
 
+	private static string EscapeSurrogate(char c) => string.Format(CultureInfo.InvariantCulture, "%u{0:X4}", (int)c);
+
 	private static bool IsReservedDeviceName(string value)
 	{
 		// Windows treats "CON.json" as the console device, so the check ignores any extension.
@@ -395,7 +427,23 @@ public static class PersistenceProviderUtilities
 	}
 
 	private static bool IsInsideEscape(string encoded, int cut)
-		=> (cut >= 1 && encoded[cut - 1] == '%') || (cut >= 2 && encoded[cut - 2] == '%');
+	{
+		if ((cut >= 1 && encoded[cut - 1] == '%') || (cut >= 2 && encoded[cut - 2] == '%'))
+		{
+			return true;
+		}
+
+		// A literal '%' is always written as %25, so a '%' followed by 'u' starts a %uXXXX escape.
+		for (int back = 3; back <= 5; back++)
+		{
+			if (cut >= back && encoded[cut - back] == '%' && encoded[cut - back + 1] == 'u')
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
 
 	/// <summary>
 	/// FNV-1a, chosen because it is stable across processes and runtimes.
