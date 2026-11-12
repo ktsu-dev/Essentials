@@ -284,41 +284,12 @@ internal sealed class FileRecordStore<TKey>(IFileSystemProvider fileSystem, ISer
 		// For a value type, default is a zeroed struct or 0, which is never null and is also a legitimate stored
 		// value, so it is read as Nullable<T> instead, where a failure is null and a stored 0 is not (#200).
 		object? value = typeof(T).IsValueType && Nullable.GetUnderlyingType(typeof(T)) is null
-			? await ValueTypeReader<T>.Read(serializer, serializedData, cancellationToken).ConfigureAwait(false)
+			? await NullableValueReader.Get(typeof(T))(serializer, serializedData, cancellationToken).ConfigureAwait(false)
 			: await serializer.DeserializeAsync<T>(serializedData, cancellationToken).ConfigureAwait(false);
 
 		return value is null
 			? throw new PersistenceProviderException($"The object stored with key '{key}' in {location} could not be read as {typeof(T).Name}")
 			: (T)value;
-	}
-
-	private static async Task<object?> ReadNullableAsync<TValue>(ISerializationProvider serializer, string serializedData, CancellationToken cancellationToken)
-		where TValue : struct
-	{
-		TValue? value = await serializer.DeserializeAsync<TValue?>(serializedData, cancellationToken).ConfigureAwait(false);
-		return value.HasValue ? value.Value : null;
-	}
-
-	/// <summary>
-	/// <see cref="ReadNullableAsync{TValue}"/> for a non-nullable value type <typeparamref name="T"/>, made once per
-	/// type. A delegate rather than a reflected call each time, so a serializer's exception arrives as itself rather
-	/// than wrapped in a <see cref="System.Reflection.TargetInvocationException"/>.
-	/// </summary>
-	private static class ValueTypeReader<T>
-	{
-		internal static readonly Func<ISerializationProvider, string, CancellationToken, Task<object?>> Read = Create();
-
-		private static Func<ISerializationProvider, string, CancellationToken, Task<object?>> Create()
-		{
-			System.Reflection.MethodInfo method = typeof(FileRecordStore<TKey>)
-				.GetMethod(nameof(ReadNullableAsync), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
-				.MakeGenericMethod(typeof(T));
-#if NET5_0_OR_GREATER
-			return method.CreateDelegate<Func<ISerializationProvider, string, CancellationToken, Task<object?>>>();
-#else
-			return (Func<ISerializationProvider, string, CancellationToken, Task<object?>>)method.CreateDelegate(typeof(Func<ISerializationProvider, string, CancellationToken, Task<object?>>));
-#endif
-		}
 	}
 
 	private void EnsureDirectory() => fileSystem.Directory.CreateDirectory(Directory);
@@ -327,5 +298,44 @@ internal sealed class FileRecordStore<TKey>(IFileSystemProvider fileSystem, ISer
 	{
 		string fileName = PersistenceProviderUtilities.GetSafeFileName(PersistenceProviderUtilities.FormatKey(key)) + serializer.FileExtension;
 		return fileSystem.Path.Combine(Directory, fileName);
+	}
+}
+
+/// <summary>
+/// Reads a non-nullable value type as its <see cref="Nullable{T}"/>, so a serializer's failure is null rather than
+/// a zeroed value (#200). The record store's type parameter is unconstrained, so the constrained read is made once
+/// per type as a delegate rather than a reflected call each time, and a serializer's exception arrives as itself
+/// rather than wrapped in a <see cref="System.Reflection.TargetInvocationException"/>.
+/// </summary>
+internal static class NullableValueReader
+{
+	private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, Func<ISerializationProvider, string, CancellationToken, Task<object?>>> Readers = new();
+
+	internal static Func<ISerializationProvider, string, CancellationToken, Task<object?>> Get(Type valueType)
+		=> Readers.GetOrAdd(valueType, Create);
+
+	/// <summary>Deserializes <paramref name="serializedData"/> as a <typeparamref name="TValue"/>?.</summary>
+	/// <typeparam name="TValue">The non-nullable value type to read.</typeparam>
+	/// <param name="serializer">The serializer to read with.</param>
+	/// <param name="serializedData">The record's content.</param>
+	/// <param name="cancellationToken">A token to cancel the read.</param>
+	/// <returns>The boxed value, or null when the content could not be read as <typeparamref name="TValue"/>.</returns>
+	public static async Task<object?> ReadAsync<TValue>(ISerializationProvider serializer, string serializedData, CancellationToken cancellationToken)
+		where TValue : struct
+	{
+		TValue? value = await serializer.DeserializeAsync<TValue?>(serializedData, cancellationToken).ConfigureAwait(false);
+		return value.HasValue ? value.Value : null;
+	}
+
+	private static Func<ISerializationProvider, string, CancellationToken, Task<object?>> Create(Type valueType)
+	{
+		System.Reflection.MethodInfo method = typeof(NullableValueReader)
+			.GetMethod(nameof(ReadAsync))!
+			.MakeGenericMethod(valueType);
+#if NET5_0_OR_GREATER
+		return method.CreateDelegate<Func<ISerializationProvider, string, CancellationToken, Task<object?>>>();
+#else
+		return (Func<ISerializationProvider, string, CancellationToken, Task<object?>>)method.CreateDelegate(typeof(Func<ISerializationProvider, string, CancellationToken, Task<object?>>));
+#endif
 	}
 }
