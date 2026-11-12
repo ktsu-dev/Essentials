@@ -85,38 +85,10 @@ public static class PersistenceProviderUtilities
 		bool escapeFirst = IsReservedDeviceName(input);
 
 		StringBuilder builder = new(input.Length + 8);
-		for (int i = 0; i < input.Length; i++)
+		int index = 0;
+		while (index < input.Length)
 		{
-			char c = input[i];
-			bool isLast = i == input.Length - 1;
-
-			if (char.IsHighSurrogate(c) && !isLast && char.IsLowSurrogate(input[i + 1]))
-			{
-				builder.Append(c).Append(input[i + 1]);
-				i++;
-				continue;
-			}
-
-			// On Unix .NET writes a path as UTF-8, which turns an unpaired surrogate into U+FFFD, so keys
-			// differing only in one would share a file whose name reads back as neither. Two hex digits
-			// can't hold a surrogate, so it gets the longer %uXXXX form. See issue #202.
-			if (char.IsSurrogate(c))
-			{
-				builder.Append(EscapeSurrogate(c));
-				continue;
-			}
-
-			if (Array.IndexOf(ReservedCharacters, c) >= 0
-				|| char.IsControl(c)
-				|| (isLast && c is '.' or ' ')
-				|| (i == 0 && escapeFirst))
-			{
-				builder.Append(Escape(c));
-			}
-			else
-			{
-				builder.Append(c);
-			}
+			index += AppendEncoded(builder, input, index, escapeFirst);
 		}
 
 		string encoded = builder.ToString();
@@ -159,36 +131,24 @@ public static class PersistenceProviderUtilities
 		}
 
 		StringBuilder builder = new(fileName.Length);
-		for (int i = 0; i < fileName.Length; i++)
+		int index = 0;
+		while (index < fileName.Length)
 		{
-			if (fileName[i] != '%')
+			if (fileName[index] != '%')
 			{
-				builder.Append(fileName[i]);
+				builder.Append(fileName[index]);
+				index++;
 				continue;
 			}
 
-			if (i + 1 < fileName.Length && fileName[i + 1] == 'u')
-			{
-				if (i + 5 >= fileName.Length
-					|| !int.TryParse(fileName.AsSpan(i + 2, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int surrogate)
-					|| !char.IsSurrogate((char)surrogate))
-				{
-					return null;
-				}
-
-				builder.Append((char)surrogate);
-				i += 5;
-				continue;
-			}
-
-			if (i + 2 >= fileName.Length
-				|| !int.TryParse(fileName.AsSpan(i + 1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int value))
+			int length = TryDecodeEscape(fileName, index, out char decoded);
+			if (length == 0)
 			{
 				return null;
 			}
 
-			builder.Append((char)value);
-			i += 2;
+			builder.Append(decoded);
+			index += length;
 		}
 
 		return builder.ToString();
@@ -342,6 +302,65 @@ public static class PersistenceProviderUtilities
 	}
 
 	private static string Escape(char c) => string.Format(CultureInfo.InvariantCulture, "%{0:X2}", (int)c);
+
+	/// <summary>
+	/// Appends the encoded form of the code point at <paramref name="index"/> to <paramref name="builder"/>.
+	/// </summary>
+	/// <returns>The number of characters of <paramref name="input"/> consumed: 2 for a surrogate pair, otherwise 1.</returns>
+	private static int AppendEncoded(StringBuilder builder, string input, int index, bool escapeFirst)
+	{
+		char c = input[index];
+		bool isLast = index == input.Length - 1;
+
+		if (char.IsHighSurrogate(c) && !isLast && char.IsLowSurrogate(input[index + 1]))
+		{
+			builder.Append(c).Append(input[index + 1]);
+			return 2;
+		}
+
+		// On Unix .NET writes a path as UTF-8, which turns an unpaired surrogate into U+FFFD, so keys
+		// differing only in one would share a file whose name reads back as neither. Two hex digits
+		// can't hold a surrogate, so it gets the longer %uXXXX form. See issue #202.
+		if (char.IsSurrogate(c))
+		{
+			builder.Append(EscapeSurrogate(c));
+		}
+		else if (Array.IndexOf(ReservedCharacters, c) >= 0
+			|| char.IsControl(c)
+			|| (isLast && c is '.' or ' ')
+			|| (index == 0 && escapeFirst))
+		{
+			builder.Append(Escape(c));
+		}
+		else
+		{
+			builder.Append(c);
+		}
+
+		return 1;
+	}
+
+	/// <summary>
+	/// Decodes the <c>%XX</c> or <c>%uXXXX</c> escape that starts at <paramref name="index"/>.
+	/// </summary>
+	/// <returns>The escape's length, or 0 when it is malformed or a <c>%u</c> escape names no surrogate.</returns>
+	private static int TryDecodeEscape(string fileName, int index, out char decoded)
+	{
+		decoded = default;
+		bool isSurrogate = index + 1 < fileName.Length && fileName[index + 1] == 'u';
+		int digitsStart = isSurrogate ? index + 2 : index + 1;
+		int digits = isSurrogate ? 4 : 2;
+
+		if (digitsStart + digits > fileName.Length
+			|| !int.TryParse(fileName.AsSpan(digitsStart, digits), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int value)
+			|| (isSurrogate && !char.IsSurrogate((char)value)))
+		{
+			return 0;
+		}
+
+		decoded = (char)value;
+		return digitsStart + digits - index;
+	}
 
 	private static string EscapeSurrogate(char c) => string.Format(CultureInfo.InvariantCulture, "%u{0:X4}", (int)c);
 
