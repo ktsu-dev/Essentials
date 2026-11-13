@@ -183,7 +183,9 @@ public sealed class SerializationRoundTripTests
 
 	// A getter that throws is an object the provider cannot serialize, whichever provider it is: TrySerialize
 	// reports it as false and leaves the writer empty, and Serialize throws the InvalidOperationException it
-	// documents. YAML let YamlDotNet's TargetInvocationException escape both (issue #183).
+	// documents. YAML let YamlDotNet's TargetInvocationException escape both (issue #183), and JSON let
+	// through anything but the exception types it expected from System.Text.Json itself (issue #201), so
+	// the getter throws one of neither.
 	[TestMethod]
 	[DynamicData(nameof(Serializers))]
 	public void A_Throwing_Getter_Is_A_Failed_Serialize(ISerializationProvider serializer, string name)
@@ -193,6 +195,17 @@ public sealed class SerializationRoundTripTests
 		Assert.IsFalse(serializer.TrySerialize(new ThrowingGetter(), writer), $"{name} reported success");
 		Assert.AreEqual(string.Empty, writer.ToString(), $"{name} left partial output in the writer");
 		Assert.ThrowsExactly<InvalidOperationException>(() => serializer.Serialize(new ThrowingGetter()), name);
+	}
+
+	// A setter that throws is input the provider cannot deserialize: Deserialize returns default rather than
+	// the setter's own exception (issue #201).
+	[TestMethod]
+	[DynamicData(nameof(Serializers))]
+	public void A_Throwing_Setter_Is_A_Failed_Deserialize(ISerializationProvider serializer, string name)
+	{
+		string text = serializer.Serialize(new Inner { Value = 3 });
+
+		Assert.IsNull(serializer.Deserialize<ThrowingSetter>(text), name);
 	}
 
 	[TestMethod]
@@ -252,10 +265,21 @@ public sealed class SerializationRoundTripTests
 	public sealed class ThrowingGetter
 	{
 		[SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "A serializer reads instance properties, which is what is under test.")]
+		[SuppressMessage("Design", "CA1065:Do not raise exceptions in unexpected locations", Justification = "A getter that throws something other than the exceptions a getter is expected to is what is under test (issue #201).")]
 		public string Value
 		{
-			get => throw new InvalidOperationException("unreadable");
+			get => throw new FormatException("unreadable");
 			set => _ = value;
+		}
+	}
+
+	public sealed class ThrowingSetter
+	{
+		[SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "A serializer writes instance properties, which is what is under test.")]
+		public int Value
+		{
+			get => 0;
+			set => throw new ArithmeticException($"{value} is unwritable");
 		}
 	}
 
