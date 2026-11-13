@@ -5,13 +5,16 @@ namespace ktsu.Essentials.Tests;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.IO.Pipes;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using ktsu.Essentials;
 using ktsu.Essentials.CommandExecutors.Native;
+using Microsoft.Win32.SafeHandles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -642,6 +645,71 @@ public class CommandExecutorTests
 		RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
 			? $"ping -n {seconds + 1} 127.0.0.1 > nul"
 			: $"sleep {seconds}";
+
+	/// <summary>
+	/// Regression test for issue #199. The child inherited the host's standard input, so a command that reads
+	/// it, such as <c>cat</c>, consumed the host's input and then waited for more until it was cancelled. The
+	/// test host's input is replaced with a pipe that holds a line and stays open, which is what an
+	/// interactive or piped host gives a child. Both paths must finish at once with nothing read, and leave
+	/// the line for the host. Not parallelized, because the host's input is process-wide.
+	/// </summary>
+	/// <param name="asynchronous">Whether to run the command through <c>ExecuteAsync</c> or <c>Execute</c>.</param>
+	[TestMethod]
+	[DoNotParallelize]
+	[OSCondition(OperatingSystems.Linux | OperatingSystems.OSX)]
+	[DataRow(true)]
+	[DataRow(false)]
+	public void NativeCommandExecutor_Runs_A_Command_With_Empty_Standard_Input(bool asynchronous)
+	{
+		const string HostInput = "host-input-line\n";
+		ICommandExecutor executor = new NativeCommandExecutor();
+		using AnonymousPipeServerStream hostInput = new(PipeDirection.Out);
+		using AnonymousPipeClientStream hostInputReader = new(PipeDirection.In, hostInput.ClientSafePipeHandle);
+		using SafeFileHandle savedInput = new(NativeMethods.Dup(0), ownsHandle: true);
+		Assert.IsFalse(savedInput.IsInvalid, "dup(0) failed");
+
+		CommandResult result;
+		try
+		{
+			hostInput.Write(System.Text.Encoding.ASCII.GetBytes(HostInput));
+			hostInput.Flush();
+			Assert.AreEqual(0, NativeMethods.Dup2((int)hostInputReader.SafePipeHandle.DangerousGetHandle(), 0), "dup2() failed");
+
+			using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+			timeout.CancelAfter(TimeSpan.FromSeconds(10));
+			result = asynchronous
+				? executor.ExecuteAsync("cat", cancellationToken: timeout.Token).Result
+				: executor.Execute("cat", cancellationToken: timeout.Token);
+		}
+		finally
+		{
+			_ = NativeMethods.Dup2((int)savedInput.DangerousGetHandle(), 0);
+			hostInput.Dispose();
+		}
+
+		using StreamReader leftReader = new(hostInputReader, System.Text.Encoding.ASCII);
+		string left = leftReader.ReadToEnd();
+
+		Assert.AreEqual(0, result.ExitCode, $"cat should see end of input and exit (stderr: {result.StandardError})");
+		Assert.AreEqual(string.Empty, result.StandardOutput, "cat should read nothing");
+		Assert.AreEqual(HostInput, left, "the host's input should be left for the host");
+	}
+
+	/// <summary>
+	/// The libc calls the standard input test uses to point the test host's standard input at a pipe and back.
+	/// Nothing managed replaces file descriptor 0 itself, which is what a child inherits.
+	/// </summary>
+	[SuppressMessage("Interoperability", "SYSLIB1054:Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time", Justification = "LibraryImport's generated marshalling needs unsafe code, which the test project does not allow; the runtime marshalling of two blittable calls is all a test needs.")]
+	private static class NativeMethods
+	{
+		[DllImport("libc", EntryPoint = "dup", SetLastError = true)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+		internal static extern int Dup(int fd);
+
+		[DllImport("libc", EntryPoint = "dup2", SetLastError = true)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+		internal static extern int Dup2(int oldFd, int newFd);
+	}
 
 	/// <summary>
 	/// An executor that declares only the asynchronous members, so it inherits every synchronous default

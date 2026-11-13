@@ -15,6 +15,10 @@ using System.Threading.Tasks;
 /// <summary>
 /// A command executor that uses the native operating system shell to execute commands.
 /// </summary>
+/// <remarks>
+/// Commands run with an empty standard input: a command that reads it sees end of input at once, rather than
+/// inheriting the host's own input, waiting on it, or consuming what was meant for the host (issue #199).
+/// </remarks>
 public class NativeCommandExecutor : ICommandExecutor
 {
 	/// <summary>
@@ -62,6 +66,7 @@ public class NativeCommandExecutor : ICommandExecutor
 			process.StartInfo = CreateStartInfo(command, environmentVariables, workingDirectory);
 
 			process.Start();
+			CloseStandardInput(process);
 
 			try
 			{
@@ -143,6 +148,7 @@ public class NativeCommandExecutor : ICommandExecutor
 			process.StartInfo = CreateStartInfo(command, environmentVariables, workingDirectory);
 
 			process.Start();
+			CloseStandardInput(process);
 
 			StreamDrain stdout = StreamDrain.Start(process.StandardOutput);
 			StreamDrain stderr = StreamDrain.Start(process.StandardError);
@@ -191,6 +197,13 @@ public class NativeCommandExecutor : ICommandExecutor
 	}
 
 	/// <summary>
+	/// Closes the child's standard input, so a command that reads it sees end of input rather than waiting.
+	/// Nothing has been written, so closing writes nothing and cannot fail on a child that has already exited.
+	/// </summary>
+	/// <param name="process">The started process.</param>
+	private static void CloseStandardInput(Process process) => process.StandardInput.Close();
+
+	/// <summary>
 	/// Builds the <see cref="ProcessStartInfo"/> that runs <paramref name="command"/> through the platform shell.
 	/// </summary>
 	/// <param name="command">The command to execute.</param>
@@ -205,6 +218,7 @@ public class NativeCommandExecutor : ICommandExecutor
 		{
 			FileName = isWindows ? "cmd.exe" : "/bin/sh",
 			WorkingDirectory = workingDirectory ?? string.Empty,
+			RedirectStandardInput = true,
 			RedirectStandardOutput = true,
 			RedirectStandardError = true,
 			UseShellExecute = false,
