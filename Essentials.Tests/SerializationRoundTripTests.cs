@@ -103,6 +103,54 @@ public sealed class SerializationRoundTripTests
 	}
 
 	[TestMethod]
+	[DynamicData(nameof(ScalarSerializers))]
+	public void Common_Scalars_Survive_A_Round_Trip_Inside_Lists_And_Arrays(ISerializationProvider serializer, string name)
+	{
+		// TOML converted these scalars only as properties and dictionary values, so in a list or array it wrote
+		// empty tables that read back as defaults, while the serialize reported success (issue #207).
+		ScalarLists original = new()
+		{
+			Ids = [new Guid("11111111-2222-3333-4444-555555555555")],
+			IdArray = [new Guid("0f8fad5b-d9cb-469f-a165-70867728950e")],
+			Prices = [12.34m, 0.5m],
+			Timeouts = [TimeSpan.FromSeconds(30)],
+			Addresses = [new Uri("https://x.y/")],
+			Schemas = [new Version(1, 2, 3)],
+			Recorded = [new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.FromHours(-7))],
+			Letters = ['a', 'b'],
+			OptionalIds = [new Guid("0f8fad5b-d9cb-469f-a165-70867728950e")],
+		};
+
+		using StringWriter writer = new();
+		Assert.IsTrue(serializer.TrySerialize(original, writer), $"{name} could not serialize the lists");
+		string text = writer.ToString();
+		ScalarLists? back = serializer.Deserialize<ScalarLists>(text);
+
+		Assert.IsNotNull(back, $"{name} could not read back what it wrote:\n{text}");
+		CollectionAssert.AreEqual(original.Ids, back.Ids, $"{name} lost a Guid list:\n{text}");
+		CollectionAssert.AreEqual(original.IdArray, back.IdArray, $"{name} lost a Guid array:\n{text}");
+		CollectionAssert.AreEqual(original.Prices, back.Prices, $"{name} lost a decimal list:\n{text}");
+		CollectionAssert.AreEqual(original.Timeouts, back.Timeouts, $"{name} lost a TimeSpan list:\n{text}");
+		CollectionAssert.AreEqual(original.Addresses, back.Addresses, $"{name} lost a Uri list:\n{text}");
+		CollectionAssert.AreEqual(original.Schemas, back.Schemas, $"{name} lost a Version list:\n{text}");
+		CollectionAssert.AreEqual(original.Recorded, back.Recorded, $"{name} lost a DateTimeOffset list:\n{text}");
+		Assert.AreEqual(original.Recorded[0].Offset, back.Recorded.Single().Offset, $"{name} lost a DateTimeOffset's offset in a list:\n{text}");
+		CollectionAssert.AreEqual(original.Letters, back.Letters, $"{name} lost a char list:\n{text}");
+		CollectionAssert.AreEqual(original.OptionalIds, back.OptionalIds, $"{name} lost a nullable Guid list:\n{text}");
+	}
+
+	[TestMethod]
+	public void Toml_Reports_A_Null_Item_In_A_Scalar_List_As_A_Failed_Serialize()
+	{
+		// A TOML array has no null, so writing the list without the item would lose it silently.
+		ISerializationProvider serializer = new TomlSerializationProvider();
+		ScalarLists original = new() { OptionalIds = [null] };
+
+		using StringWriter writer = new();
+		Assert.IsFalse(serializer.TrySerialize(original, writer));
+	}
+
+	[TestMethod]
 	public void Toml_Reports_A_Value_It_Has_No_Type_For_As_A_Failed_Serialize()
 	{
 		// Tomlyn throws InvalidOperationException for a primitive it cannot write, which TrySerialize let escape.
@@ -220,6 +268,29 @@ public sealed class SerializationRoundTripTests
 	{
 		A,
 		B,
+	}
+
+	[SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "A settable collection is what a settings class written for a serializer usually has, and not every serializer here fills a read-only one.")]
+	[SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "An array property is one of the shapes under test.")]
+	public sealed class ScalarLists
+	{
+		public Collection<Guid> Ids { get; set; } = [];
+
+		public Guid[] IdArray { get; set; } = [];
+
+		public Collection<decimal> Prices { get; set; } = [];
+
+		public Collection<TimeSpan> Timeouts { get; set; } = [];
+
+		public Collection<Uri> Addresses { get; set; } = [];
+
+		public Collection<Version> Schemas { get; set; } = [];
+
+		public Collection<DateTimeOffset> Recorded { get; set; } = [];
+
+		public Collection<char> Letters { get; set; } = [];
+
+		public Collection<Guid?> OptionalIds { get; set; } = [];
 	}
 
 	public sealed class Scalars
