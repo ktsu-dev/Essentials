@@ -13,6 +13,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Text;
 using Tomlyn;
+using Tomlyn.Model;
 
 /// <summary>
 /// A serialization provider that uses Tomlyn for serializing and deserializing objects.
@@ -46,8 +47,9 @@ public class TomlSerializationProvider : ISerializationProvider
 	/// ticks below a millisecond would be lost (issue #177). A date-time written by hand is still read by Tomlyn,
 	/// which keeps its offset.
 	/// </remarks>
-	private static string? ToTomlValue(object value) => value switch
+	private static object? ToTomlValue(object value) => value switch
 	{
+		IEnumerable sequence when value is not string and not IDictionary && HasStringWrittenItems(value.GetType()) => ToTomlArray(sequence),
 		Guid guid => guid.ToString("D", CultureInfo.InvariantCulture),
 		decimal number => number.ToString(CultureInfo.InvariantCulture),
 		TimeSpan span => span.ToString("c", CultureInfo.InvariantCulture),
@@ -57,6 +59,48 @@ public class TomlSerializationProvider : ISerializationProvider
 		DateTimeOffset moment => moment.ToString("O", CultureInfo.InvariantCulture),
 		_ => null,
 	};
+
+	/// <summary>
+	/// Reports whether <paramref name="type"/> is a sequence of one of the scalars <see cref="ToTomlValue"/> writes
+	/// as a string. Tomlyn runs <see cref="TomlModelOptions.ConvertToToml"/> on a list or array as a whole, never on
+	/// its items, so without this a <c>List&lt;Guid&gt;</c> would be written as empty tables that read back as
+	/// defaults (issue #207). Reading needs nothing extra: Tomlyn runs <see cref="ToModelValue"/> on each item.
+	/// </summary>
+	private static bool HasStringWrittenItems(Type type)
+	{
+		foreach (Type candidate in type.GetInterfaces())
+		{
+			if (candidate.IsGenericType && candidate.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+			{
+				Type item = candidate.GetGenericArguments()[0];
+				item = Nullable.GetUnderlyingType(item) ?? item;
+				if (item == typeof(Guid) || item == typeof(decimal) || item == typeof(TimeSpan) || typeof(Uri).IsAssignableFrom(item)
+					|| item == typeof(char) || item == typeof(Version) || item == typeof(DateTimeOffset))
+				{
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/// <summary>
+	/// Writes each item of <paramref name="sequence"/> the way <see cref="ToTomlValue"/> writes it on its own. A TOML
+	/// array cannot hold a null, so a null item fails the serialize rather than being dropped.
+	/// </summary>
+	private static TomlArray ToTomlArray(IEnumerable sequence)
+	{
+		TomlArray array = [];
+		foreach (object? item in sequence)
+		{
+			array.Add(item is null
+				? throw new InvalidOperationException("A TOML array cannot hold a null item.")
+				: ToTomlValue(item));
+		}
+
+		return array;
+	}
 
 	/// <summary>
 	/// Reads back the scalars <see cref="ToTomlValue"/> writes as strings, and a decimal written by hand as a
