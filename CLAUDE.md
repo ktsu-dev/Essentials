@@ -65,7 +65,7 @@ This is a .NET library (`ktsu.Essentials`) providing high-performance interfaces
 - `Essentials/ICommandExecutor.cs` - Shell command execution interface; `Execute(command, environmentVariables, workingDirectory, cancellationToken)` is the synchronous primitive that every other synchronous member composes over
 - `Essentials/IFileSystemProvider.cs` - Filesystem abstraction extending Testably.Abstractions
 - `Essentials/ProviderHelpers.cs` - Internal utilities for async wrapping, stream bridging, UTF8 transforms
-- `Essentials/PersistenceProviderUtilities.cs` - Shared utilities for persistence providers (safe filenames, culture-independent key formatting via `FormatKey`, and key conversion back from a filename)
+- `Essentials/PersistenceProviderUtilities.cs` - Shared utilities for persistence providers (safe filenames, culture-independent key formatting via `FormatKey`, and key conversion back from a filename). Reserved characters are written as `%XX`, and an unpaired surrogate as `%uXXXX`, because Unix file systems would otherwise store it as U+FFFD (#202)
 - `Essentials/PersistenceProviderException.cs` - Custom exception for persistence operations
 
 ### Provider Implementations (in solution)

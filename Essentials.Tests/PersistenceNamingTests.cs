@@ -166,6 +166,74 @@ public class PersistenceNamingTests
 	}
 
 	[TestMethod]
+	public void SafeFileName_Escapes_Unpaired_Surrogates_And_Keeps_Pairs()
+	{
+		// On Unix an unpaired surrogate is written as U+FFFD, so "user\uD800", "user\uDBFF" and "user\uFFFD" all
+		// named one file, which read back as none of them (issue #202).
+		string[] keys = ["user\uD800", "user\uDBFF", "user\uDC00", "user\uFFFD", "\uDC00\uD800", "a\uD800b"];
+		List<string> names = [.. keys.Select(PersistenceProviderUtilities.GetSafeFileName)];
+
+		Assert.HasCount(keys.Length, names.Distinct(StringComparer.Ordinal), "Keys differing only in an unpaired surrogate collided");
+		foreach (string name in names)
+		{
+			Assert.AreEqual(name, Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(name)), $"'{name}' does not survive UTF-8, so it still holds an unpaired surrogate");
+		}
+
+		for (int i = 0; i < keys.Length; i++)
+		{
+			Assert.AreEqual(keys[i], PersistenceProviderUtilities.GetKeyFromFileName(names[i]), "Escaping a surrogate must stay reversible");
+		}
+
+		const string emoji = "launch \U0001F680";
+		Assert.AreEqual(emoji, PersistenceProviderUtilities.GetSafeFileName(emoji), "A paired surrogate must be kept as it is");
+		Assert.AreEqual("user%uD800", PersistenceProviderUtilities.GetSafeFileName("user\uD800"));
+	}
+
+	[TestMethod]
+	public void SafeFileName_Never_Truncates_Inside_A_Surrogate_Escape()
+	{
+		for (int padding = 60; padding <= 84; padding++)
+		{
+			string name = PersistenceProviderUtilities.GetSafeFileName(new string('k', padding) + new string('\uD800', 10));
+			int marker = name.LastIndexOf('~');
+			string prefix = name[..marker];
+			int escape = prefix.LastIndexOf("%u", StringComparison.Ordinal);
+			Assert.IsTrue(escape < 0 || prefix.Length - escape == 6, $"'{prefix}' ends inside a %uXXXX escape");
+		}
+	}
+
+	[TestMethod]
+	public async Task Keys_Differing_Only_In_An_Unpaired_Surrogate_Keep_Separate_Records()
+	{
+		string[] surrogateKeys = ["a\uD800", "a\uDBFF", "a\uFFFD"];
+		string dir = Directory.CreateTempSubdirectory("NamingTests_").FullName;
+		try
+		{
+			FileSystemPersistenceProvider<string> persistence = new(new NativeFileSystemProvider(), new JsonSerializationProvider(), dir);
+
+			foreach (string key in surrogateKeys)
+			{
+				await persistence.StoreAsync(key, $"value of {(int)key[1]:X4}", TestContext.CancellationToken).ConfigureAwait(false);
+			}
+
+			foreach (string key in surrogateKeys)
+			{
+				Assert.AreEqual($"value of {(int)key[1]:X4}", await persistence.RetrieveAsync<string>(key, TestContext.CancellationToken).ConfigureAwait(false), "A record was overwritten by a key differing only in a surrogate");
+			}
+
+			string[] keys = [.. await persistence.GetAllKeysAsync(TestContext.CancellationToken).ConfigureAwait(false)];
+			CollectionAssert.AreEquivalent(surrogateKeys, keys, "Every original key must be listed");
+		}
+		finally
+		{
+			if (Directory.Exists(dir))
+			{
+				Directory.Delete(dir, true);
+			}
+		}
+	}
+
+	[TestMethod]
 	public async Task Keys_Containing_A_Tilde_Are_Listed()
 	{
 		string[] tildeKeys = ["a~b", "backup~1", "~draft"];
