@@ -2,6 +2,11 @@
 
 Changes since v2.11.0:
 
+- Report a member's own exception as a failed JSON serialize or deserialize [patch] (#203) (matt-edmondson)
+- Run native commands with an empty standard input [patch] (#204) (matt-edmondson)
+- Throw for a corrupt struct or primitive record instead of reading zeros [patch] (#205) (matt-edmondson)
+- Escape an unpaired surrogate in a persistence key's file name [patch] (#206) (matt-edmondson)
+- Write Guid, decimal, TimeSpan, Uri, Version and DateTimeOffset lists in TOML [patch] (#209) (matt-edmondson)
 - Accept a gzip input whose last member holds nothing [patch] (#187) (matt-edmondson)
 - Keep a DateTimeOffset's offset and a Version through TOML [patch] (#180) (matt-edmondson)
 - Test the length guards, buffer tail and four-path agreement of every HMAC provider [patch] (#182) (matt-edmondson)
