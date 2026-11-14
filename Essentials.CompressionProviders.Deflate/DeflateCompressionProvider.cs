@@ -15,7 +15,9 @@ using System.Threading.Tasks;
 /// <remarks>
 /// Raw Deflate has no trailer, so input cut off at a block boundary cannot be told from a complete stream and
 /// decompresses to the data before the cut. Use the Gzip, ZLib or Brotli provider where truncation must be
-/// detected; each of those reports it as a failure (issue #80).
+/// detected; each of those reports it as a failure (issue #80). For the same reason bytes after the end of the
+/// stream cannot be detected either: <see cref="DeflateStream"/> does not report how much input it consumed, so
+/// a second stream or trailing data after the first is ignored rather than reported (issue #178).
 /// </remarks>
 public class DeflateCompressionProvider : ICompressionProvider
 {
